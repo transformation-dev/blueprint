@@ -1,0 +1,39 @@
+{
+  "name": "@transformation-dev/svelte-realtime-store",
+  "version": "0.6.0",
+  "description": "Browser-side stores and server-side middleware for building realtime Svelte apps",
+  "keywords": [
+    "realtime",
+    "real-time",
+    "sapper",
+    "svelte",
+    "svelte3",
+    "store",
+    "socket.io",
+    "websocket"
+  ],
+  "author": "Larry Maccherone <Larry@Maccherone.com>",
+  "homepage": "https://github.com/transformation-dev/blueprint/tree/master/packages/svelte-realtime-store#readme",
+  "license": "MIT",
+  "main": "svelte-realtime-store.js",
+  "type": "module",
+  "directories": {
+    "test": "__tests__"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/transformation-dev/blueprint/tree/master/packages/svelte-realtime-store"
+  },
+  "scripts": {
+    "test": "echo \"Error: run tests from root\" && exit 1"
+  },
+  "bugs": {
+    "url": "https://github.com/transformation-dev/blueprint/issues"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21"
+  }
+}

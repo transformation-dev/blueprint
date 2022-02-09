@@ -1,0 +1,34 @@
+// import bulmaswatch (must happen before importing bulma)
+@import "node_modules/bulmaswatch/lux/_variables.scss";
+
+
+// For a complete list of variables: https://bulma.io/documentation/customize/variables/
+
+//adds color grey-lightest
+$grey-lighter: lighten($grey, 30%);
+
+// adjusts height of nav-bar (must happen before importing bulma)
+$navbar-height: 3rem;
+$navbar-breakpoint: 0px;
+$box-padding: 5rem; 
+$box-radius: 10px;
+
+// Import only what you need from Bulma
+// @import "../node_modules/bulma/sass/utilities/_all.sass";
+// @import "../node_modules/bulma/sass/base/_all.sass";
+// @import "../node_modules/bulma/sass/elements/button.sass";
+// @import "../node_modules/bulma/sass/elements/container.sass";
+// @import "../node_modules/bulma/sass/elements/title.sass";
+// @import "../node_modules/bulma/sass/form/_all.sass";
+// @import "../node_modules/bulma/sass/components/navbar.sass";
+// @import "../node_modules/bulma/sass/layout/hero.sass";
+// @import "../node_modules/bulma/sass/layout/section.sass";
+
+// Imports all of Bulma // TODO: Optimize to only the parts I later need
+@import "../node_modules/bulma/bulma.sass";
+
+@import '../node_modules/@creativebulma/bulma-tooltip/src/sass/index.sass';
+
+@import "../node_modules/bulma-badge/src/sass/index.sass";
+
+@import "../node_modules/bulmaswatch/lux/_overrides.scss";
