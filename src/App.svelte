@@ -25,7 +25,7 @@
   import './index.scss'
 
   import Debug from "debug"
-  const debug = Debug("matrx:App")  // Don't forget to set environment variable with 'DEBUG=matrx:*' and localStorage with debug='matrx:*'
+  const debug = Debug("blueprint:App")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
   import { Body } from 'svelte-body'
 
@@ -40,7 +40,7 @@
   import Icon from 'svelte-awesome'
   import {signOut} from 'svelte-awesome/icons'
 
-  // import {ViewstateStore} from '@matrx/svelte-viewstate-store'
+  // import {ViewstateStore} from '@transformation-dev/svelte-viewstate-store'
 
   import {routes, activeComponent} from './router'
   // import {authenticated} from './stores'

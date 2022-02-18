@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "npx wrangler pages dev --proxy 3000 -- vite --host",
+    "dev:debug": "npx wrangler pages dev --binding DEBUG=\"blueprint:*\" --config ./wrangler.toml --proxy 3000 -- vite --host",
+    "dev:debug-old": "npx wrangler pages dev --binding DEBUG=\"blueprint:*\" --mount durable_objects=./durable_objects --do COUNTER=Counter --proxy 3000 -- vite --host",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -21,11 +23,12 @@
     "svelte-awesome": "^2.4.4",
     "svelte-body": "^1.3.6",
     "svelte-spa-router": "^3.2.0",
-    "vite": "^2.7.2"
+    "vite": "^2.7.2",
+    "wrangler": "^0.0.16"
   },
   "dependencies": {
-    "@matrx/dragster": "file:packages/dragster",
-    "@matrx/svelte-realtime-store": "file:packages/svelte-realtime-store",
-    "@matrx/svelte-viewstate-store": "file:packages/svelte-viewstate-store"
+    "@transformation-dev/dragster": "file:packages/dragster",
+    "@transformation-dev/svelte-realtime-store": "file:packages/svelte-realtime-store",
+    "@transformation-dev/svelte-viewstate-store": "file:packages/svelte-viewstate-store"
   }
 }

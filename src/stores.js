@@ -1,12 +1,12 @@
 import Debug from "debug"
-const debug = Debug("matrx:stores.js")  // Don't forget to set environment variable with 'DEBUG=matrx:*' and localStorage with debug='matrx:*'
+const debug = Debug("blueprint:stores.js")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
 import {writable, derived} from 'svelte/store'
 
-import {Dragster} from '@matrx/dragster'
+import {Dragster} from '@transformation-dev/dragster'
 
-import {ViewstateStore} from '@matrx/svelte-viewstate-store'
-import {RealtimeStore} from '@matrx/svelte-realtime-store'
+import {ViewstateStore} from '@transformation-dev/svelte-viewstate-store'
+import {RealtimeStore} from '@transformation-dev/svelte-realtime-store'
 export const connected = RealtimeStore.connected
 export const authenticated = writable(false)
 // export const readyToGo = writable('not ready')  // 'getting ready', 'ready'

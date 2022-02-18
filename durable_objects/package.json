@@ -1,0 +1,9 @@
+{
+  "name": "@transformation/durable-objects",
+  "version": "1.0.0",
+  "description": "Something",
+  "module": "./src/index.mjs",
+  "scripts": {
+    "publish": "npx wrangler publish"
+  }
+}

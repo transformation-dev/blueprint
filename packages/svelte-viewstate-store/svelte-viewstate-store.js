@@ -1,5 +1,5 @@
 import Debug from "debug"
-const debug = Debug("matrx:svelte-viewstate-store")  // Don't forget to set environment variable with 'DEBUG=matrx:*' and localStorage with debug='matrx:*'
+const debug = Debug("blueprint:svelte-viewstate-store")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
 
 import {onDestroy} from 'svelte'

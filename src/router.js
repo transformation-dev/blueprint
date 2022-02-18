@@ -1,5 +1,5 @@
 import Debug from "debug"
-const debug = Debug("matrx:router")  // Don't forget to set environment variable with 'DEBUG=matrx:*' and localStorage with debug='matrx:*'
+const debug = Debug("blueprint:router")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
 import {location} from 'svelte-spa-router'
 import {derived, get} from 'svelte/store'

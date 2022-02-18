@@ -1,5 +1,5 @@
 import Debug from "debug"
-const debug = Debug("matrx:dragster")  // Don't forget to set environment variable with 'DEBUG=matrx:*' and localStorage with debug='matrx:*'
+const debug = Debug("blueprint:dragster")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
 export class Dragster {
   constructor(el) {

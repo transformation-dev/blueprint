@@ -1,5 +1,5 @@
 <script>
-  // import {getClient} from '@matrx/svelte-realtime-store'
+  // import {getClient} from '@transformation-dev/svelte-realtime-store'
   import {formulation, plan, openPracticeID, connected} from '../../stores'
 
   // const realtimeClient = getClient()

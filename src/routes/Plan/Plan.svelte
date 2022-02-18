@@ -1,12 +1,12 @@
 <script>
   import Debug from "debug"
-  const debug = Debug("matrx:Plan")  // Don't forget to set environment variable with 'DEBUG=matrx:*' and localStorage with debug='matrx:*'
+  const debug = Debug("blueprint:Plan")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
   
   // Import packages
   import {fly} from 'svelte/transition'
   import {arrowCircleLeft, arrowCircleRight, spinner} from 'svelte-awesome/icons'
   import Icon from 'svelte-awesome'
-  import {ViewstateStore} from '@matrx/svelte-viewstate-store' 
+  import {ViewstateStore} from '@transformation-dev/svelte-viewstate-store' 
 
   // Import local code
   import {addDragster} from '../../stores'

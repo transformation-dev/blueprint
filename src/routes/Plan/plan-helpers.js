@@ -1,4 +1,4 @@
-import {Dragster} from '@matrx/dragster'
+import {Dragster} from '@transformation-dev/dragster'
 import {plan, queueSwimlanes} from '../../stores'
 
 function findDropZoneParent(target) {

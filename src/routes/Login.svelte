@@ -1,11 +1,12 @@
 <script>
-  const debug = require('debug')('matrx:Login')
+  import Debug from "debug"
+  const debug = Debug("blueprint:Login")
 
   import Icon from 'svelte-awesome'
   import {envelope, key} from 'svelte-awesome/icons'
   import {onMount} from 'svelte'
 
-  import {RealtimeStore} from '@matrx/svelte-realtime-store'
+  import {RealtimeStore} from '@transformation-dev/svelte-realtime-store'
 
   import {authenticated} from '../stores'
 

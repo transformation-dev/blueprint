@@ -1,5 +1,5 @@
 <script>
-  import {RealtimeStore} from '@matrx/svelte-realtime-store'
+  import {RealtimeStore} from '@transformation-dev/svelte-realtime-store'
   import ShortUniqueId from 'short-unique-id'
   const connected = RealtimeStore.connected
   const storeID = new ShortUniqueId().randomUUID(13)  // Using a random number so parallelized test runs don't interfere with each other
