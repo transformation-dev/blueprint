@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "npx wrangler pages dev --proxy 3000 -- vite --host",
-    "dev:debug": "npx wrangler pages dev --binding DEBUG=\"blueprint:*\" --config ./wrangler.toml --proxy 3000 -- vite --host",
-    "dev:debug-old": "npx wrangler pages dev --binding DEBUG=\"blueprint:*\" --mount durable_objects=./durable_objects --do COUNTER=Counter --proxy 3000 -- vite --host",
+    "dev:debug": "npx wrangler pages dev --binding DEBUG=\"blueprint:*\"  --proxy 3000 -- vite --host",
+    "dev:debug-old": "npx wrangler pages dev --binding DEBUG=\"blueprint:*\" --mount durable_objects=./durable_objects --do COUNTER=Counter@durable_objects --proxy 3000 -- vite --host",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -24,7 +24,7 @@
     "svelte-body": "^1.3.6",
     "svelte-spa-router": "^3.2.0",
     "vite": "^2.7.2",
-    "wrangler": "^0.0.16"
+    "wrangler": "file:~/Projects/wrangler2/packages/wrangler"
   },
   "dependencies": {
     "@transformation-dev/dragster": "file:packages/dragster",

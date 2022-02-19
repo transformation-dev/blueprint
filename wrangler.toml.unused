@@ -8,3 +8,7 @@ bindings = [
 
 [miniflare.mounts]
 durable_objects = "./durable_objects"
+
+kv_namespaces = [
+  { binding = "SESSIONS", id = "<ignored>", preview_id = "<ignored>" },
+]

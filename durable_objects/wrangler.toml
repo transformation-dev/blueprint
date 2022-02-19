@@ -7,10 +7,10 @@ workers_dev = true
 
 [build.upload]
 # Upload the code directly from the src directory.
-dir = "src"
+dir = "./"
 # The "modules" upload format is required for all projects that export a Durable Objects class
 format = "modules"
-main = "./src/index.mjs"
+main = "./index.mjs"
 
 [durable_objects]
 bindings = [{name = "COUNTER", class_name = "Counter"}]
