@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npx wrangler pages dev --proxy 3000 -- vite --host",
-    "dev:debug": "npx wrangler pages dev --binding DEBUG=\"blueprint:*\"  --proxy 3000 -- vite --host",
-    "dev:debug-old": "npx wrangler pages dev --binding DEBUG=\"blueprint:*\" --mount durable_objects=./durable_objects --do COUNTER=Counter@durable_objects --proxy 3000 -- vite --host",
+    "dev": "echo 'WARNING: must run `npm run dev:durable_objects` if modifying those' & npx wrangler pages dev --binding DEBUG=\"blueprint:*\"  --proxy 3000 -- vite --host",
+    "dev:durable_objects": "cd durable_objects && npm run dev",
+    "dev:debug-old": "npx wrangler pages dev --binding DEBUG=\"blueprint:*\" --mount transformation-durable_objects=./durable_objects --do COUNTER=Counter@transformation-durable_objects --proxy 3000 -- vite --host",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -16,6 +16,7 @@
     "bulma-badge": "^3.0.1",
     "bulmaswatch": "^0.8.1",
     "debug": "^4.3.3",
+    "esbuild": "^0.14.23",
     "lerna": "^4.0.0",
     "sass": "^1.49.0",
     "short-unique-id": "^4.4.4",

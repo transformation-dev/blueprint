@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "description": "Something",
   "scripts": {
-    "publish": "npx wrangler publish"
+    "publish": "npm run build && npx wrangler publish",
+    "build": "npx esbuild src/index.mjs --outfile=index.mjs --format=esm  --bundle",
+    "dev": "npx esbuild src/index.js --outfile=index.mjs --format=esm  --bundle --watch"
+  },
+  "dependencies": {
+    "debug": "^4.3.3"
   }
 }

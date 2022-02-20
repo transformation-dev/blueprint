@@ -3,11 +3,11 @@ compatibility_date = "2022-02-11"
 [durable_objects]
 bindings = [
   # script_name must be the same as in [miniflare.mounts]
-  { name = "COUNTER", class_name = "Counter", script_name = "durable_objects" },
+  { name = "COUNTER", class_name = "Counter", script_name = "transformation-durable_objects" },
 ]
 
 [miniflare.mounts]
-durable_objects = "./durable_objects"
+transformation-durable_objects = "./durable_objects"
 
 kv_namespaces = [
   { binding = "SESSIONS", id = "<ignored>", preview_id = "<ignored>" },
