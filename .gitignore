@@ -1,7 +1,6 @@
-/node_modules/
-/dist/
-/.vscode/
-.DS_Store
+dist/
+durable_objects/index.mjs
+.mf/
 
 # Coverage
 coverage/

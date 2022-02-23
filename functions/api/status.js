@@ -7,6 +7,9 @@ function debug(value) {
 
 export async function onRequestGet({ request, env }) {
   Debug.enable(env.DEBUG)
+  const fileResponse = await env.ASSETS.fetch(new URL(request.url).origin + "/favicon.png")
+  debug(fileResponse)
+
   const stub = env.COUNTER.get(
     env.COUNTER.idFromName('something')
   )

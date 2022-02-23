@@ -2,7 +2,7 @@
 
 context('Window', () => {
   beforeEach(() => {
-    cy.visit('localhost:8080/')
+    cy.visit('localhost:8788/')
   })
 
   it('cy.window() - get the global window object', () => {
@@ -14,6 +14,6 @@ context('Window', () => {
   })
 
   it('cy.title() - get the title', () => {
-    cy.title().should('include', 'MatrX')
+    cy.title().should('include', 'Transformation Blueprint')
   })
 })
