@@ -17,7 +17,7 @@
     "test": "start-server-and-test build-and-start http://localhost:8788 cypress:run",
     "test:active": "start-server-and-test build-and-start http://localhost:8788 cypress:active",
     
-    "coverage:build": "vite build --config vite-coverage.config.js",
+    "coverage:build": "npm run build:durable_objects && vite build --config vite-coverage.config.js",
     "coverage:build-and-start": "npm run coverage:build && npm run start",
     "coverage": "start-server-and-test coverage:build-and-start http://localhost:8788 cypress:run",
     "coverage:report": "nyc report --reporter=text-summary",
