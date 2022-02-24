@@ -67,7 +67,7 @@
 
 <svelte:head>
   <title>Transformation Blueprint{$location}</title>
-  <link rel="icon" type="image/png" href="favicon.png">
+  <!-- <link rel="icon" type="image/png" href="favicon.png"> -->  <!-- moved to index.html -->
 </svelte:head>
 
 <nav class="navbar is-fixed-top">

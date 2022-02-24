@@ -1,0 +1,49 @@
+name: Coverage
+
+on:
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  coverage:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        node-version: [17.x]
+        os: [ubuntu-latest]
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: npm ci and coverage testing
+      run: |
+        npm ci
+        npm run coverage
+        # npm run coverage:check
+      env:
+        CI: true
+
+    - name: ✅ Upload coverage to Codecov
+      uses: codecov/codecov-action@v2
+      # with:
+      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+
+    - name: upload html report as artifact
+      uses: actions/upload-artifact@master
+      with:
+        name: coverage-report
+        path: coverage/lcov-report
+
+    - name: check coverage levels
+      run: |
+        npm run coverage:check
+      env:
+        CI: true
