@@ -5,7 +5,7 @@ function debug(value) {
   debugRaw(value)
 }
 
-// Worker
+// Worker. I'm not sure why this is needed since we never call it. I'm guessing it's legacy
 export default {
   fetch() {
     return new Response("This Worker creates the Durable Object(s).")

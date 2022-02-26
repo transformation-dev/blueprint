@@ -16,11 +16,13 @@
     "cypress:active": "cypress run --spec cypress/integration/window.spec.js",
     "test": "start-server-and-test build-and-start http://localhost:8788 cypress:run",
     "test:active": "start-server-and-test build-and-start http://localhost:8788 cypress:active",
-    
-    "coverage:build": "npm run build:durable_objects && vite build --config vite-coverage.config.js",
+
+    "coverage:build:durable_objects": "cd durable_objects && npm run build:coverage",
+    "coverage:build": "npm run coverage:build:durable_objects && vite build --config vite-coverage.config.js",
     "coverage:build-and-start": "npm run coverage:build && npm run start",
-    "coverage": "start-server-and-test coverage:build-and-start http://localhost:8788 cypress:run",
-    "coverage:report": "nyc report --reporter=text-summary",
+    "coverage": "rm -rf ./.nyc_output ./coverage && start-server-and-test coverage:build-and-start http://localhost:8788 cypress:run",
+    "coverage:too-soon-to-report": "rm -rf ./.nyc_output ./coverage && start-server-and-test coverage:build-and-start http://localhost:8788 cypress:run && nyc report --reporter=lcov",
+    "coverage:report:dont-call": "nyc report --reporter=text-summary",
     "coverage:check": "nyc check-coverage --statements 80 --branches 60 --functions 80 --lines 85"
 
   },
@@ -45,7 +47,7 @@
     "svelte-spa-router": "^3.2.0",
     "vite": "^2.7.2",
     "vite-plugin-istanbul": "^2.5.0",
-    "wrangler": "file:~/Projects/wrangler2/packages/wrangler"
+    "wrangler": "@transformation-dev/wrangler"
   },
   "dependencies": {
     "@transformation-dev/dragster": "file:packages/dragster",

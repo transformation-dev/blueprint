@@ -1,5 +1,6 @@
 dist/
 durable_objects/index.mjs
+durable_objects/index.mjs.map
 .mf/
 
 # Coverage
