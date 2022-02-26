@@ -5,9 +5,9 @@
   "scripts": {
     "publish": "npm run build && npx wrangler publish",
     "build": "npx esbuild src/index.js --outfile=index.mjs --format=esm  --bundle",
-    "build:coverage:just-build": "npx esbuild src/index.js --outfile=index.mjs --format=esm  --bundle",
-    "build:coverage:dont-call": "npm run build && nyc instrument --es-modules --compact=false index.mjs temp && rm ./index.mjs && mv ./temp/index.mjs ./index.mjs && rmdir ./temp",
-    "build:coverage": "",
+    "build:coverage": "npm run build",
+    "build:coverage:dont-run": "npm run build && nyc instrument --es-modules --compact=false index.mjs temp && rm ./index.mjs && mv ./temp/index.mjs ./index.mjs && rmdir ./temp",
+    "build:coverage:blank": "",
     "dev": "npx esbuild src/index.js --outfile=index.mjs --format=esm  --bundle --watch"
   },
   "dependencies": {
