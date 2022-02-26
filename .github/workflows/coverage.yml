@@ -1,6 +1,9 @@
 name: Coverage
 
 on:
+  push:
+    branches:
+    - master
   pull_request:
     branches:
     - master
@@ -31,7 +34,7 @@ jobs:
       env:
         CI: true
 
-    - name: ✅ Upload coverage to Codecov
+    - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       # with:
       #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
@@ -42,8 +45,8 @@ jobs:
         name: coverage-report
         path: coverage/lcov-report
 
-    - name: check coverage levels
-      run: |
-        npm run coverage:check
-      env:
-        CI: true
+    # - name: check coverage levels
+    #   run: |
+    #     npm run coverage:check
+    #   env:
+    #     CI: true

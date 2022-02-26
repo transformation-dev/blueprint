@@ -1,6 +1,7 @@
 /// <reference types="Cypress" />
 
 context('Window', () => {
+  
   beforeEach(() => {
     cy.visit('localhost:8788/')
   })
@@ -16,4 +17,5 @@ context('Window', () => {
   it('cy.title() - get the title', () => {
     cy.title().should('include', 'Transformation Blueprint')
   })
+
 })
