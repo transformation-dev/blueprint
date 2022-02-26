@@ -42,8 +42,8 @@ jobs:
         name: coverage-report
         path: coverage/lcov-report
 
-    - name: check coverage levels
-      run: |
-        npm run coverage:check
-      env:
-        CI: true
+    # - name: check coverage levels
+    #   run: |
+    #     npm run coverage:check
+    #   env:
+    #     CI: true
