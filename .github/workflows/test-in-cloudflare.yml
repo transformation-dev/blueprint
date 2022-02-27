@@ -15,14 +15,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Await CF Pages
-      uses: WalshyDev/cf-pages-await@v1.1.0
-      with:
-        accountEmail: ${{ secrets.CF_ACCOUNT_EMAIL  }}
-        apiKey: ${{ secrets.CF_API_KEY  }}
-        accountId: ${{ secrets.CF_ACCOUNT_ID  }}
-        project: 'transformation'
-        githubToken: ${{ secrets.GITHUB_TOKEN }}
+    # - name: Await CF Pages
+    #   uses: WalshyDev/cf-pages-await@v1.1.0
+    #   with:
+    #     accountEmail: ${{ secrets.CF_ACCOUNT_EMAIL  }}
+    #     apiKey: ${{ secrets.CF_API_KEY  }}
+    #     accountId: ${{ secrets.CF_ACCOUNT_ID  }}
+    #     project: 'transformation'
+    #     githubToken: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v1
