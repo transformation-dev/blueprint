@@ -8,8 +8,8 @@ export default defineConfig({
   plugins: [
     svelte(),
     istanbul({
-      include: 'src',
-      exclude: ['durable_objects', 'node_modules', 'cypress'],
+      include: ['src', 'durable_objects', 'functions', 'packages'],
+      exclude: ['node_modules', 'cypress'],
       extension: [ '.js', '.ts', '.svelte' ],
       forceBuildInstrument: true,  // May not need this or may not even need this file if cypress triggers an instrumented build
       cypress: true,
