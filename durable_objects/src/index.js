@@ -21,6 +21,9 @@ export class Counter {
 
   // Handle HTTP requests from clients.
   async fetch(request) {
+
+    debug(env)
+
     // Apply requested action.
     let url = new URL(request.url)
 
