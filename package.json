@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "echo 'WARNING: must run `npm run dev:durable_objects` in other window' & npx @transformation-dev/wrangler pages dev --binding DEBUG=\"blueprint:*\" --mount transformation-durable_objects=./durable_objects --do COUNTER=Counter@transformation-durable_objects --proxy 3000 -- vite --host",
     "dev:durable_objects": "cd durable_objects && npm run dev",
-    "build": "echo '\n' && env && echo '\n' && npm run build:durable_objects && npm run build:ui",
+    "build": "echo '\n' && git show -s --format=%H && echo '\n' && npm run build:durable_objects && npm run build:ui",
     "build:ui": "vite build",
     "build:durable_objects": "cd durable_objects && npm run build",
     "preview": "vite preview",
