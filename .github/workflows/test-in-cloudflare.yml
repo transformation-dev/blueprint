@@ -1,0 +1,43 @@
+name: Test in Cloudflare
+
+on:
+  - pull_request
+
+jobs:
+  coverage:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        node-version: [17.x]
+        os: [ubuntu-latest]
+
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: npm ci
+      run: |
+        npm ci
+      env:
+        CI: true
+
+    - name: Await CF Pages
+      uses: WalshyDev/cf-pages-await@v1.1.0
+      with:
+        accountEmail: ${{ secrets.CF_ACCOUNT_EMAIL  }}
+        apiKey: ${{ secrets.CF_API_KEY  }}
+        accountId: ${{ secrets.CF_ACCOUNT_ID  }}
+        project: 'transformation'
+        githubToken: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: npm test
+      run: |
+        npm run test
+      env:
+        CI: true
