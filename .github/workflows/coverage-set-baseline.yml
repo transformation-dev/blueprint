@@ -1,0 +1,11 @@
+name: Coverage Set Baseline
+
+on:
+  pull_request_target:
+    types:
+      - closed
+
+jobs:
+  coverage-set-baseline:
+    if: github.event.pull_request_target.merged == true
+    uses: transformation-dev/blueprint/.github/workflows/coverage.yml@master
