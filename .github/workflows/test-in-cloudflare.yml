@@ -14,6 +14,7 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
+    - uses: actions/checkout@v2
     - name: Await CF Pages
       uses: WalshyDev/cf-pages-await@v1.1.0
       with:
@@ -22,8 +23,6 @@ jobs:
         accountId: ${{ secrets.CF_ACCOUNT_ID  }}
         project: 'transformation'
         githubToken: ${{ secrets.GITHUB_TOKEN }}
-        
-    - uses: actions/checkout@v1
 
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v1
