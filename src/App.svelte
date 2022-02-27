@@ -104,3 +104,4 @@
 <Body class="has-navbar-fixed-top" />
 
 <svelte:component this={$activeComponent} />
+
