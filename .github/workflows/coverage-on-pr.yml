@@ -9,5 +9,5 @@ on:
     - master  # TODO: remove branches from this list
 
 jobs:
-  coverage-set-baseline:
+  coverage-on-pr:
     uses: transformation-dev/blueprint/.github/workflows/coverage.yml@master
