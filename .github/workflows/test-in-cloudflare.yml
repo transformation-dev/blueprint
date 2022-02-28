@@ -15,7 +15,7 @@ jobs:
 
     env:
       BRANCH_VERSION_URL: ${{ format('{0}.transformation.pages.dev/api/version', github.head_ref) }}
-      BRANCH_VERSION_CHECK_URL: ${{ format('https://{0}.transformation.pages.dev/api/version/{1}', github.head_ref, github.event.after) }}
+      BRANCH_VERSION_CHECK_URL: "${{ format('https://{0}.transformation.pages.dev/api/version/{1}', github.head_ref, github.event.after) }}"
 
     steps:
     - uses: actions/checkout@v2
