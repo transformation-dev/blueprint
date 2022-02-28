@@ -22,7 +22,7 @@ jobs:
     - name: Version BEFORE deploy
       run: |
         echo ${{ env.GITHUB_HEAD_REF }}
-        echo $BRANCH_VERSION_URL
+    #     echo $BRANCH_VERSION_URL
     #     curl -I $BRANCH_VERSION_URL
 
     # - name: Wait for Cloudflare deploy
