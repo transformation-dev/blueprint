@@ -14,14 +14,14 @@ jobs:
         os: [ubuntu-latest]
 
     env:
-      BRANCH_VERSION_URL: format('https://{0}.transformation.pages.dev/api/version', $GITHUB_HEAD_REF, ${{ github.event.pull_request.head.sha }})
+      BRANCH_VERSION_URL: ${{ format('https://{0}.transformation.pages.dev/api/version', $GITHUB_HEAD_REF, ${{ github.event.pull_request.head.sha }}) }}
 
     steps:
     - uses: actions/checkout@v2
 
     - name: Version BEFORE deploy
       run: |
-        echo $BRANCH_URL
+        echo $BRANCH_VERSION_URL
         curl -I $BRANCH_VERSION_URL
 
     - name: Wait for Cloudflare deploy
@@ -46,7 +46,6 @@ jobs:
 
     - name: Version AFTER deploy
       run: |
-        echo $BRANCH_URL
         curl -I $BRANCH_VERSION_URL
 
     - name: Use Node.js ${{ matrix.node-version }}
