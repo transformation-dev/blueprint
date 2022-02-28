@@ -14,7 +14,7 @@ jobs:
         os: [ubuntu-latest]
 
     env:
-      BRANCH_VERSION_URL: ${{ format('https://{0}.transformation.pages.dev/api/version', $GITHUB_HEAD_REF, ${{ github.event.pull_request.head.sha }}) }}
+      BRANCH_VERSION_URL: ${{ format('https://{0}.transformation.pages.dev/api/version', $GITHUB_HEAD_REF, github.event.pull_request.head.sha) }}
 
     steps:
     - uses: actions/checkout@v2
@@ -24,16 +24,16 @@ jobs:
         echo $BRANCH_VERSION_URL
         curl -I $BRANCH_VERSION_URL
 
-    - name: Wait for Cloudflare deploy
-      uses: cygnetdigital/wait_for_response@v2.0.0
-      # env:
-      #   GITHUB_CONTEXT: ${{ toJson(github) }}
-      with:
-        # url: 'http://localhost:8788/api/version/$GITHUB_CONTEX'
-        url: format('https://{0}.transformation.pages.dev/api/version/{2}', $GITHUB_HEAD_REF, ${{ github.event.pull_request.head.sha }})
-        responseCode: '200'
-        timeout: 180000
-        interval: 5000
+    # - name: Wait for Cloudflare deploy
+    #   uses: cygnetdigital/wait_for_response@v2.0.0
+    #   # env:
+    #   #   GITHUB_CONTEXT: ${{ toJson(github) }}
+    #   with:
+    #     # url: 'http://localhost:8788/api/version/$GITHUB_CONTEX'
+    #     url: format('https://{0}.transformation.pages.dev/api/version/{2}', $GITHUB_HEAD_REF, ${{ github.event.pull_request.head.sha }})
+    #     responseCode: '200'
+    #     timeout: 180000
+    #     interval: 5000
 
     # - name: Await CF Pages
     #   uses: WalshyDev/cf-pages-await@v1.1.0
