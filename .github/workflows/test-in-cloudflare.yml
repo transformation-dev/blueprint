@@ -13,16 +13,16 @@ jobs:
         node-version: [17.x]
         os: [ubuntu-latest]
 
-    env:
-      BRANCH_VERSION_URL: ${{ format('https://{0}.transformation.pages.dev/api/version', $GITHUB_HEAD_REF, github.event.pull_request.head.sha) }}
+    # env:
+    #   BRANCH_VERSION_URL: ${{ format('https://{0}.transformation.pages.dev/api/version', $GITHUB_HEAD_REF, github.event.pull_request.head.sha) }}
 
     steps:
     - uses: actions/checkout@v2
 
-    - name: Version BEFORE deploy
-      run: |
-        echo $BRANCH_VERSION_URL
-        curl -I $BRANCH_VERSION_URL
+    # - name: Version BEFORE deploy
+    #   run: |
+    #     echo $BRANCH_VERSION_URL
+    #     curl -I $BRANCH_VERSION_URL
 
     # - name: Wait for Cloudflare deploy
     #   uses: cygnetdigital/wait_for_response@v2.0.0
@@ -44,9 +44,9 @@ jobs:
     #     project: 'transformation'
     #     githubToken: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Version AFTER deploy
-      run: |
-        curl -I $BRANCH_VERSION_URL
+    # - name: Version AFTER deploy
+    #   run: |
+    #     curl -I $BRANCH_VERSION_URL
 
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v1
