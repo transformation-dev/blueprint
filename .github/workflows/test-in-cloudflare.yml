@@ -31,7 +31,7 @@ jobs:
         echo "$BRANCH"
         echo "$SHA"
         echo "$BRANCH_VERSION_URL"
-        curl -I $BRANCH_VERSION_URL
+    #     curl -I $BRANCH_VERSION_URL
 
     # - name: Wait for Cloudflare deploy
     #   uses: cygnetdigital/wait_for_response@v2.0.0
