@@ -3,9 +3,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "echo 'WARNING: must run `npm run dev:durable_objects` in other window' & npx @transformation-dev/wrangler pages dev --binding DEBUG=\"blueprint:*\" --mount transformation-durable_objects=./durable_objects --do COUNTER=Counter@transformation-durable_objects --proxy 3000 -- vite --host",
+    "dev": "echo 'WARNING: must run `npm run dev:durable_objects` in other window' && npm run build && npx @transformation-dev/wrangler pages dev --binding DEBUG=\"blueprint:*\" --mount transformation-durable_objects=./durable_objects --do COUNTER=Counter@transformation-durable_objects --proxy 3000 -- vite --host",
     "dev:durable_objects": "cd durable_objects && npm run dev",
-    "build": "echo '\n' && echo $GITHUB_SHA && echo $CF_PAGES_COMMIT_SHA && git show -s --format=%H && echo '\n' && npm run build:durable_objects && npm run build:ui",
+    "build": "npm run build:version.json && npm run build:durable_objects && npm run build:ui",
+    "build:version.json": "printf '{\"sha\":\"' > ./public/version.json && printf $(git show -s --format=%H) >> ./public/version.json && echo '\"}' >> ./public/version.json",
     "build:ui": "vite build",
     "build:durable_objects": "cd durable_objects && npm run build",
     "preview": "vite preview",
