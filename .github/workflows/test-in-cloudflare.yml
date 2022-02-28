@@ -19,9 +19,14 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Version BEFORE deploy
-      run: |
-        echo ${{ env.GITHUB_HEAD_REF }}
+    - name: Dump GitHub context
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      run: echo "$GITHUB_CONTEXT"
+
+    # - name: Version BEFORE deploy
+    #   run: |
+    #     echo ${{ $GITHUB_HEAD_REF }}
     #     echo $BRANCH_VERSION_URL
     #     curl -I $BRANCH_VERSION_URL
 
