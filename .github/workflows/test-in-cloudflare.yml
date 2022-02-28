@@ -15,7 +15,7 @@ jobs:
 
     env:
       JUNK: ${{ format('something: {1}', 'foo') }}
-    #   BRANCH_VERSION_URL: ${{ format('https://{0}.transformation.pages.dev/api/version', $GITHUB_HEAD_REF) }}
+    #   BRANCH_VERSION_URL: ${{ format('https://{0}.transformation.pages.dev/api/version', env.GITHUB_HEAD_REF) }}
 
     steps:
     - uses: actions/checkout@v2
