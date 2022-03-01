@@ -9,7 +9,7 @@ context('Plan', () => {
       expect(ls.getItem('slidesToDisplay')).to.be.null
     })
 
-    cy.visit('localhost:8080/#/login?origin=/plan')
+    cy.visit('/#/login?origin=/plan')
       .get("#login")
       .click()
   })
@@ -62,13 +62,13 @@ context('Plan', () => {
     cy.get('#practice5')
       .contains("Network Originated Scans")
 
-    cy.visit('localhost:8080/#/test-jig')
+    cy.visit('/#/test-jig')
     cy.wait(4000)
     cy.url().should('include', 'teamID=team1')
     cy.url().should('not.include', 'startOn')
     cy.url().should('not.include', 'slidesToDisplay')
 
-    cy.visit('localhost:8080/#/plan')
+    cy.visit('/#/plan')
     cy.wait(4000)
     cy.url().should('include', 'teamID=team1')
     cy.url().should('include', 'startOn=1')

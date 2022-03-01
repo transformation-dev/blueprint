@@ -2,7 +2,7 @@
 
 context('Realtime', () => {
   beforeEach(() => {
-    cy.visit('localhost:8080/#/login?origin=/test-jig')
+    cy.visit('/#/login?origin=/test-jig')
       .get("#login")
       .click()
   })
