@@ -1,0 +1,52 @@
+name: Test in Cloudflare
+
+on:
+  - pull_request
+
+jobs:
+  test-in-cloudflare:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        node-version: [17.x]
+        os: [ubuntu-latest]
+
+    env:
+      CYPRESS_BASE_URL: "${{ format('https://{0}.transformation.pages.dev', github.head_ref) }}"
+      BRANCH_VERSION_CHECK_URL: "${{ format('https://{0}.transformation.pages.dev/api/version/{1}', github.head_ref, github.event.after) }}"
+
+    steps:
+
+    # - name: Dump GitHub context
+    #   env:
+    #     GITHUB_CONTEXT: ${{ toJson(github) }}
+    #   run: echo "$GITHUB_CONTEXT"
+
+    - uses: actions/checkout@v2
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: npm ci
+      run: |
+        npm ci
+      env:
+        CI: true
+
+    - name: Wait for Cloudflare deploy of correct version
+      uses: cygnetdigital/wait_for_response@v2.0.0
+      with:
+        url: ${{ env.BRANCH_VERSION_CHECK_URL }}
+        responseCode: '200'
+        timeout: 180000
+        interval: 5000
+
+    - name: Cypress run
+      run: |
+        npx cypress run
+      env:
+        CI: true

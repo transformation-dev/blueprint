@@ -1,6 +1,5 @@
-export const jsonResponse = (value, init) =>
+export const jsonResponse = (value) => 
   new Response(JSON.stringify(value), {
-    headers: { "Content-Type": "application/json", ...init.headers },
-    ...init,
+    headers: { "Content-Type": "application/json" }
   })
   

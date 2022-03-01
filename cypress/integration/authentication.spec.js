@@ -3,12 +3,12 @@
 context('Authentication', () => {
 
   it('should only be able to get to pages where allowUnauthenticated=true', () => {
-    cy.visit('localhost:8788/#/')
+    cy.visit('/#/')
 
     cy.get("#logout")
       .click()
 
-    cy.visit("localhost:8788/#/test-jig")
+    cy.visit("/#/test-jig")
       
     cy.get("#login")
 

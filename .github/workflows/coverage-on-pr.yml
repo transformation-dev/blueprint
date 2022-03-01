@@ -5,9 +5,7 @@ on:
     branches:
     - master
   pull_request:
-    branches:
-    - master
 
 jobs:
-  coverage-set-baseline:
+  coverage-on-pr:
     uses: transformation-dev/blueprint/.github/workflows/coverage.yml@master
