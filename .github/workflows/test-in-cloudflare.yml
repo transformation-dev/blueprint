@@ -47,6 +47,6 @@ jobs:
 
     - name: Cypress run
       run: |
-        cypress run
+        npx cypress run
       env:
         CI: true
