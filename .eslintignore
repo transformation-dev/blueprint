@@ -1,0 +1,12 @@
+# Compiled files
+dist
+
+# node_modules
+node_modules
+
+# tests
+__tests__/
+cypress
+
+# others
+coverage

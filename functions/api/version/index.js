@@ -1,14 +1,11 @@
-import {jsonResponse} from "../_utils.js"
-import Debug from "debug"
-const debugRaw = Debug("blueprint:api:version")
-function debug(value) {
-  console.log('\n')
-  debugRaw(value)
-}
+import Debug from 'debug'
+import { jsonResponse, getDebug } from '../_utils'
+import version from '../../../public/version.json'
 
-import version from "../../../public/version.json"
+const debug = getDebug('blueprint:api:version')
 
 export async function onRequestGet({ request, env }) {
   Debug.enable(env.DEBUG)
+  debug('onRequestGet() called')
   return jsonResponse(version)
 }

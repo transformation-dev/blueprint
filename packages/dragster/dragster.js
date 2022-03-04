@@ -1,5 +1,6 @@
-import Debug from "debug"
-const debug = Debug("blueprint:dragster")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
+import Debug from 'debug'
+
+const debug = Debug('blueprint:dragster')  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
 export class Dragster {
   constructor(el) {
@@ -8,8 +9,8 @@ export class Dragster {
     this.el = el
     this.first = false
     this.second = false
-    this.el.addEventListener("dragenter", this.dragenter, false)
-    this.el.addEventListener("dragleave", this.dragleave, false)
+    this.el.addEventListener('dragenter', this.dragenter, false)
+    this.el.addEventListener('dragleave', this.dragleave, false)
     this.destroy = this._destroy.bind(this)
     if (!Dragster.dragsters) {
       Dragster.dragsters = {}
@@ -34,10 +35,10 @@ export class Dragster {
       this.second = true
     } else {
       this.first = true
-      this.customEvent = document.createEvent("CustomEvent")
-      this.customEvent.initCustomEvent("dragster-enter", true, true, {
+      this.customEvent = document.createEvent('CustomEvent')
+      this.customEvent.initCustomEvent('dragster-enter', true, true, {
         dataTransfer: event.dataTransfer,
-        sourceEvent: event
+        sourceEvent: event,
       })
       this.el.dispatchEvent(this.customEvent)
     }
@@ -50,18 +51,18 @@ export class Dragster {
       this.first = false
     }
     if (!this.first && !this.second) {
-      this.customEvent = document.createEvent("CustomEvent")
-      this.customEvent.initCustomEvent("dragster-leave", true, true, {
+      this.customEvent = document.createEvent('CustomEvent')
+      this.customEvent.initCustomEvent('dragster-leave', true, true, {
         dataTransfer: event.dataTransfer,
-        sourceEvent: event
+        sourceEvent: event,
       })
       this.el.dispatchEvent(this.customEvent)
     }
   }
 
   removeListeners() {
-    this.el.removeEventListener("dragenter", this.dragenter, false)
-    return this.el.removeEventListener("dragleave", this.dragleave, false)
+    this.el.removeEventListener('dragenter', this.dragenter, false)
+    return this.el.removeEventListener('dragleave', this.dragleave, false)
   }
 
   // Must call after drop or a second drop to the same target sometimes gets missed

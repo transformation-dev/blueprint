@@ -42,7 +42,7 @@ jobs:
       with:
         url: ${{ env.BRANCH_VERSION_CHECK_URL }}
         responseCode: '200'
-        timeout: 180000
+        timeout: 360000
         interval: 5000
 
     - name: Cypress run

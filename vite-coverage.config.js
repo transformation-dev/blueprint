@@ -1,3 +1,4 @@
+/* eslint-disable import/no-extraneous-dependencies */
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import istanbul from 'vite-plugin-istanbul'
@@ -10,7 +11,7 @@ export default defineConfig({
     istanbul({
       include: ['src', 'durable_objects', 'functions', 'packages'],
       exclude: ['node_modules', 'cypress'],
-      extension: [ '.js', '.ts', '.svelte' ],
+      extension: ['.js', '.ts', '.svelte'],
       forceBuildInstrument: true,  // May not need this or may not even need this file if cypress triggers an instrumented build
       cypress: true,
     }),

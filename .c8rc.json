@@ -1,0 +1,4 @@
+{
+  "reports-dir": "./coverage-server",
+  "include": ["vite-config.js", "durable_objects"]
+}
