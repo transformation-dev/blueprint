@@ -4,13 +4,13 @@
         "html",
         "svelte"
     ],
+    "exclude": ["node_modules"],
     "editor.detectIndentation": false,
     "editor.insertSpaces": true,
     "editor.tabSize": 2,
     "files.associations": {
         "*.svelte": "svelte"
     },
-    "typescript.validate.enable": false,
     "javascript.validate.enable": true,
     "search.exclude": {
         "**/node_modules": true,
@@ -37,5 +37,6 @@
     "[json]": {
         "editor.tabSize": 2
     },
-    "debug.internalConsoleOptions": "neverOpen"
+    "debug.internalConsoleOptions": "neverOpen",
+    "typescript.validate.enable": false
 }
