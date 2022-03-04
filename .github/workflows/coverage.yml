@@ -31,14 +31,21 @@ jobs:
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
-      # with:
-      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-
-    - name: upload html report as artifact
-      uses: actions/upload-artifact@master
       with:
-        name: coverage-report
-        path: coverage/lcov-report
+      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+        directory: ./coverage
+
+    - name: Upload coverage-server to Codecov
+      uses: codecov/codecov-action@v2
+      with:
+      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+        directory: ./coverage-server
+
+    # - name: upload html report as artifact
+    #   uses: actions/upload-artifact@master
+    #   with:
+    #     name: coverage-report
+    #     path: coverage/lcov-report
 
     # - name: check coverage levels
     #   run: |

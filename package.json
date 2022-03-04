@@ -20,7 +20,7 @@
     "coverage:build-and-start": "npm run coverage:build && npm run start",
     "coverage:nyc": "rm -rf ./.nyc_output ./coverage && start-server-and-test coverage:build-and-start http://localhost:8788 cypress:run",
     "coverage:nyc:dont-use": "start-server-and-test coverage:build-and-start http://localhost:8788 cypress:run",
-    "coverage:c8": "npx c8 npm run test",
+    "coverage:c8": "npx c8 --reporter=lcov npm run test",
     "coverage": "npm run coverage:c8 && npm run coverage:nyc",
     "coverage:report:dont-use": "nyc report --reporter=text-summary"
   },
