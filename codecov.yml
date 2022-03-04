@@ -1,9 +1,9 @@
   disable_default_path_fixes: yes
   coverage:
-  status:
-    project:
-      default:
-        target: auto
-        # adjust accordingly based on how flaky your tests are
-        # this allows a 1% drop from the previous base commit coverage
-        threshold: 1%
+    status:
+      project:
+        default:
+          target: auto
+          # adjust accordingly based on how flaky your tests are
+          # this allows a 1% drop from the previous base commit coverage
+          threshold: 1%
