@@ -1,13 +1,11 @@
 import Debug from 'debug'
+import { jsonResponse, getDebug } from './_utils'
 
-const debugRaw = Debug('blueprint:api:status')
-function debug(value) {
-  console.log('\n')
-  debugRaw(value)
-}
+const debug = getDebug('blueprint:api:status')
 
 export async function onRequestGet({ request, env }) {
   Debug.enable(env.DEBUG)
+  debug('onRequestGet() called')
 
   const stub = env.COUNTER.get(
     env.COUNTER.idFromName('something'),
@@ -18,5 +16,5 @@ export async function onRequestGet({ request, env }) {
     operationNormal: true,
     count,
   }
-  return new Response(JSON.stringify(myResponse))
+  return jsonResponse(myResponse)
 }
