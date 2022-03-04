@@ -22,7 +22,9 @@
     "coverage:nyc:dont-use": "start-server-and-test coverage:build-and-start http://localhost:8788 cypress:run",
     "coverage:c8": "npx c8 --reporter=json npm run test",
     "coverage": "npm run coverage:c8 && npm run coverage:nyc",
-    "coverage:report:dont-use": "nyc report --reporter=text-summary"
+    "coverage:report:dont-use": "nyc report --reporter=text-summary",
+    "eslint": "npx eslint -c .eslintrc.cjs --ext .js,.svelte,.html .",
+    "lint": "npm run eslint"
   },
   "devDependencies": {
     "@creativebulma/bulma-tooltip": "^1.2.0",
@@ -35,6 +37,9 @@
     "c8": "^7.11.0",
     "cypress": "^9.5.0",
     "esbuild": "^0.14.23",
+    "eslint": "^8.10.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.25.4",
     "lerna": "^4.0.0",
     "nyc": "^15.1.0",
     "sass": "^1.49.0",
@@ -48,9 +53,9 @@
     "vite-plugin-istanbul": "^2.5.0"
   },
   "dependencies": {
-    "debug": "^4.3.3",
     "@transformation-dev/dragster": "file:packages/dragster",
     "@transformation-dev/svelte-realtime-store": "file:packages/svelte-realtime-store",
-    "@transformation-dev/svelte-viewstate-store": "file:packages/svelte-viewstate-store"
+    "@transformation-dev/svelte-viewstate-store": "file:packages/svelte-viewstate-store",
+    "debug": "^4.3.3"
   }
 }
