@@ -8,4 +8,4 @@ on:
 jobs:
   coverage-set-baseline:
     if: github.event.pull_request_target.merged == true
-    uses: transformation-dev/blueprint/.github/workflows/coverage.yml@master
+    uses: ./.github/workflows/coverage.yml
