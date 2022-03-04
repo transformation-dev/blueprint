@@ -1,10 +1,11 @@
-import Debug from "debug"
-const debug = Debug("blueprint:svelte-realtime-store")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
+import Debug from 'debug'  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
-import {debounce} from 'lodash'
+import { debounce } from 'lodash'
 
-import {onDestroy} from 'svelte'  // TODO: Either use this or remove it
-import {writable} from 'svelte/store'
+import { onDestroy } from 'svelte'  // TODO: Either use this or remove it
+import { writable } from 'svelte/store'
+
+const debug = Debug('blueprint:svelte-realtime-store')
 
 debug('svelte-realtime-store loads and initializes')
 const namespace = '/svelte-realtime'
@@ -74,12 +75,11 @@ export class RealtimeStore {
     })
     this.set(newValue)
   }
-
 }
 
 RealtimeStore.connected = writable(false)
 
-RealtimeStore.afterAuthenticated = function(callback) {  // TODO: Does this need to be an => function?
+RealtimeStore.afterAuthenticated = function (callback) {  // TODO: Does this need to be an => function?
   try {
     debug('afterAutenticated() called')
     socket.on('set', (storeID, value) => {
@@ -102,7 +102,7 @@ RealtimeStore.afterAuthenticated = function(callback) {  // TODO: Does this need
     const storesReshaped = []
     for (const storeID in stores) {
       stores[storeID][0].wrappedStore.update((value) => {
-        storesReshaped.push({storeID, value})
+        storesReshaped.push({ storeID, value })
       })
     }
     socket.emit('join', storesReshaped)
@@ -116,20 +116,20 @@ RealtimeStore.afterAuthenticated = function(callback) {  // TODO: Does this need
   }
 }
 
-RealtimeStore.restoreConnection = function(callback) {  // TODO: Does this need to be an => function?
+RealtimeStore.restoreConnection = function (callback) {  // TODO: Does this need to be an => function?
   try {
     debug('restoreConnection() called')
     if (socket) {
       socket.removeAllListeners()
       socket = null
     }
-    socket = io(namespace)  
+    socket = io(namespace)
     socket.on('connect', () => {
       debug('connect msg received')
       socket.on('disconnect', () => {
         debug('disconnect msg received')
         RealtimeStore.connected.set(false)
-        socket.removeAllListeners()  
+        socket.removeAllListeners()
         socket.on('reconnect', () => {
           debug('reconnect msg received')
           RealtimeStore.restoreConnection(() => {

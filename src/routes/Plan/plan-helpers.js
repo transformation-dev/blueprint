@@ -1,5 +1,5 @@
-import {Dragster} from '@transformation-dev/dragster'
-import {plan, queueSwimlanes} from '../../stores'
+import { Dragster } from '@transformation-dev/dragster'
+import { plan, queueSwimlanes } from '../../stores'
 
 function findDropZoneParent(target) {
   return target.classList.contains('drop-zone') ? target : findDropZoneParent(target.parentNode)
@@ -14,11 +14,11 @@ let practiceBeingDragged = null
 export function dragStart(event) {
   const practiceParent = findPracticeParent(event.target)
   practiceBeingDragged = practiceParent.id
-  event.target.style.opacity = .5
+  event.target.style.opacity = 0.5
 }
 
 export function dragEnd(event) {
-  event.target.style.opacity = ""
+  event.target.style.opacity = ''
 }
 
 export function dragEnter(event) {
@@ -31,7 +31,7 @@ export function dragOver(event) {
 }
 
 export function dragLeave(event) {
-  event.target.classList.remove('has-background-grey-lighter') 
+  event.target.classList.remove('has-background-grey-lighter')
 }
 
 export function drop(event) {
@@ -59,9 +59,9 @@ export function dropPan(event, newStatus) {
   })
   dropZoneParent.classList.remove('has-background-grey-lighter')
   plan.update((value) => {
-    if (newStatus === "Doing") {
+    if (newStatus === 'Doing') {
       value[practiceBeingDragged].queueSwimlaneID = Object.keys(queueSwimlanesCached)[0]
-      value[practiceBeingDragged].assessedLevel = "Words"
+      value[practiceBeingDragged].assessedLevel = 'Words'
     } else {
       value[practiceBeingDragged].queueSwimlaneID = null
       value[practiceBeingDragged].assessedLevel = null

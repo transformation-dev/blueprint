@@ -1,12 +1,14 @@
-import {jsonResponse} from "../_utils.js"
-import Debug from "debug"
-const debugRaw = Debug("blueprint:api:version")
+import Debug from 'debug'
+import { jsonResponse } from '../_utils'
+
+import version from '../../../public/version.json'
+
+const debugRaw = Debug('blueprint:api:version')
 function debug(value) {
+  // eslint-disable-next-line no-console
   console.log('\n')
   debugRaw(value)
 }
-
-import version from "../../../public/version.json"
 
 export async function onRequestGet({ request, env }) {
   Debug.enable(env.DEBUG)

@@ -1,10 +1,10 @@
-import Debug from "debug"
-const debug = Debug("blueprint:svelte-viewstate-store")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
+import Debug from 'debug'  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
+import { onDestroy } from 'svelte'
+import { writable } from 'svelte/store'
+import { push, loc, location } from 'svelte-spa-router'
 
-import {onDestroy} from 'svelte'
-import {writable} from 'svelte/store'
-import {push, loc, location} from 'svelte-spa-router'
+const debug = Debug('blueprint:svelte-viewstate-store')
 
 export class ViewstateStore {
   constructor(storeConfig) {
@@ -14,7 +14,7 @@ export class ViewstateStore {
     this.wrappedStore = writable(storeConfig.defaultValue)
     this.subscribe = this.wrappedStore.subscribe
 
-    // this.wrappedStore.set(storeConfig.defaultValue)  // This is just so value is not undefined. It gets updated by the querystring or LocalStorage 
+    // this.wrappedStore.set(storeConfig.defaultValue)  // This is just so value is not undefined. It gets updated by the querystring or LocalStorage
 
     this.onURLChange = this.onURLChange.bind(this)
     const unsubscribe = loc.subscribe(this.onURLChange)
@@ -28,7 +28,7 @@ export class ViewstateStore {
     const urlSearchParams = new URLSearchParams(querystring)
     const valueString = urlSearchParams.get(this.storeConfig.identifier)
     if (valueString === null) {
-      return {newValue: null, urlSearchParams}
+      return { newValue: null, urlSearchParams }
     }
     let newValue = valueString
     if (this.storeConfig.type === 'Float') {  // TODO: Support arrays of values
@@ -39,7 +39,7 @@ export class ViewstateStore {
     } else if (this.storeConfig.type === 'Boolean') {
       newValue = (valueString == 'true')
     }
-    return {newValue, urlSearchParams}
+    return { newValue, urlSearchParams }
   }
 
   onURLChange(newLoc) {
@@ -50,13 +50,13 @@ export class ViewstateStore {
       return
     }
 
-    let {newValue} = this.getQuerystringParam(newLoc.querystring)
+    let { newValue } = this.getQuerystringParam(newLoc.querystring)
     if (newValue != null) {
       if (this.storeConfig.updateLocalStorageOnURLChange) {
-        window.localStorage[this.scope + '.' + this.storeConfig.identifier] = newValue
+        window.localStorage[`${this.scope}.${this.storeConfig.identifier}`] = newValue
       }
     } else {
-      newValue = window.localStorage[this.scope + '.' + this.storeConfig.identifier] || this.storeConfig.defaultValue
+      newValue = window.localStorage[`${this.scope}.${this.storeConfig.identifier}`] || this.storeConfig.defaultValue
       ViewstateStore.queueURLUpdate(this.storeConfig.identifier, newValue)
     }
     this.wrappedStore.set(newValue)
@@ -64,7 +64,7 @@ export class ViewstateStore {
 
   set(newValue) {
     this.wrappedStore.set(newValue)
-    window.localStorage[this.scope + '.' + this.storeConfig.identifier] = newValue
+    window.localStorage[`${this.scope}.${this.storeConfig.identifier}`] = newValue
     ViewstateStore.queueURLUpdate(this.storeConfig.identifier, newValue)
   }
 
@@ -74,7 +74,7 @@ export class ViewstateStore {
       newValue = fn(currentValue)
       return newValue
     })
-    window.localStorage[this.scope + '.' + this.storeConfig.identifier] = newValue
+    window.localStorage[`${this.scope}.${this.storeConfig.identifier}`] = newValue
     ViewstateStore.queueURLUpdate(this.storeConfig.identifier, newValue)
   }
   // update(fn) {
@@ -84,7 +84,6 @@ export class ViewstateStore {
   //   })
   //   this.set(newValue)
   // }
-
 }
 
 function getLocation() {
@@ -98,7 +97,7 @@ function getLocation() {
     location = location.substr(0, qsPosition)
   }
   const urlSearchParams = new URLSearchParams(querystring)
-  return {urlSearchParams, location, querystring}
+  return { urlSearchParams, location, querystring }
 }
 
 ViewstateStore.pendingURLUpdates = {}
@@ -114,15 +113,15 @@ ViewstateStore.queueURLUpdate = (key, value) => {
   ViewstateStore.timer = setTimeout(ViewstateStore.processPendingURLUpdates, 0)
 }
 
-ViewstateStore.processPendingURLUpdates = function() {
-  const {urlSearchParams, location} = getLocation()
+ViewstateStore.processPendingURLUpdates = function () {
+  const { urlSearchParams, location } = getLocation()
   const currentURLSearchString = urlSearchParams.toString()
   for (const [key, value] of Object.entries(ViewstateStore.pendingURLUpdates)) {
     urlSearchParams.set(key, value)
   }
   const newURLSearchString = urlSearchParams.toString()
   if (newURLSearchString !== currentURLSearchString) {
-    push(location + '?' + newURLSearchString)
+    push(`${location}?${newURLSearchString}`)
   }
   ViewstateStore.pendingURLUpdates = {}
   ViewstateStore.timer = null

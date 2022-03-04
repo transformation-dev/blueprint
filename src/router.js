@@ -1,9 +1,8 @@
-import Debug from "debug"
-const debug = Debug("blueprint:router")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
+import Debug from 'debug'
 
-import {location} from 'svelte-spa-router'
-import {derived, get} from 'svelte/store'
-import {readyToGo} from './stores'
+import { location } from 'svelte-spa-router'
+import { derived, get } from 'svelte/store'
+import { readyToGo } from './stores'
 
 // Real Routes
 import Home from './routes/Home.svelte'
@@ -19,18 +18,20 @@ import TestJig from './routes/TestJig.svelte'
 import Poc from './routes/Poc.svelte'
 import Morgan from './routes/Morgan.svelte'
 
+const debug = Debug('blueprint:router')  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
+
 export const routes = new Map(Object.entries({
   // Real routes
-  '/': {component: Home, allowUnauthenticated: true},
-  '/login': {component: Login, allowUnauthenticated: true},
-  '/plan': {component: Plan, navbarLabel: 'Plan'},
-  '/progress': {component: Progress, navbarLabel: 'Progress'},
+  '/': { component: Home, allowUnauthenticated: true },
+  '/login': { component: Login, allowUnauthenticated: true },
+  '/plan': { component: Plan, navbarLabel: 'Plan' },
+  '/progress': { component: Progress, navbarLabel: 'Progress' },
 
   // Don't delete. Required for Cypress testing
   '/test-jig': TestJig,
 
   // TODO: Clean up below once we know have examples of all
-  '/poc': {component: Poc, allowUnauthenticated: true},
+  '/poc': { component: Poc, allowUnauthenticated: true },
   '/morgan': Morgan,
 
   // Don't delete
@@ -56,5 +57,5 @@ export const activeComponent = derived(
       return Login
     }
   },
-  Login
+  Login,
 )
