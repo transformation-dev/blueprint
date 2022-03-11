@@ -13,6 +13,7 @@ import NotFound from './routes/NotFound.svelte'
 
 // Not real but don't delete. Needed for testing
 import TestJig from './routes/TestJig.svelte'
+import JsonInjection from './routes/JsonInjection.svelte'
 
 // TODO: Clean up below once we have it all working
 import Poc from './routes/Poc.svelte'
@@ -27,8 +28,9 @@ export const routes = new Map(Object.entries({
   '/plan': { component: Plan, navbarLabel: 'Plan' },
   '/progress': { component: Progress, navbarLabel: 'Progress' },
 
-  // Don't delete. Required for Cypress testing
+  // Don't delete. Required for testing or demo
   '/test-jig': TestJig,
+  '/json-injection': { component: JsonInjection, allowUnauthenticated: true },
 
   // TODO: Clean up below once we know have examples of all
   '/poc': { component: Poc, allowUnauthenticated: true },
