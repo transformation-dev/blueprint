@@ -3,7 +3,7 @@ import { jsonResponse, getDebug } from '../_utils'
 
 const debug = getDebug('blueprint:do:[[path]]')
 
-export async function onRequestGet({ request, env, params }) {
+export async function onRequestGet({ request, env, params, next }) {
   Debug.enable(env.DEBUG)
   debug('onRequestGet() called')
 
@@ -20,5 +20,16 @@ export async function onRequestGet({ request, env, params }) {
     operationNormal: true,
     count,
   }
-  return jsonResponse(myResponse)
+
+  // const indexHTML = await env.ASSETS.fetch(new Request('/index.html'))
+
+  
+  // const nextResponse = await next()
+  // debug(nextResponse.urlList)
+  // const theBody = nextResponse.body
+  // debug(theBody)
+  // return nextResponse
+
+
+  // return jsonResponse(myResponse)
 }

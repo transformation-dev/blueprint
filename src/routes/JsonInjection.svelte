@@ -4,7 +4,8 @@
  
   function handleClick(event) {
     let temp = eval(newName)
-    console.log(temp, name, newName)
+    // let x = temp()
+    console.log(temp(), name, newName)
   }
 </script>
 
