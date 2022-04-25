@@ -10,7 +10,7 @@ async function csp({
   Debug.enable(env.DEBUG)
   debug(env)
   const url = new URL(request.url)
-  if (url.pathname === '/' || url.pathname === '/index.html') {
+  if ((env.CF_ENV === 'production' || env.CF_ENV === 'preview') && (url.pathname === '/' || url.pathname === '/index.html')) {
     debug('Rewriting index.html for CSP')
     debug(url.pathname)
     debug(url.origin)
@@ -31,7 +31,7 @@ async function csp({
       "child-src 'none';",
       "frame-ancestors 'none';",
       "form-action 'none';",
-      // 'upgrade-insecure-requests;',
+      'upgrade-insecure-requests;',
       "manifest-src 'none';",
       "require-trusted-types-for 'script';",
     ].join(' ')
