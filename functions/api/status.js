@@ -15,6 +15,7 @@ export async function onRequestGet({ request, env, params }) {
   const myResponse = {
     operationNormal: true,
     count,
+    env,
   }
   return jsonResponse(myResponse)
 }

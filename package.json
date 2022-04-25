@@ -44,6 +44,7 @@
     "eslint-plugin-import": "^2.25.4",
     "eslint-plugin-svelte3": "^3.4.1",
     "lerna": "^4.0.0",
+    "lighthouse": "^9.5.0",
     "nyc": "^15.1.0",
     "sass": "^1.49.0",
     "start-server-and-test": "^1.14.0",

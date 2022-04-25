@@ -2,12 +2,13 @@
 import Debug from 'debug'
 import { jsonResponse, getDebug } from './_utils'
 
-const debug = getDebug('blueprint:[[path]]')
+const debug = getDebug('blueprint:_middleware')
 
-export async function onRequestGet({
+async function csp({
   request, env, params, next,
 }) {
   Debug.enable(env.DEBUG)
+  debug(env)
   const url = new URL(request.url)
   if (url.pathname === '/' || url.pathname === '/index.html') {
     debug('Rewriting index.html for CSP')
@@ -30,7 +31,7 @@ export async function onRequestGet({
       "child-src 'none';",
       "frame-ancestors 'none';",
       "form-action 'none';",
-      'upgrade-insecure-requests;',
+      // 'upgrade-insecure-requests;',
       "manifest-src 'none';",
       "require-trusted-types-for 'script';",
     ].join(' ')
@@ -81,12 +82,13 @@ export async function onRequestGet({
     // }
 
     newRes.headers.set('content-security-policy', CSPheader)
+    newRes.headers.set('content-type', 'text/html')
 
     debug(newRes.headers)
 
     return newRes
-
-    // return new Response(html)
   }
   return next()
 }
+
+export const onRequestGet = [csp]
