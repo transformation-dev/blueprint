@@ -8,35 +8,29 @@ async function csp({
   request, env, params, next,
 }) {
   Debug.enable(env.DEBUG)
-  debug(env)
   const url = new URL(request.url)
-  if ((env.CF_ENV === 'production' || env.CF_ENV === 'preview') && (url.pathname === '/' || url.pathname === '/index.html')) {
+  if (url.pathname === '/' || url.pathname === '/index.html') {
     debug('Rewriting index.html for CSP')
     debug(url.pathname)
     debug(url.origin)
 
-    // const nonce = btoa(crypto.getRandomValues(new Uint32Array(2)))
     const nonce = crypto.randomUUID()
-    debug(nonce)
 
-    const CSPheader = [
-      "default-src 'self';",
-      `script-src 'self' 'nonce-${nonce};`,
-      `style-src 'self' 'nonce-${nonce};`,
-      "img-src 'self';",
-      "font-src 'self';",
-      "connect-src 'none';",
-      "media-src 'none';",
+    const CSPheaderArray = [
+      `script-src 'self' 'nonce-${nonce} 'strict-dynamic';`,
       "object-src 'none';",
-      "child-src 'none';",
-      "frame-ancestors 'none';",
-      "form-action 'none';",
-      'upgrade-insecure-requests;',
-      "manifest-src 'none';",
-      "require-trusted-types-for 'script';",
-    ].join(' ')
+      "base-uri 'none';",
+    ]
 
-    const res = await env.ASSETS.fetch(`${url.origin}/index.html`)
+    if (env.CF_ENV === 'production' || env.CF_ENV === 'preview') {
+      CSPheaderArray.push('upgrade-insecure-requests;')
+    }
+
+    const CSPheader = CSPheaderArray.join(' ')
+
+    // const res = await env.ASSETS.fetch(`${url.origin}/index.html`)
+    const res = await next()
+    debug(res.headers)
     const theBody = await res.text()
     debug(theBody)
 
@@ -60,29 +54,20 @@ async function csp({
       statusText: res.statusText,
     })
 
-    // // eslint-disable-next-line no-restricted-syntax
-    // for (let [header, value] of res.headers.entries()) {
-    //   if (['via', 'server'].includes(header)) {
-    //     // eslint-disable-next-line no-continue
-    //     continue
-    //   }
-
-    //   if (
-    //     [
-    //       'content-security-policy',
-    //       'content-security-policy-report-only',
-    //     ].includes(header)
-    //   ) {
-    //     // Reuse previously sent Content-Security-Policy
-    //     if (res.status === 304) continue
-    //     value = value.replace(/4ce3a419-321c-4f39-b926-af6776a4b68f/gi, nonce)
-    //   }
-    //   newRes.headers.set(header, value)
-    //   newRes.headers.set('cf-nonce-generator', 'HIT')
-    // }
+    // eslint-disable-next-line no-restricted-syntax
+    for (const [key, value] of res.headers) {
+      if (!(key.toLowerCase() === 'access-control-allow-origin')) {
+        newRes.headers.set(key, value)
+      }
+    }
 
     newRes.headers.set('content-security-policy', CSPheader)
     newRes.headers.set('content-type', 'text/html')
+    // TODO: move the below to apply to all appropriate responses instead of just index.html
+    newRes.headers.set('X-Frame-Options', 'DENY')
+    newRes.headers.set('X-Content-Type-Options', 'nosniff')
+    newRes.headers.set('Referrer-Policy', 'no-referrer')
+    newRes.headers.set('Permissions-Policy', 'document-domain=()')
 
     debug(newRes.headers)
 
