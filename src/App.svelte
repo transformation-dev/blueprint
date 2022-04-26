@@ -83,10 +83,10 @@
   </div>
   <div class="navbar-menu">
     <div class="navbar-start">
-      {#each Object.entries(routes) as [route, value]}
+      {#each [...routes] as [route, value]}
         {#if value.navbarLabel}
           <a class="navbar-item" use:routerLink class:is-active={$location === route} href={route}>
-            {value.userData.navbarLabel}
+            {value.navbarLabel}
           </a>
         {/if}
       {/each}

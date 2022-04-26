@@ -33,7 +33,7 @@ export const routes = new Map(Object.entries({
   '/json-injection': { component: JsonInjection, allowUnauthenticated: true },
 
   // TODO: Clean up below once we know have examples of all
-  '/poc': { component: Poc, allowUnauthenticated: true },
+  '/poc': { component: Poc, navbarLabel: 'POC', allowUnauthenticated: true },
   '/morgan': Morgan,
 
   // Don't delete
