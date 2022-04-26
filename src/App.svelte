@@ -51,6 +51,11 @@
   //   scope: '/'
   // })
 
+
+  // if (location.pathname === '/') {
+  //   replace('/#/')
+  // }
+
   async function handleLogout(event) {
     // $authenticated = false
     // const response = await fetch('/logout', { 
@@ -104,4 +109,3 @@
 <Body class="has-navbar-fixed-top" />
 
 <svelte:component this={$activeComponent} />
-
