@@ -1,9 +1,9 @@
 import Debug from 'debug'
-import { jsonResponse, getDebug } from './_utils'
+import { jsonResponse, getDebug } from '../_utils'
 
 const debug = getDebug('blueprint:api:status')
 
-export async function onRequestGet({ request, env }) {
+export async function onRequestGet({ request, env, params }) {
   Debug.enable(env.DEBUG)
   debug('onRequestGet() called')
 
@@ -15,6 +15,7 @@ export async function onRequestGet({ request, env }) {
   const myResponse = {
     operationNormal: true,
     count,
+    // env,
   }
   return jsonResponse(myResponse)
 }

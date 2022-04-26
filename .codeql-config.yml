@@ -1,0 +1,8 @@
+paths:
+  - src
+  - dist
+  - durable_objects
+  - functions
+paths-ignore:
+  - cypress
+  - coverage
