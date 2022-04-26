@@ -68,6 +68,9 @@ async function csp({
     newRes.headers.set('X-Content-Type-Options', 'nosniff')
     newRes.headers.set('Referrer-Policy', 'no-referrer')
     newRes.headers.set('Permissions-Policy', 'document-domain=()')
+    if (env.CF_ENV === 'production' || env.CF_ENV === 'preview') {
+      newRes.headers.set('Strict-Transport-Security', 'max-age=31536000')
+    }
 
     debug(newRes.headers)
 
