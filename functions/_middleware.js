@@ -10,10 +10,6 @@ async function csp({
   Debug.enable(env.DEBUG)
   const url = new URL(request.url)
   if (url.pathname === '/' || url.pathname === '/index.html') {
-    debug('Rewriting index.html for CSP')
-    debug(url.pathname)
-    debug(url.origin)
-
     const nonce = crypto.randomUUID()
 
     const CSPheaderArray = [
@@ -30,9 +26,7 @@ async function csp({
 
     // const res = await env.ASSETS.fetch(`${url.origin}/index.html`)
     const res = await next()
-    debug(res.headers)
     const theBody = await res.text()
-    debug(theBody)
 
     const html = theBody
       .replace(/4ce3a419-321c-4f39-b926-af6776a4b68f/gi, nonce)
@@ -67,12 +61,12 @@ async function csp({
     newRes.headers.set('X-Frame-Options', 'DENY')
     newRes.headers.set('X-Content-Type-Options', 'nosniff')
     newRes.headers.set('Referrer-Policy', 'no-referrer')
-    newRes.headers.set('Permissions-Policy', 'document-domain=()')
     if (env.CF_ENV === 'production' || env.CF_ENV === 'preview') {
       newRes.headers.set('Strict-Transport-Security', 'max-age=31536000')
     }
-
-    debug(newRes.headers)
+    if (env.CF_ENV === 'production') {  // Only set in production so smoke tests in cloudflare preview work
+      newRes.headers.set('Permissions-Policy', 'document-domain=()')
+    }
 
     return newRes
   }
