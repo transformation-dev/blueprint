@@ -11,7 +11,7 @@
   const hashPosition = window.location.href.indexOf('#/')
   if (hashPosition < 0) {
     const url = new URL(window.location.href)
-    window.history.pushState({}, '', url.origin + '/#/')
+    window.history.replaceState(null, '', url.origin + '/#/')
   }
 
 </script>
