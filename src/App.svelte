@@ -78,7 +78,7 @@
 <nav class="navbar is-fixed-top">
   <div class="navbar-brand">
     <a class="navbar-item" href="/#/">
-      <img src={logo} alt="MatrX Logo">
+      <img src={logo} alt="Transformation.dev Blueprint Logo">
     </a>
   </div>
   <div class="navbar-menu">

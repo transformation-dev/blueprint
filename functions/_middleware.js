@@ -1,11 +1,11 @@
 /* eslint-disable prefer-const */
 import Debug from 'debug'
-import { jsonResponse, getDebug } from './_utils'
+import { getDebug } from './_utils'
 
 const debug = getDebug('blueprint:_middleware')
 
 async function csp({
-  request, env, params, next,
+  request, env, next,
 }) {
   Debug.enable(env.DEBUG)
   const url = new URL(request.url)
