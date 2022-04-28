@@ -15,7 +15,7 @@ export async function onRequestGet({ request, env, params }) {
   const myResponse = {
     operationNormal: true,
     count,
-    env,
+    // env.CF_ENV,  // BE CAREFUL NOT TO EVER COMMIT WITH JUST `env` OR WE'LL LEAK ENVIRONMENT VARIABLES
   }
   return jsonResponse(myResponse)
 }

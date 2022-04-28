@@ -8,7 +8,7 @@ export const getDebug = (name, delay = 50) => {
   const debugRaw = Debug(name)
   let quiescent = true
   let theTimeout
-  const theFunction = function debug(value) {
+  const theFunction = function debug(...values) {
     clearTimeout(theTimeout)
     theTimeout = setTimeout(() => {
       quiescent = true
@@ -18,7 +18,7 @@ export const getDebug = (name, delay = 50) => {
       console.error('')
       quiescent = false
     }
-    debugRaw(value)
+    debugRaw(...values)
   }
   return theFunction
 }

@@ -8,12 +8,13 @@ async function csp({
   request, env, next,
 }) {
   Debug.enable(env.DEBUG)
+  // debug('%O', request.headers.get('Cookie') || '')
   const url = new URL(request.url)
   if (url.pathname === '/' || url.pathname === '/index.html') {
     const nonce = crypto.randomUUID()
 
     const CSPheaderArray = [
-      `script-src 'self' 'nonce-${nonce} 'strict-dynamic';`,
+      `script-src 'self' 'nonce-${nonce}' 'strict-dynamic';`,
       "object-src 'none';",
       "base-uri 'none';",
     ]
