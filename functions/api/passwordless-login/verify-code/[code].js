@@ -1,19 +1,24 @@
 import Debug from 'debug'
-import { jsonResponse, getDebug } from '../../_utils'
+import { jsonResponse, getDebug } from '../../../_utils'
 
-const debug = getDebug('blueprint:api:passwordless-login')
+const debug = getDebug('blueprint:api:passwordless-login/[code]')
 
 export async function onRequestGet({ request, env, params }) {
   Debug.enable(env.DEBUG)
   debug('onRequestGet() called')
   debug('%O', params)
 
+  const { code } = params
+  // get code from KV
+  // if no value in KV, add error query parameter to URL and redirect but clear the sessionID in the cookie
+
+  // else, put sessionID in KV and return with it in cookie
+
   const res = new Response(null, {
     status: 302,
     statusText: 'Redirecting',
   })
-  res.headers.set('Location', '/#/')  // TODO: upgrade to using the target URL from the token request
-
+  res.headers.set('Location', '/#/')  // TODO: upgrade to using the target URL from the code request
   res.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
 
   const sessionID = crypto.randomUUID()
@@ -28,9 +33,7 @@ export async function onRequestGet({ request, env, params }) {
     cookieHeaderArray.push('HttpOnly')
   }
   const cookieHeader = cookieHeaderArray.join('; ')
-  debug('cookieHeader: %O', cookieHeader)
   res.headers.set('Set-Cookie', cookieHeader)
-  debug('%O', res.headers)
 
   return res
 }
