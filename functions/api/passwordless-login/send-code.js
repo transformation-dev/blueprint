@@ -8,6 +8,7 @@ export async function onRequestPost({ request, env, params }) {
   debug('onRequestPost() called')
   const body = await request.json()
   const { email, targetURL } = body
+  const { origin } = new URL(targetURL)
   const code = getSecureRandomCode(6)
   await env.SESSIONS.put(code, JSON.stringify(body), { expirationTtl: 60 * 5 })  // TODO: wrap in try/catch
 
@@ -19,7 +20,7 @@ export async function onRequestPost({ request, env, params }) {
     personalizations: [
       {
         to: [{ email }],
-        dynamic_template_data: { code },
+        dynamic_template_data: { code, origin },
       },
     ],
     template_id: 'd-458a6b3bea1d403eb768f9469b6c80a5',
@@ -31,7 +32,7 @@ export async function onRequestPost({ request, env, params }) {
   sendGridRequest.headers.set('Authorization', `Bearer ${env.SENDGRID_LOGIN}`)
   sendGridRequest.headers.set('Content-Type', 'application/json')
   const sendGridResponse = await fetch(sendGridRequest)
-  const sendGridResponseBody = await sendGridResponse.text()
+  // TODO: handle sendGridResponse error 404, 500, etc.
 
-  return jsonResponse({ sendGridResponseBody })
+  return jsonResponse({ success: true })
 }
