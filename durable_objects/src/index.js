@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file */
 // import Debug from "debug"
 // const debugRaw = Debug("blueprint:api:status")
 // function debug(value) {
@@ -18,6 +19,8 @@ export class Counter {
     this.state = state
     this.env = env
   }
+
+  static production = true
 
   // Handle HTTP requests from clients.
   async fetch(request) {
@@ -51,4 +54,8 @@ export class Counter {
 
     return new Response(value)
   }
+}
+
+export class PreviewCounter extends Counter {
+  static production = false
 }

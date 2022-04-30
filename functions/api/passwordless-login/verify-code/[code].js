@@ -10,6 +10,14 @@ export async function onRequestGet({ request, env, params }) {
 
   const { code } = params
   // get code from KV
+  const { email, targetURL } = await env.SESSIONS.get(code)
+  debug('email: %s', email)
+  debug('targetURL: %s', targetURL)
+
+  if (!email) {
+    return jsonResponse({ error: 'Invalid code' })
+  }
+
   // if no value in KV, add error query parameter to URL and redirect but clear the sessionID in the cookie
 
   // else, put sessionID in KV and return with it in cookie
