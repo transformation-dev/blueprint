@@ -58,12 +58,12 @@
 
   async function handleLogout(event) {
     // $authenticated = false
-    // const response = await fetch('/logout', { 
-    //   headers: {
-    //     'Accept': 'application/json',
-    //   },
-    //   credentials: 'same-origin', 
-    // })
+    const response = await fetch('/api/logout', { 
+      headers: {
+        'Accept': 'application/json',
+      },
+      credentials: 'same-origin',
+    })
     // const parsed = await response.json()
     // debug('Got response from /logout: %O', parsed)
     // $authenticated = parsed.authenticated
