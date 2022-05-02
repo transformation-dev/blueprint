@@ -23,6 +23,7 @@
 
 <script>
   import './index.scss'
+  import 'agnostic-svelte/css/common.min.css'
 
   import Debug from "debug"
   const debug = Debug("blueprint:App")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
@@ -57,7 +58,6 @@
   // }
 
   async function handleLogout(event) {
-    // $authenticated = false
     const response = await fetch('/api/logout', { 
       headers: {
         'Accept': 'application/json',
@@ -69,6 +69,39 @@
     $authenticated = parsed.authenticated
   }
 </script>
+
+<style>
+  :root {
+    --agnostic-primary: #077acb;
+    --agnostic-primary-hover: #2087d0;
+    --agnostic-primary-light: #dcf1ff;
+    --agnostic-primary-border: #c1d9e9;
+    --agnostic-primary-dark: #063f69;
+    --agnostic-secondary: #c94d2b;
+    --agnostic-secondary-hover: #bc583d;
+    --agnostic-action: #2fb751;
+    --agnostic-action-light: #e2ffe9;
+    --agnostic-action-border: #c7f0d1;
+    --agnostic-action-hover: #3dd262;
+    --agnostic-warning-light: #fff5d4;
+    --agnostic-warning-border-accent: #ecd386;
+    --agnostic-warning-border: #f0e3b9;
+    --agnostic-warning-dark: #634902;
+    --agnostic-error: #e02e2e;
+    --agnostic-error-dark: #771414;
+    --agnostic-error-light: #ffe0e0;
+    --agnostic-error-border: #eec8c8;
+    --agnostic-gray-extra-light: #f8f8f8;
+    --agnostic-gray-light: #e9e9e9;
+    --agnostic-gray-mid: #d8d8d8;
+    --agnostic-gray-mid-dark: #ccc;
+    --agnostic-gray-dark: #757575;
+    --agnostic-dark: #333;
+    --agnostic-light: #fff;
+    --agnostic-disabled-bg: var(--agnostic-gray-light);
+    --agnostic-disabled-color: var(--agnostic-gray-dark);
+  }
+</style>
 
 <svelte:head>
   <title>Transformation Blueprint{$location}</title>

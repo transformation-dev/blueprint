@@ -13,19 +13,18 @@ export async function onRequestGet({ request, env, params }) {
   debug('value: %O', value)
   const email = value ? value.email : ''
   const targetURL = value ? value.targetURL : ''
-  const { pathname, search, hash } = new URL(targetURL)
-  const location = `${pathname}${search}${hash}` || '/#/'
-
-  debug('email: %s', email)
-  debug('targetURL: %s', targetURL)
-
-  if (!email) {
-    return jsonResponse({ error: 'Invalid code' })
+  const sessionID = crypto.randomUUID()
+  let location
+  let maxAge = '31536000'
+  if (value) {
+    const { pathname, search, hash } = new URL(targetURL)
+    location = `${pathname}${search}${hash}` || '/#/'
+    const DEFAULT_SESSION_TTL_DAYS = 30
+    await env.SESSIONS.put(sessionID, JSON.stringify({ sessionID, email }), { expirationTtl: 60 * 60 * 24 * DEFAULT_SESSION_TTL_DAYS })  // TODO: wrap in try/catch
+  } else {
+    location = '/#/'
+    maxAge = '0'
   }
-
-  // if no value in KV, add error query parameter to URL and redirect but clear the sessionID in the cookie
-
-  // else, put sessionID in KV and return with it in cookie
 
   const res = new Response(null, {
     status: 302,
@@ -34,10 +33,9 @@ export async function onRequestGet({ request, env, params }) {
   res.headers.set('Location', location)
   res.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
 
-  const sessionID = crypto.randomUUID()
   const cookieHeaderArray = [
     `sessionID=${sessionID}`,
-    'Max-Age=31536000',
+    `Max-Age=${maxAge}`,
     'SameSite=Strict',  // Strict only works with SendGrid link tracking disabled
     'path=/',
   ]
@@ -47,9 +45,6 @@ export async function onRequestGet({ request, env, params }) {
   }
   const cookieHeader = cookieHeaderArray.join('; ')
   res.headers.set('Set-Cookie', cookieHeader)
-
-  const DEFAULT_SESSION_TTL_DAYS = 30
-  await env.SESSIONS.put(sessionID, JSON.stringify({ sessionID, email }), { expirationTtl: 60 * 60 * 24 * DEFAULT_SESSION_TTL_DAYS })  // TODO: wrap in try/catch
 
   return res
 }

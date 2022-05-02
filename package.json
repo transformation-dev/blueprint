@@ -33,6 +33,7 @@
     "@cypress/code-coverage": "^3.9.12",
     "@sveltejs/vite-plugin-svelte": "^1.0.0-next.30",
     "@transformation-dev/wrangler": "^0.0.16",
+    "agnostic-svelte": "^1.1.22",
     "bulma": "^0.9.3",
     "bulma-badge": "^3.0.1",
     "bulmaswatch": "^0.8.1",

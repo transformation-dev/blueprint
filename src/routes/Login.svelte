@@ -5,6 +5,7 @@
   import Icon from 'svelte-awesome'
   import {envelope, key} from 'svelte-awesome/icons'
   import {onMount} from 'svelte'
+  import { Button, Input, Card } from 'agnostic-svelte'
 
   import {RealtimeStore} from '@transformation-dev/svelte-realtime-store'
 
@@ -20,18 +21,13 @@
     })
     const parsed = await response.json()
     debug('Got response from /api/check-authentication: %O', parsed)
-    if (parsed.authenticated) {
-      $authenticated = true
-      // RealtimeStore.restoreConnection((connected) => {
-      //   debug('Callback from restoreConnection. connected: %O', connected)
-      // })
-    }
+    $authenticated = parsed.authenticated
   }
 
   onMount(checkAuthentication)
 
-  async function handleLogin(event) {
-    debug('handleLogin() called')
+  async function sendCode(event) {
+    debug('sendCode() called')
     const response = await fetch('/api/passwordless-login/send-code', {
       method: 'POST', 
       headers: {
@@ -41,7 +37,7 @@
       credentials: 'same-origin', 
       body: JSON.stringify({ email, targetURL: window.location.href })
     })
-    debug('In handleLogin after login attempt. response: %O', response)
+    debug('In sendCode after calling /api/send-code. response: %O', response)
     // if (response.ok) {
     //   await checkAuthentication()
     // }
@@ -51,39 +47,19 @@
   
 </script>
 
-<!-- I have no idea what the below code does -->
-<div class="tile is-ancestor">
-  <div class="tile is-parent">
-    <div class="tile is-child is-12"></div>
-  </div>
-</div>
+<!-- <style>
+  form {
+    box-shadow: 5px 10px #888888;
+  }
+</style> -->
 
-<!-- I also don't understand what the first two layers of <div> tags do -->
-<div class="tile is-ancestor">
-  <div class="tile is-parent">
-    <div class="tile is-child"></div>  <!-- If you remove this it doesn't center. Why? -->
-    <div class="tile is-5 is-child has-text-centered box">
-      <p class="title has-text-centered">Login</p>
-      <div class="field">
-        <p class="control has-icons-left">
-          <input class="input" type="email" placeholder="Email" bind:value={email}>
-          <span class="icon is-small is-left">
-            <Icon data={envelope}/>
-          </span>
-        </p>
-      </div>
-      <!-- Restore the section below when we want to allow the user to manually input the code -->
-      <!-- <div class="field">
-        <p class="control has-icons-left">
-          <input class="input" type="password" placeholder="Code">
-          <span class="icon is-small is-left">
-            <Icon data={key}/>
-          </span>
-        </p>
-      </div> -->
-      <button class="button is-success is-centered" id="login" on:click={handleLogin}>Send Login Code to Email</button>
-    </div>
-    <div class="tile is-child"></div>
-  </div>
+<div class="flex justify-center">
+  <form class="p16">
+    <Input isRounded label="Email (required)" placeholder="email@example.com" required bind:value={email}/>
+    <div class="mbe16" />
+    <Button type="submit" mode="primary" isRounded on:click={sendCode}>
+      Send Login Code to Email
+    </Button>
+    <div class="mbe16" />
+  </form>
 </div>
-

@@ -8,7 +8,6 @@ export async function onRequestGet({ request, env, params }) {
   debug('onRequestGet() called')
 
   // extract sessionID from cookie
-  debug(request)
   const sessionID = request.headers.get('Cookie')?.split('sessionID=')[1].split(';')[0]
   debug('sessionID: %s', sessionID)
   // TODO: May need some nullish coalescing in above line
