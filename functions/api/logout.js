@@ -7,10 +7,12 @@ export async function onRequestGet({ request, env, params }) {
   Debug.enable(env.DEBUG)
   debug('onRequestGet() called')
 
-  const res = new Response(null, {
-    status: 200,
-    statusText: 'Logged out',
-  })
+  // const res = new Response(null, {
+  //   status: 200,
+  //   statusText: 'Logged out',
+  // })
+
+  const res = jsonResponse({ authenticated: false })
 
   res.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
 

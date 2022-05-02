@@ -42,8 +42,8 @@
 
   // import {ViewstateStore} from '@transformation-dev/svelte-viewstate-store'
 
-  import {routes, activeComponent} from './router'
-  // import {authenticated} from './stores'
+  import { routes, activeComponent } from './router'
+  import { authenticated } from './stores'
 
   // const teamID = new ViewstateStore({
   //   identifier: 'teamID',
@@ -64,9 +64,9 @@
       },
       credentials: 'same-origin',
     })
-    // const parsed = await response.json()
-    // debug('Got response from /logout: %O', parsed)
-    // $authenticated = parsed.authenticated
+    const parsed = await response.json()
+    debug('Got response from /logout: %O', parsed)
+    $authenticated = parsed.authenticated
   }
 </script>
 

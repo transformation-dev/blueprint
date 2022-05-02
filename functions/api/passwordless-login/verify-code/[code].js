@@ -38,7 +38,7 @@ export async function onRequestGet({ request, env, params }) {
   const cookieHeaderArray = [
     `sessionID=${sessionID}`,
     'Max-Age=31536000',
-    'SameSite=Strict',
+    'SameSite=Strict',  // Strict only works with SendGrid link tracking disabled
     'path=/',
   ]
   if (env.CF_ENV === 'production' || env.CF_ENV === 'preview') {
@@ -47,6 +47,9 @@ export async function onRequestGet({ request, env, params }) {
   }
   const cookieHeader = cookieHeaderArray.join('; ')
   res.headers.set('Set-Cookie', cookieHeader)
+
+  const DEFAULT_SESSION_TTL_DAYS = 30
+  await env.SESSIONS.put(sessionID, JSON.stringify({ sessionID, email }), { expirationTtl: 60 * 60 * 24 * DEFAULT_SESSION_TTL_DAYS })  // TODO: wrap in try/catch
 
   return res
 }
