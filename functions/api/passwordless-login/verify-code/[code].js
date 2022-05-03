@@ -10,13 +10,13 @@ export async function onRequestGet({ request, env, params }) {
   const { code } = params
   // get code from KV
   const value = JSON.parse(await env.SESSIONS.get(code))
-  debug('value: %O', value)
-  const email = value ? value.email : ''
-  const targetURL = value ? value.targetURL : ''
+  const email = value ? value.email : 'testing@transformation.dev'
+  const { origin } = new URL(request.url)
+  const targetURL = value ? value.targetURL : `${origin}/#/plan`  // TODO: Create a page just for testing if you are logged in
   const sessionID = crypto.randomUUID()
   let location
   let maxAge = '31536000'
-  if (value) {
+  if (value || (env.CF_ENV !== 'production' && code === env.TESTING_OVERRIDE_CODE)) {
     const { pathname, search, hash } = new URL(targetURL)
     location = `${pathname}${search}${hash}` || '/#/'
     const DEFAULT_SESSION_TTL_DAYS = 30

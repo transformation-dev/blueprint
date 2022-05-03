@@ -101,7 +101,6 @@
     --agnostic-light: #fff;
     --agnostic-disabled-bg: var(--agnostic-gray-light);
     --agnostic-disabled-color: var(--agnostic-gray-dark);
-
   }
 
   .navbar {
@@ -153,7 +152,7 @@
       {/if}
     {/each}
   </div>
-  <Button mode="primary" on:click={handleLogout}>
+  <Button id="logout" mode="primary" on:click={handleLogout}>
     <Icon data={signOut}/>
   </Button>
 </div>
