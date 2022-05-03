@@ -101,44 +101,47 @@
     --agnostic-disabled-bg: var(--agnostic-gray-light);
     --agnostic-disabled-color: var(--agnostic-gray-dark);
   }
+
+  .navbar {
+    overflow: hidden;
+    background-color: #333;
+    position: fixed; /* Set the navbar to fixed position */
+    top: 0; /* Position the navbar at the top of the page */
+    width: 100%; /* Full width */
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .logo {
+    max-height: 24px;
+  }
 </style>
 
 <svelte:head>
-  <title>Transformation Blueprint{$location}</title>
+  <title>Transformation Blueprint {$location}</title>
   <!-- <link rel="icon" type="image/png" href="favicon.png"> -->  <!-- moved to index.html -->
 </svelte:head>
 
-<nav class="navbar is-fixed-top">
-  <div class="navbar-brand">
-    <a class="navbar-item" href="/#/">
-      <img src={logo} alt="Transformation.dev Blueprint Logo">
-    </a>
-  </div>
-  <div class="navbar-menu">
-    <div class="navbar-start">
-      {#each [...routes] as [route, value]}
-        {#if value.navbarLabel}
-          <a class="navbar-item" use:routerLink class:is-active={$location === route} href={route}>
-            {value.navbarLabel}
-          </a>
-        {/if}
-      {/each}
-    </div>
-    <div class="navbar-end">
-      <div class="navbar-item">
-        <div class="field is-grouped">
-          <p class="control">
-            <button id="logout" on:click={handleLogout} class="button is-rounded is-small"> 
-              <Icon data={signOut}/>
-              Logout
-            </button>
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-</nav>
-
+<!-- Need to stop using the class has-navbar-fixed-top in line below -->
 <Body class="has-navbar-fixed-top" />
+
+<div class="navbar">
+  <div class="flex items-center">
+    <a href="/#/">
+      <img class="m12 logo" src={logo} alt="Transformation.dev Blueprint Logo">
+    </a>
+    {#each [...routes] as [route, value]}
+      {#if value.navbarLabel}
+        <a class="m12" use:routerLink class:is-active={$location === route} href={route}>
+          {value.navbarLabel}
+        </a>
+      {/if}
+    {/each}
+  </div>
+  <button id="logout" on:click={handleLogout} class="m16 button is-rounded is-small"> 
+    <Icon data={signOut}/>
+    Logout
+  </button>
+</div>
 
 <svelte:component this={$activeComponent} />
