@@ -24,6 +24,7 @@
 <script>
   import './index.scss'
   import 'agnostic-svelte/css/common.min.css'
+  import { Button } from 'agnostic-svelte'
 
   import Debug from "debug"
   const debug = Debug("blueprint:App")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
@@ -73,7 +74,7 @@
 <style>
   :root {
     --agnostic-primary: #077acb;
-    --agnostic-primary-hover: #2087d0;
+    --agnostic-primary-hover: #659ac1;
     --agnostic-primary-light: #dcf1ff;
     --agnostic-primary-border: #c1d9e9;
     --agnostic-primary-dark: #063f69;
@@ -100,11 +101,12 @@
     --agnostic-light: #fff;
     --agnostic-disabled-bg: var(--agnostic-gray-light);
     --agnostic-disabled-color: var(--agnostic-gray-dark);
+
   }
 
   .navbar {
     overflow: hidden;
-    background-color: #333;
+    background-color: var(--agnostic-dark);
     position: fixed; /* Set the navbar to fixed position */
     top: 0; /* Position the navbar at the top of the page */
     width: 100%; /* Full width */
@@ -114,6 +116,19 @@
 
   .logo {
     max-height: 24px;
+  }
+
+  .is-active {
+    color: var(--agnostic-primary-light);
+  }
+
+  a {
+    color: var(--agnostic-primary);
+    text-decoration: none;
+  }
+
+  a:hover { 
+    color: var(--agnostic-primary-hover);
   }
 </style>
 
@@ -128,20 +143,19 @@
 <div class="navbar">
   <div class="flex items-center">
     <a href="/#/">
-      <img class="m12 logo" src={logo} alt="Transformation.dev Blueprint Logo">
+      <img class="mbs8 mis8 logo" src={logo} alt="Transformation.dev Blueprint Logo">
     </a>
     {#each [...routes] as [route, value]}
       {#if value.navbarLabel}
-        <a class="m12" use:routerLink class:is-active={$location === route} href={route}>
+        <a class="mis16" use:routerLink class:is-active={$location === route} href={route}>
           {value.navbarLabel}
         </a>
       {/if}
     {/each}
   </div>
-  <button id="logout" on:click={handleLogout} class="m16 button is-rounded is-small"> 
+  <Button mode="primary" on:click={handleLogout}>
     <Icon data={signOut}/>
-    Logout
-  </button>
+  </Button>
 </div>
 
 <svelte:component this={$activeComponent} />

@@ -63,7 +63,7 @@
     toastEnabled = true
     setTimeout(() => {
       toastEnabled = false
-    }, 5000)
+    }, 3000)
   }
   
 </script>
