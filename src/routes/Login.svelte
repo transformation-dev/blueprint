@@ -47,8 +47,29 @@
   }
 
   async function verifyCode(event) {
-    debug('sendCode() called')
-    window.history.pushState({}, '', `/api/passwordless-login/verify-code/${code}`)
+    debug('verifyCode() called')
+
+    const response = await fetch('/api/passwordless-login/verify-code', {
+      method: 'POST', 
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      credentials: 'same-origin', 
+      body: JSON.stringify({ code, targetURL: window.location.href })
+    })
+
+    debug('In verifyCode after POST /api/passwordless-login/verify-code. response: %O', response)
+    const parsed = await response.json()
+    debug('In verifyCode after POST /api/passwordless-login/verify-code. parsed: %O', parsed)
+    $authenticated = parsed.success
+    if (parsed.success) {
+      showToast({ message: 'Login successful', messageType: 'success' })
+    } else {
+      showToast({ message: 'Invalid code', messageType: 'error' })
+    }
+    // TODO: Don't use pushState. Instead, create a new endpoint that will just return the result of a code verification and then display toast
+    // window.history.pushState({}, '', `/api/passwordless-login/verify-code/${code}`)
   }
 
   let email = ''  // TODO: get this from localStorage (and store it there in handleLogin)
