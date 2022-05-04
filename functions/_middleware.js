@@ -33,12 +33,15 @@ async function csp({
     const theBody = await res.text()
     debug('theBody: %O', theBody)
 
-    const html = theBody
-      // .replace(/4ce3a419-321c-4f39-b926-af6776a4b68f/gi, nonce)
-      .replace(/4ce3a419321c4f39b926af6776a4b68f/g, nonce)
-      .replace(
+    const html = theBody  // TODO: upgrade this to use the HTML rewriter
+      .replace(/4ce3a419321c4f39b926af6776a4b68f/g, nonce)  // this is only used in vite dev mode
+      .replace(  // also only in vite dev mode
         'src="/@vite/client"',
         `nonce="${nonce}" src="/@vite/client"`,
+      )
+      .replace(  // this is used in preview and production modes
+        '<script type="module" crossorigin src="/assets/',
+        `<script type="module" nonce="${nonce}" src="/assets/`,
       )
       .replace(
         'src="https://ajax.cloudflare.com',
