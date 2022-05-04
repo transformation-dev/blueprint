@@ -12,7 +12,9 @@ async function csp({
   const url = new URL(request.url)
   if (url.pathname === '/' || url.pathname === '/index.html') {
     debug('/ or /index.html requested. Setting CSP header.')
-    const nonce = crypto.randomUUID()
+    const nonce = crypto.randomUUID().replace(/-/g, '')
+    // const nonce = 'abcd1234'
+    debug('nonce: %s', nonce)
 
     const CSPheaderArray = [
       `script-src 'self' 'nonce-${nonce}' 'strict-dynamic';`,
@@ -29,9 +31,15 @@ async function csp({
     // const res = await env.ASSETS.fetch(`${url.origin}/index.html`)
     const res = await next()
     const theBody = await res.text()
+    debug('theBody: %O', theBody)
 
     const html = theBody
-      .replace(/4ce3a419-321c-4f39-b926-af6776a4b68f/gi, nonce)
+      // .replace(/4ce3a419-321c-4f39-b926-af6776a4b68f/gi, nonce)
+      .replace(/4ce3a419321c4f39b926af6776a4b68f/g, nonce)
+      .replace(
+        'src="/@vite/client"',
+        `nonce="${nonce}" src="/@vite/client"`,
+      )
       .replace(
         'src="https://ajax.cloudflare.com',
         `nonce="${nonce}" src="https://ajax.cloudflare.com`,
@@ -45,14 +53,20 @@ async function csp({
         `cloudflare-static/email-decode.min.js" nonce="${nonce}"`,
       )
 
+    debug('html:\n%s', html)
+
     const newRes = new Response(html, {
       status: res.status,
       statusText: res.statusText,
     })
 
+    const ignoreTheseHeaders = [
+      'access-control-allow-origin',
+      'content-length',
+    ]
     // eslint-disable-next-line no-restricted-syntax
     for (const [key, value] of res.headers) {
-      if (!(key.toLowerCase() === 'access-control-allow-origin')) {
+      if (!ignoreTheseHeaders.includes(key.toLowerCase())) {
         newRes.headers.set(key, value)
       }
     }
@@ -70,6 +84,8 @@ async function csp({
       newRes.headers.set('Permissions-Policy', 'document-domain=()')
     }
     newRes.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+
+    debug('newRes.headers: %O', newRes.headers)
 
     return newRes
   }

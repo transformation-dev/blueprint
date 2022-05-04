@@ -9,8 +9,6 @@ context('Authentication', () => {
       .click()
 
     cy.visit("/#/test-jig")
-      
-    cy.get("#login")
 
   })
 

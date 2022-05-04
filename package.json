@@ -14,7 +14,7 @@
     "start": "env BROWSER=none npx @transformation-dev/wrangler pages dev --binding SENDGRID_LOGIN=$SENDGRID_LOGIN TESTING_OVERRIDE_CODE=$TESTING_OVERRIDE_CODE DEBUG=\"blueprint:*\" --mount transformation-durable_objects=./durable_objects --do COUNTER=PreviewCounter@transformation-durable_objects --kv SESSIONS --proxy 3001 -- vite preview --host",
     "build-and-start": "npm run build && npm run start",
     "cypress:run": "cypress run",
-    "cypress:active": "cypress run --spec cypress/integration/window.spec.js",
+    "cypress:active": "cypress run --spec cypress/integration/authentication.spec.js",
     "test": "start-server-and-test build-and-start http://localhost:8788 cypress:run",
     "test:active": "start-server-and-test build-and-start http://localhost:8788 cypress:active",
     "coverage:build": "npm run build:durable_objects && npx vite build --config vite-coverage.config.js",
@@ -59,7 +59,6 @@
     "@transformation-dev/svelte-realtime-store": "file:packages/svelte-realtime-store",
     "@transformation-dev/svelte-viewstate-store": "file:packages/svelte-viewstate-store",
     "debug": "^4.3.3",
-    "short-unique-id": "^4.4.4",
     "svelte": "^3.44.0",
     "svelte-spa-router": "^3.2.0"
   }
