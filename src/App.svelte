@@ -78,8 +78,8 @@
     --agnostic-primary-light: #dcf1ff;
     --agnostic-primary-border: #c1d9e9;
     --agnostic-primary-dark: #063f69;
-    --agnostic-secondary: #c94d2b;
-    --agnostic-secondary-hover: #bc583d;
+    --agnostic-secondary: #49826A;
+    --agnostic-secondary-hover: #80AB9B;
     --agnostic-action: #2fb751;
     --agnostic-action-light: #e2ffe9;
     --agnostic-action-border: #c7f0d1;
@@ -101,6 +101,13 @@
     --agnostic-light: #fff;
     --agnostic-disabled-bg: var(--agnostic-gray-light);
     --agnostic-disabled-color: var(--agnostic-gray-dark);
+
+    --blueprint-culture: #49826A;
+    --blueprint-actions: #80AB9B;
+    --blueprint-words: #BFD5CC;
+    --blueprint-thoughts: #FFFFFF;
+    --blueprint-unknown: #A8C4D8;
+    --blueprint-tradeoff: #CCCCCC;
   }
 
   .navbar {
@@ -111,6 +118,11 @@
     width: 100%; /* Full width */
     display: flex;
     justify-content: space-between;
+  }
+
+  .thin-divider {
+    background-color: var(--blueprint-culture);
+    height: 5px;
   }
 
   .logo {
@@ -139,22 +151,25 @@
 <!-- Need to stop using the class has-navbar-fixed-top in line below -->
 <Body class="has-navbar-fixed-top" />
 
-<div class="navbar">
-  <div class="flex items-center">
-    <a href="/#/">
-      <img class="mbs8 mis8 logo" src={logo} alt="Transformation.dev Blueprint Logo">
-    </a>
-    {#each [...routes] as [route, value]}
-      {#if value.navbarLabel}
-        <a class="mis16" use:routerLink class:is-active={$location === route} href={route}>
-          {value.navbarLabel}
-        </a>
-      {/if}
-    {/each}
+<div class="navbar flex flex-column">
+  <div class="thin-divider"></div>
+  <div class="flex flex-row justify-between">
+    <div class="flex items-center">
+      <a href="/#/">
+        <img class="mbs8 mis8 logo" src={logo} alt="Transformation.dev Blueprint Logo">
+      </a>
+      {#each [...routes] as [route, value]}
+        {#if value.navbarLabel}
+          <a class="mis16" use:routerLink class:is-active={$location === route} href={route}>
+            {value.navbarLabel}
+          </a>
+        {/if}
+      {/each}
+    </div>
+    <Button id="logout" mode="primary" on:click={handleLogout}>
+      <Icon data={signOut}/>
+    </Button>
   </div>
-  <Button id="logout" mode="primary" on:click={handleLogout}>
-    <Icon data={signOut}/>
-  </Button>
 </div>
 
 <svelte:component this={$activeComponent} />

@@ -11,6 +11,7 @@ async function csp({
   // debug('%O', request.headers.get('Cookie') || '')
   const url = new URL(request.url)
   if (url.pathname === '/' || url.pathname === '/index.html') {
+    debug('/ or /index.html requested. Setting CSP header.')
     const nonce = crypto.randomUUID()
 
     const CSPheaderArray = [
@@ -68,6 +69,7 @@ async function csp({
     if (env.CF_ENV === 'production') {  // Only set in production so smoke tests in cloudflare preview work
       newRes.headers.set('Permissions-Policy', 'document-domain=()')
     }
+    newRes.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
 
     return newRes
   }
