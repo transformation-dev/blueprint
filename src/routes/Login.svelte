@@ -62,12 +62,13 @@
     debug('In verifyCode after POST /api/passwordless-login/verify-code. response: %O', response)
     const parsed = await response.json()
     debug('In verifyCode after POST /api/passwordless-login/verify-code. parsed: %O', parsed)
-    $authenticated = parsed.success
     if (parsed.success) {
       showToast({ message: 'Login successful', messageType: 'success' })
     } else {
       showToast({ message: 'Invalid code', messageType: 'error' })
     }
+    // $authenticated = parsed.success
+    await checkAuthentication()
     // TODO: Don't use pushState. Instead, create a new endpoint that will just return the result of a code verification and then display toast
     // window.history.pushState({}, '', `/api/passwordless-login/verify-code/${code}`)
   }
@@ -86,20 +87,27 @@
       toastEnabled = false
     }, 3000)
   }
-  
 </script>
+
+<style>
+  .icon {
+    color: var(--blueprint-culture);
+  }
+</style>
 
 <div class="flex justify-center">
   <form class="p16">
-    <Input isRounded label="Email" placeholder="email@example.com" bind:value={email}/>
+    <Input id="email" isRounded label="Email" placeholder="email@example.com" bind:value={email} />
     <div class="mbe16" />
-    <Button type="submit" mode="primary" isRounded on:click={sendCode}>
+    <Button id="send-code" type="submit" mode="primary" isRounded on:click={sendCode}>
+      <Icon class="mie8" data={envelope} />
       Send Code to Email
     </Button>
     <div class="mbe40" />
-    <Input isRounded label="Code" placeholder="123456" required bind:value={code}/>
+    <Input id="code" isRounded label="Code" placeholder="123456" required bind:value={code}/>
     <div class="mbe16" />
-    <Button type="submit" mode="action" isRounded on:click={verifyCode}>
+    <Button id="verify-code" type="submit" mode="action" isRounded on:click={verifyCode}>
+      <Icon class="mie8" data={key} />
       Verify Code
     </Button>
     <div class="mbe16" />
@@ -108,6 +116,6 @@
 
 <Toasts portalRootSelector="body" horizontalPosition="center" verticalPosition="top">
   <Toast isOpen={toastEnabled} type={toastMessageType}>
-    <p>{toastMessage}</p>
+    <p id="toast-message">{toastMessage}</p>
   </Toast>
 </Toasts>

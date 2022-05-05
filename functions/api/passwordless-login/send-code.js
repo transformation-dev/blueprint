@@ -8,7 +8,7 @@ export async function onRequestPost({ request, env, params }) {
   debug('onRequestPost() called')
   const body = await request.json()
   const { email, targetURL } = body
-  if (!email) {
+  if (!email) {  // TODO: upgrade this with a real email validator
     return jsonResponse({ success: false, message: 'Invalid email', messageType: 'warning' })
   }
   const { origin } = new URL(targetURL)

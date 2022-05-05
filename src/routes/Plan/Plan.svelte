@@ -110,7 +110,7 @@
     {/if}
 
     {#if $startOn <= 0 &&  endOn >= 0}
-      <div in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} class="column has-text-centered has-background-info">
+      <div id="todo-formulation-grid" in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} class="column has-text-centered has-background-info">
         <FormulationGrid slideLabel={slides[0].label} />
       </div>
     {/if}
