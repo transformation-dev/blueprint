@@ -13,8 +13,6 @@ async function csp({
   if (url.pathname === '/' || url.pathname === '/index.html') {
     debug('/ or /index.html requested. Setting CSP header.')
     const nonce = crypto.randomUUID().replace(/-/g, '')
-    // const nonce = 'abcd1234'
-    debug('nonce: %s', nonce)
 
     const CSPheaderArray = [
       `script-src 'self' 'nonce-${nonce}' 'strict-dynamic';`,
@@ -31,7 +29,6 @@ async function csp({
     // const res = await env.ASSETS.fetch(`${url.origin}/index.html`)
     const res = await next()
     const theBody = await res.text()
-    debug('theBody: %O', theBody)
 
     const html = theBody  // TODO: upgrade this to use the HTML rewriter
       .replace(/4ce3a419321c4f39b926af6776a4b68f/g, nonce)  // this is only used in vite dev mode
@@ -55,8 +52,6 @@ async function csp({
         'cloudflare-static/email-decode.min.js"',
         `cloudflare-static/email-decode.min.js" nonce="${nonce}"`,
       )
-
-    debug('html:\n%s', html)
 
     const newRes = new Response(html, {
       status: res.status,
@@ -87,8 +82,6 @@ async function csp({
       newRes.headers.set('Permissions-Policy', 'document-domain=()')
     }
     newRes.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
-
-    debug('newRes.headers: %O', newRes.headers)
 
     return newRes
   }

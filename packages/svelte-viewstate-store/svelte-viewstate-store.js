@@ -63,6 +63,7 @@ export class ViewstateStore {
   }
 
   set(newValue) {
+    debug(`${this.storeConfig.identifier} set to ${newValue}`)
     this.wrappedStore.set(newValue)
     window.localStorage[`${this.scope}.${this.storeConfig.identifier}`] = newValue
     ViewstateStore.queueURLUpdate(this.storeConfig.identifier, newValue)
@@ -121,6 +122,7 @@ ViewstateStore.processPendingURLUpdates = function () {
   }
   const newURLSearchString = urlSearchParams.toString()
   if (newURLSearchString !== currentURLSearchString) {
+    debug('in ViewstateStore.processPendingURLUpdates. About to push: %s', `${location}?${newURLSearchString}`)
     push(`${location}?${newURLSearchString}`)
   }
   ViewstateStore.pendingURLUpdates = {}

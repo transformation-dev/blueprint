@@ -88,20 +88,18 @@ export const getSecureRandomCode = (digits) => {
 
 export const verifyCode = async ({ env, code, targetURL }) => {
   debug('_utils.verifyCode() called')
-  debug('code: %O', code)
   const sessionString = code ? await env.SESSIONS.get(code) : null
   let location
   let maxAge = '31536000'
   let success = true
   let sessionID = ''
   if (sessionString || (env.CF_ENV !== 'production' && code === env.TESTING_OVERRIDE_CODE)) {
-    debug('sessionString: %s', sessionString)
     const value = JSON.parse(sessionString)
-    debug('value: %s', value)
     const email = value ? value.email : 'testing@transformation.dev'
     const confirmedTargetURL = value ? value.targetURL : targetURL
     const { pathname, search, hash } = new URL(confirmedTargetURL)
     location = `${pathname}${search}${hash}` || '/#/login'
+    debug('location: %s', location)
     const DEFAULT_SESSION_TTL_DAYS = 30
     sessionID = crypto.randomUUID()
     await env.SESSIONS.put(sessionID, JSON.stringify({ sessionID, email }), { expirationTtl: 60 * 60 * 24 * DEFAULT_SESSION_TTL_DAYS })  // TODO: wrap in try/catch

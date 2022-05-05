@@ -8,7 +8,7 @@ export async function onRequestGet({ request, env, params }) {
   debug('onRequestGet() called')
 
   // extract sessionID from cookie
-  const sessionID = request.headers.get('Cookie')?.split('sessionID=')[1].split(';')[0]
+  const sessionID = request.headers.get('Cookie')?.split('sessionID=')[1]?.split(';')[0]
   debug('sessionID: %s', sessionID)
   if (!sessionID) {
     return jsonResponse({ authenticated: false, message: 'Not logged in.', messageType: 'info' })

@@ -36,7 +36,6 @@ export async function onRequestPost({ request, env, params }) {
   sendGridRequest.headers.set('Authorization', `Bearer ${env.SENDGRID_LOGIN}`)
   sendGridRequest.headers.set('Content-Type', 'application/json')
   const sendGridResponse = await fetch(sendGridRequest)
-  debug('sendGridResponse: %O', sendGridResponse)
   if (sendGridResponse.status !== 202) {
     return jsonResponse({ success: false, message: 'Error sending email. Try again.', messageType: 'error' })
   }

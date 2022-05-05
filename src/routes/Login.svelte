@@ -28,7 +28,7 @@
     showToast(parsed)
   }
 
-  onMount(checkAuthentication)
+  // onMount(checkAuthentication)
 
   async function sendCode(event) {
     debug('sendCode() called')
@@ -59,16 +59,14 @@
       body: JSON.stringify({ code, targetURL: window.location.href })
     })
 
-    debug('In verifyCode after POST /api/passwordless-login/verify-code. response: %O', response)
     const parsed = await response.json()
-    debug('In verifyCode after POST /api/passwordless-login/verify-code. parsed: %O', parsed)
     if (parsed.success) {
       showToast({ message: 'Login successful', messageType: 'success' })
     } else {
       showToast({ message: 'Invalid code', messageType: 'error' })
     }
-    // $authenticated = parsed.success
-    await checkAuthentication()
+    $authenticated = parsed.success
+    // await checkAuthentication()
     // TODO: Don't use pushState. Instead, create a new endpoint that will just return the result of a code verification and then display toast
     // window.history.pushState({}, '', `/api/passwordless-login/verify-code/${code}`)
   }
@@ -104,7 +102,7 @@
       Send Code to Email
     </Button>
     <div class="mbe40" />
-    <Input id="code" isRounded label="Code" placeholder="123456" required bind:value={code}/>
+    <Input id="code" isRounded label="Code" placeholder="123456" bind:value={code}/>
     <div class="mbe16" />
     <Button id="verify-code" type="submit" mode="action" isRounded on:click={verifyCode}>
       <Icon class="mie8" data={key} />
