@@ -10,7 +10,7 @@ import { RealtimeStore } from '@transformation-dev/svelte-realtime-store'
 const debug = Debug('blueprint:stores.js')  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
 // export const { connected } = RealtimeStore
-export const connected = writable(true)
+export const connected = writable(false)
 
 export const authenticated = writable(false)
 // export const readyToGo = writable('not ready')  // 'getting ready', 'ready'

@@ -97,14 +97,14 @@
   <form class="p16">
     <Input id="email" isRounded label="Email" placeholder="email@example.com" bind:value={email} />
     <div class="mbe16" />
-    <Button id="send-code" type="submit" mode="primary" isRounded on:click={sendCode}>
+    <Button id="send-code" mode="primary" isRounded on:click={sendCode}>
       <Icon class="mie8" data={envelope} />
       Send Code to Email
     </Button>
     <div class="mbe40" />
     <Input id="code" isRounded label="Code" placeholder="123456" bind:value={code}/>
     <div class="mbe16" />
-    <Button id="verify-code" type="submit" mode="action" isRounded on:click={verifyCode}>
+    <Button id="verify-code" mode="action" isRounded on:click={verifyCode}>
       <Icon class="mie8" data={key} />
       Verify Code
     </Button>

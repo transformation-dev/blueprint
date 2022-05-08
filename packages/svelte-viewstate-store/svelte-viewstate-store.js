@@ -123,7 +123,7 @@ ViewstateStore.processPendingURLUpdates = function () {
   const newURLSearchString = urlSearchParams.toString()
   if (newURLSearchString !== currentURLSearchString) {
     debug('in ViewstateStore.processPendingURLUpdates. About to push: %s', `${location}?${newURLSearchString}`)
-    push(`${location}?${newURLSearchString}`)
+    // push(`${location}?${newURLSearchString}`)
   }
   ViewstateStore.pendingURLUpdates = {}
   ViewstateStore.timer = null
