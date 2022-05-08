@@ -66,9 +66,7 @@
       showToast({ message: 'Invalid code', messageType: 'error' })
     }
     $authenticated = parsed.success
-    // await checkAuthentication()
-    // TODO: Don't use pushState. Instead, create a new endpoint that will just return the result of a code verification and then display toast
-    // window.history.pushState({}, '', `/api/passwordless-login/verify-code/${code}`)
+    await checkAuthentication()
   }
 
   let email = ''  // TODO: get this from localStorage (and store it there in handleLogin)
