@@ -1,8 +1,30 @@
+<!-- <script>
+  import './index.scss'
+  import logo from './assets/svelte.png'
+  import Counter from './lib/Counter.svelte'
+</script>
+
+<main>
+  <img src={logo} alt="Svelte Logo" />
+  <h1>Hello World!</h1>
+
+  <Counter />
+
+  <p>
+    Visit <a href="https://svelte.dev">svelte.dev</a> to learn how to build Svelte
+    apps.
+  </p>
+
+  <p>
+    Check out <a href="https://github.com/sveltejs/kit#readme">SvelteKit</a> for
+    the officially supported framework, also powered by Vite!
+  </p>
+</main> -->
 
 <script>
   import './index.scss'
   import 'agnostic-svelte/css/common.min.css'
-  import { Button, Header, HeaderNav, HeaderNavItem } from 'agnostic-svelte'
+  import { Button } from 'agnostic-svelte'
 
   import Debug from "debug"
   const debug = Debug("blueprint:App")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
@@ -49,56 +71,6 @@
   }
 </script>
 
-<svelte:head>
-  <title>Transformation Blueprint {$location}</title>
-</svelte:head>
-
-<!-- Need to stop using the class has-navbar-fixed-top in line below -->
-<!-- <Body class="has-navbar-fixed-top" />
-
-<div class="navbar flex flex-column">
-  <div class="thin-divider"></div>
-  <div class="flex flex-row justify-between">
-    <div class="flex items-center">
-      <a href="/#/">
-        <img class="mbs8 mis8 logo" src={logo} alt="Transformation.dev Blueprint Logo">
-      </a>
-      {#each [...routes] as [route, value]}
-        {#if value.navbarLabel}
-          <a class="mis16" use:routerLink class:is-active={$location === route} href={route}>
-            {value.navbarLabel}
-          </a>
-        {/if}
-      {/each}
-    </div>
-    <Button id="logout" mode="primary" on:click={handleLogout}>
-      <Icon data={signOut}/>
-    </Button>
-  </div>
-</div> -->
-
-
-<!-- <div class="navbar"> -->
-  <!-- <div class="thin-divider"></div> -->
-  <Header css="header-overrides">
-    <a slot="logoleft" href="/#/">
-      <img class="mbs8 mis8 logo" src={logo} alt="Transformation.dev Blueprint Logo">
-    </a>
-    <HeaderNav css="nav-overrides">
-      <HeaderNavItem><a href="#home">Home</a></HeaderNavItem>
-      <HeaderNavItem><a href="#products">Products</a></HeaderNavItem>
-      <HeaderNavItem><a href="#services">Services</a></HeaderNavItem>
-      <HeaderNavItem><a href="#about">About</a></HeaderNavItem>
-    </HeaderNav>
-    <a slot="logoright" href="/#/">
-      <img class="mbs8 mis8 logo" src={logo} alt="Transformation.dev Blueprint Logo">
-    </a>
-  </Header>
-<!-- </div> -->
-<svelte:component this={$activeComponent} />
-
-
-
 <style>
   :root {
     --agnostic-primary: #077acb;
@@ -130,18 +102,22 @@
     --agnostic-disabled-bg: var(--agnostic-gray-light);
     --agnostic-disabled-color: var(--agnostic-gray-dark);
 
-    --agnostic-header-content-width: 100%;
-    --agnostic-header-background-color: var(--agnostic-primary-dark);
-    --agnostic-header-color: var(--agnostic-primary-light);
-
-    --fluid-24: 0px;
-
     --blueprint-culture: #49826A;
     --blueprint-actions: #80AB9B;
     --blueprint-words: #BFD5CC;
     --blueprint-thoughts: #FFFFFF;
     --blueprint-unknown: #A8C4D8;
     --blueprint-tradeoff: #CCCCCC;
+  }
+
+  .navbar {
+    overflow: hidden;
+    background-color: var(--agnostic-dark);
+    position: fixed; /* Set the navbar to fixed position */
+    top: 0; /* Position the navbar at the top of the page */
+    width: 100%; /* Full width */
+    display: flex;
+    justify-content: space-between;
   }
 
   .thin-divider {
@@ -166,3 +142,34 @@
     color: var(--agnostic-primary-hover);
   }
 </style>
+
+<svelte:head>
+  <title>Transformation Blueprint {$location}</title>
+  <!-- <link rel="icon" type="image/png" href="favicon.png"> -->  <!-- moved to index.html -->
+</svelte:head>
+
+<!-- Need to stop using the class has-navbar-fixed-top in line below -->
+<Body class="has-navbar-fixed-top" />
+
+<div class="navbar flex flex-column">
+  <div class="thin-divider"></div>
+  <div class="flex flex-row justify-between">
+    <div class="flex items-center">
+      <a href="/#/">
+        <img class="mbs8 mis8 logo" src={logo} alt="Transformation.dev Blueprint Logo">
+      </a>
+      {#each [...routes] as [route, value]}
+        {#if value.navbarLabel}
+          <a class="mis16" use:routerLink class:is-active={$location === route} href={route}>
+            {value.navbarLabel}
+          </a>
+        {/if}
+      {/each}
+    </div>
+    <Button id="logout" mode="primary" on:click={handleLogout}>
+      <Icon data={signOut}/>
+    </Button>
+  </div>
+</div>
+
+<svelte:component this={$activeComponent} />
