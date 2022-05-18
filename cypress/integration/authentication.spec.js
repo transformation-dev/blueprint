@@ -11,7 +11,7 @@ context('Authentication', () => {
   })
 
   it('should display an error on a blank email', () => {
-    cy.visit("/?#/plan")
+    cy.visit("/#/plan")
       .get("#send-code")
       .click()
 
@@ -20,7 +20,7 @@ context('Authentication', () => {
   })
 
   it('should declare success when an email is sent', () => {
-    cy.visit("/?#/plan")
+    cy.visit("/#/plan")
       .get("#email")
       .type("whatever@mailinator.com")
       .get("#send-code")
@@ -31,7 +31,7 @@ context('Authentication', () => {
   })
 
   it('should display an error on a blank code', () => {
-    cy.visit("/?#/plan")
+    cy.visit("/#/plan")
       .get("#verify-code")
       .click()
 
@@ -40,7 +40,7 @@ context('Authentication', () => {
   })
 
   it('should display an error when a bad code is entered', () => {
-    cy.visit("/?#/plan")
+    cy.visit("/#/plan")
       .get("#code")
       .type("some-bad-code")
       .get("#verify-code")
@@ -51,7 +51,7 @@ context('Authentication', () => {
   })
 
   it('should go to the plan page when a good code is entered', () => {
-    cy.visit("/?#/plan")
+    cy.visit("/#/plan")
       .get("#code")
       .type(Cypress.env('TESTING_OVERRIDE_CODE'))
       .get("#verify-code")
