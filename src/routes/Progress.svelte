@@ -20,8 +20,9 @@
 
 </script>
 
+
 <!-- Legend -->
-<div style="position: sticky; top: 3rem; padding-left: 30px; padding-right: 15px;" class="columns has-background-white">
+<div class="columns has-background-white">
   {#each levelConfig as level}
     <div class="column is-label">
       <div class="columns has-text-centered is-gapless is-vcentered">
@@ -74,6 +75,7 @@
 
   </div>
 </div>
+
 
 <style>
   .legend-color-indicator {

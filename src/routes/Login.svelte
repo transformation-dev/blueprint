@@ -66,7 +66,7 @@
       showToast({ message: 'Invalid code', messageType: 'error' })
     }
     $authenticated = parsed.success
-    await checkAuthentication()
+    // await checkAuthentication()
   }
 
   let email = ''  // TODO: get this from localStorage (and store it there in handleLogin)

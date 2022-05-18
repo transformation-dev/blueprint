@@ -24,6 +24,7 @@
 
   import { routes, activeComponent } from './router'
   import { authenticated } from './stores'
+  import UnderlineTab from './components/UnderlineTab.svelte'
 
   // const teamID = new ViewstateStore({
   //   identifier: 'teamID',
@@ -53,50 +54,28 @@
   <title>Transformation Blueprint {$location}</title>
 </svelte:head>
 
-<!-- Need to stop using the class has-navbar-fixed-top in line below -->
-<!-- <Body class="has-navbar-fixed-top" />
+<div class="thin-divider"></div>
+<Header css="header-overrides">
+  <a slot="logoleft" class="focus-link" href="/#/">
+    <img class="mbs8 mis8 logo" src={logo} alt="Transformation.dev Blueprint Logo">
+  </a>
+  <HeaderNav css="nav-overrides">
+    {#each [...routes] as [route, value]}
+      {#if value.navbarLabel}
+        <HeaderNavItem css="nav-item-override">
+          <UnderlineTab label={value.navbarLabel} href={route} />
+        </HeaderNavItem>
+      {/if}
+    {/each}
+  </HeaderNav>
+  <button id="logout" slot="logoright" on:click={handleLogout}>
+    <Icon scale={1.3} data={signOut} class="logout" />
+  </button>
+</Header>
 
-<div class="navbar flex flex-column">
-  <div class="thin-divider"></div>
-  <div class="flex flex-row justify-between">
-    <div class="flex items-center">
-      <a href="/#/">
-        <img class="mbs8 mis8 logo" src={logo} alt="Transformation.dev Blueprint Logo">
-      </a>
-      {#each [...routes] as [route, value]}
-        {#if value.navbarLabel}
-          <a class="mis16" use:routerLink class:is-active={$location === route} href={route}>
-            {value.navbarLabel}
-          </a>
-        {/if}
-      {/each}
-    </div>
-    <Button id="logout" mode="primary" on:click={handleLogout}>
-      <Icon data={signOut}/>
-    </Button>
-  </div>
-</div> -->
-
-
-<!-- <div class="navbar"> -->
-  <!-- <div class="thin-divider"></div> -->
-  <Header css="header-overrides">
-    <a slot="logoleft" href="/#/">
-      <img class="mbs8 mis8 logo" src={logo} alt="Transformation.dev Blueprint Logo">
-    </a>
-    <HeaderNav css="nav-overrides">
-      <HeaderNavItem><a href="#home">Home</a></HeaderNavItem>
-      <HeaderNavItem><a href="#products">Products</a></HeaderNavItem>
-      <HeaderNavItem><a href="#services">Services</a></HeaderNavItem>
-      <HeaderNavItem><a href="#about">About</a></HeaderNavItem>
-    </HeaderNav>
-    <a slot="logoright" href="/#/">
-      <img class="mbs8 mis8 logo" src={logo} alt="Transformation.dev Blueprint Logo">
-    </a>
-  </Header>
-<!-- </div> -->
-<svelte:component this={$activeComponent} />
-
+<div class="page">
+  <svelte:component this={$activeComponent} />
+</div>
 
 
 <style>
@@ -129,10 +108,13 @@
     --agnostic-light: #fff;
     --agnostic-disabled-bg: var(--agnostic-gray-light);
     --agnostic-disabled-color: var(--agnostic-gray-dark);
+    --agnostic-focus-ring-outline-width: 3px;
 
     --agnostic-header-content-width: 100%;
     --agnostic-header-background-color: var(--agnostic-primary-dark);
     --agnostic-header-color: var(--agnostic-primary-light);
+    --agnostic-vertical-pad: 0px;
+    --agnostic-header-nav-spacing: 0px;
 
     --fluid-24: 0px;
 
@@ -144,25 +126,68 @@
     --blueprint-tradeoff: #CCCCCC;
   }
 
+  .header-overrides {
+    padding-block-start: 0px;
+  }
+
+  .nav-overrides {
+    height: 100%;
+    padding-block-start: 0px;
+    margin-inline-end: 0px;
+  }
+
+  .nav-item-override {
+    padding-inline-start: 0px;
+    margin-inline-end: 0px;
+  }
+
   .thin-divider {
     background-color: var(--blueprint-culture);
     height: 5px;
   }
 
   .logo {
-    max-height: 24px;
+    max-height: 30px;
+    margin-inline-end: 8px;
   }
 
-  .is-active {
-    color: var(--agnostic-primary-light);
+  /* Focusing the button with a keyboard will show a focus ring. */
+  .focus-link:focus-visible {
+    outline: 3px var(--agnostic-primary-light);
   }
+  
+  /* Focusing the button with a mouse, touch, or stylus will make it look like a button is down. */
+  .focus-link:focus:not(:focus-visible) {
+    outline: 0px;
+    box-shadow: inset 1px 1px 5px black;
+  }
+
+  /* Focusing the button with a mouse, touch, or stylus will make it look like a button is down. */
+  /* .no-focus-link:focus:not(:focus-visible) {
+    outline: 0px;
+    box-shadow: inset 1px 1px 5px black;
+  } */
 
   a {
     color: var(--agnostic-primary);
-    text-decoration: none;
   }
 
   a:hover { 
     color: var(--agnostic-primary-hover);
+    text-decoration: none;
   }
+
+  .logout,
+  #logout {
+    margin-inline: 8px; 
+    margin-block: 8px;
+    color: var(--agnostic-primary-light);
+    background-color: var(--agnostic-header-background-color);
+    border: 0px;
+  }
+
+  .page {
+    padding: 1rem;
+  }
+
 </style>
