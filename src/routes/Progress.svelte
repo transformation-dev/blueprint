@@ -1,6 +1,12 @@
 <script>
   import Icon from 'svelte-awesome'
-  import {trophy, comments, listUl, lightbulbO, question, balanceScale} from 'svelte-awesome/icons'
+  import trophy from 'svelte-awesome/icons/trophy'
+  import comments from 'svelte-awesome/icons/comments'
+  import listUl from 'svelte-awesome/icons/list-ul'
+  import lightbulbO from 'svelte-awesome/icons/lightbulb-o'
+  import question from 'svelte-awesome/icons/question'
+  import balanceScale from 'svelte-awesome/icons/balance-scale'
+
 
   const a = new Array(30)
 

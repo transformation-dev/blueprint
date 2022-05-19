@@ -3,7 +3,9 @@
   const debug = Debug("blueprint:Login")
 
   import Icon from 'svelte-awesome'
-  import {envelope, key} from 'svelte-awesome/icons'
+  import envelope from 'svelte-awesome/icons/envelope'
+  import key from 'svelte-awesome/icons/key'
+
   import {onMount} from 'svelte'
   import { Button, Input, Toast, Toasts } from 'agnostic-svelte'
 

@@ -18,7 +18,7 @@
 
   import {link as routerLink, location} from 'svelte-spa-router'  // TODO: Move these to svelte-viewstate-store 
   import Icon from 'svelte-awesome'
-  import {signOut} from 'svelte-awesome/icons'
+  import signOut from 'svelte-awesome/icons/sign-out'
 
   // import {ViewstateStore} from '@transformation-dev/svelte-viewstate-store'
 
@@ -172,6 +172,8 @@
     color: var(--agnostic-primary);
   }
 
+  .logout:hover,
+  #logout:hover,
   a:hover { 
     color: var(--agnostic-primary-hover);
     text-decoration: none;
