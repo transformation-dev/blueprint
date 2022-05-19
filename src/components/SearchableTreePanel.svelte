@@ -1,14 +1,5 @@
 <script>
   
-  import {
-    Page,
-    Searchbar,
-    Link,
-    Block,
-    BlockHeader,
-    Treeview,
-  } from 'framework7-svelte'
-
   import RecursiveTreeNode from './RecursiveTreeNode.svelte'
 
   export let tree
@@ -69,6 +60,7 @@
   $: {
     foundCount = 0
     showAll = (! searchString || searchString.length === 0)
+    console.log(JSON.stringify(tree, null, 2))
     treeCopy = structuredClone(tree)  // Works with circular references which means it should also work with a DAG
     stitchParents(treeCopy, null)
     markTree(treeCopy, searchString)
@@ -78,9 +70,9 @@
 
 </script>
 
-<Page>
-  <!-- <Block> -->
-  <Searchbar
+<div class='page'>
+
+  <!-- <Searchbar
     placeholder="Search"
     clearButton={true}
     customSearch={true}
@@ -96,10 +88,10 @@
         iconIos="f7:chevron_left" iconAurora="f7:chevron_left" iconMd="material:chevron_left" 
     />
     </div>
-  </Searchbar>
+  </Searchbar> -->
 
-    <BlockHeader>Search</BlockHeader>
-    <Treeview>
+    <h1>Search</h1>
+    <ul>
       <!-- Using a callback because an event is ugly with the recursion, and a store only updates if the user selects a different node  -->
       <RecursiveTreeNode
         tree={preparedTree}
@@ -108,6 +100,7 @@
         handleNodeChosen={handleNodeChosen}
         chosenBreadcrumbsArray={chosenBreadcrumbsArray}
       />
-    </Treeview>
+    </ul>
   <!-- </Block> -->
-</Page>
+  </div>
+

@@ -9,8 +9,6 @@ import { RealtimeStore } from '@transformation-dev/svelte-realtime-store'
 
 const debug = Debug('blueprint:stores.js')  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
-// TODO: Change every name to have "Store" at the end to make it clear that you need to use $<store_nameStore> to access the value
-
 // export const { connected } = RealtimeStore
 export const connected = writable(true)
 
@@ -30,8 +28,6 @@ export const readyToGo = derived(  // 'not ready', 'getting ready', 'ready'
   },
   'not ready',
 )
-
-export const accountInitializedStore = writable(true)
 
 export const openPracticeID = new ViewstateStore({
   identifier: 'openPracticeID',
@@ -114,54 +110,6 @@ export const queueSwimlanes = writable({
     label: 'Stretch',
   },
 })
-
-export const chosenOrgBreadcrumbsArrayStore = writable([])
-
-const dagNode = {id: 'DAGNode', label: 'DAG Node'}
-export const authorizedTreeStore = writable([
-  {
-    id: 'node1',
-    label: 'Node 1',
-    children: [  
-      {
-        id: 'node1.1',
-        label: 'Node 1.1',
-        children: [  
-          {
-            id: 'node1.1.1',
-            label: 'Node 1.1.1', // Intentionally missing children to test
-          },
-          {
-            id: 'node1.1.2',
-            label: 'Node 1.1.2 is Strong',
-            children: []  // Intentionally has children but empty to test
-          },
-          dagNode,
-        ]
-      },
-      {
-        id: 'node1.2',
-        label: 'Node 1.2',
-        children: []
-      },
-      dagNode,
-    ]
-  },
-  {
-    id: 'node2',
-    label: 'Node 2',
-    children: []
-  },
-  {
-    id: 'node3',
-    label: 'Node 3',
-  },
-  {
-    id: 'node4',
-    label: 'Node 4',
-    children: []
-  },
-])
 
 // export const plan = realtimeClient.realtime({_entityID: 'plan'}, {
 export const plan = new RealtimeStore({

@@ -1,5 +1,5 @@
+
 <script>
-  import { f7, TreeviewItem } from 'framework7-svelte'
 
   export let tree
   export let showAll
@@ -9,8 +9,8 @@
   export let parentBreadcrumbsArray = []
 
   function clickTreeNode(e, node) {
-    var $ = f7.$
-    if ($(e.target).is('.treeview-toggle')) return
+    // var $ = f7.$
+    // if ($(e.target).is('.treeview-toggle')) return
     handleNodeChosen(getNewBreadcrumbsArray(parentBreadcrumbsArray, node))
   }
 
@@ -28,14 +28,28 @@
     return true
   }
 
+  import { slide } from 'svelte/transition'
+  import Icon from 'svelte-awesome'
+  import arrowRight from 'svelte-awesome/icons/arrow-right'
+  import arrowLeft from 'svelte-awesome/icons/arrow-left'
+
+  // export let level = 0
+	
+  function toggle() {
+    // node.expanded = !node.expanded
+    console.log('got toggle')
+  }
+
+  console.log
+
 </script>
 
 {#each tree as node}
   {#if node.show || showAll}
     {#if node.children?.length > 0}
-      <TreeviewItem selectable selected={node.highlight} opened={node.show && openAllShown} onClick={(e) => clickTreeNode(e, node)}>
+      <!-- <TreeviewItem selectable selected={node.highlight} opened={node.show && openAllShown} onClick={(e) => clickTreeNode(e, node)}> -->
+      <li on:click={toggle} style="padding-left:{parentBreadcrumbsArray.length * 1}rem" transition:slide>
         <div 
-          slot="label" 
           class:chosen={breadcrumbsEqual(chosenBreadcrumbsArray, getNewBreadcrumbsArray(parentBreadcrumbsArray, node))} 
         >
           {@html node.label}
@@ -48,16 +62,16 @@
           openAllShown={openAllShown}
           parentBreadcrumbsArray = {getNewBreadcrumbsArray(parentBreadcrumbsArray, node)}
         />
-      </TreeviewItem>
+      </li>
     {:else}
-      <TreeviewItem selectable selected={node.highlight} onClick={(e) => clickTreeNode(e, node)}>
+      <!-- <TreeviewItem selectable selected={node.highlight} onClick={(e) => clickTreeNode(e, node)}> -->
+      <li on:click={toggle} style="padding-left:{parentBreadcrumbsArray.length * 1}rem" transition:slide>
         <div 
-          slot="label" 
           class:chosen={breadcrumbsEqual(chosenBreadcrumbsArray, getNewBreadcrumbsArray(parentBreadcrumbsArray, node))} 
         >
           {@html node.label}
         </div>
-      </TreeviewItem>
+      </li>
     {/if}
   {/if}
 {/each}
@@ -67,3 +81,31 @@
     color: var(--blueprint-light-blue);
   }
 </style>
+
+<!--
+  <li on:click={toggle} style="padding-left:{level*1}rem" transition:slide>
+    {#if !node.expanded }
+      <Icon data={arrowRight} />
+    {:else}
+      <Icon data={arrowLeft} />
+    {/if}
+    {node.data}
+  </li>
+  
+  {#if node.expanded && node.children}
+      {#each node.children as child}
+        <svelte:self node={child} level={level+1}/>
+      {/each}
+  {/if}
+  
+  <style>
+    li {
+        border-bottom: solid 1px #eee;
+        margin: 0 0;
+        padding: 0rem;
+        background: #fafafa;
+        display: flex;
+    }
+  </style>
+
+-->
