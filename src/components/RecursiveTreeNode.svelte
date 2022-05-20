@@ -33,37 +33,39 @@
 
 </script>
 
-{#each tree as node}
-  {#if node.show || showAll}
-    {#if node.children?.length > 0}
-      <TreeNode level={parentBreadcrumbsArray.length} selected={node.highlight} opened={node.show && openAllShown} onClick={(e) => clickTreeNode(e, node)}>
-      
-        <div slot="label"
-          class:chosen={breadcrumbsEqual(chosenBreadcrumbsArray, getNewBreadcrumbsArray(parentBreadcrumbsArray, node))} 
-        >
-          {@html node.label}
-        </div>
-        <svelte:self 
-          slot="children"
-          tree={node.children}         
-          handleNodeChosen={handleNodeChosen}
-          chosenBreadcrumbsArray={chosenBreadcrumbsArray}
-          showAll={showAll}
-          openAllShown={openAllShown}
-          parentBreadcrumbsArray = {getNewBreadcrumbsArray(parentBreadcrumbsArray, node)}
-        />
-      </TreeNode>
-    {:else}
-      <TreeNode level={parentBreadcrumbsArray.length} selected={node.highlight} onClick={(e) => clickTreeNode(e, node)}>
-        <div slot="label"
-          class:chosen={breadcrumbsEqual(chosenBreadcrumbsArray, getNewBreadcrumbsArray(parentBreadcrumbsArray, node))} 
-        >
-          {@html node.label}
-        </div>
-      </TreeNode>
+<ul>
+  {#each tree as node}
+    {#if node.show || showAll}
+      {#if node.children?.length > 0}
+        <TreeNode level={parentBreadcrumbsArray.length} selected={node.highlight} opened={node.show && openAllShown} onClick={(e) => clickTreeNode(e, node)}>
+        
+          <div slot="label"
+            class:chosen={breadcrumbsEqual(chosenBreadcrumbsArray, getNewBreadcrumbsArray(parentBreadcrumbsArray, node))} 
+          >
+            {@html node.label}
+          </div>
+          <svelte:self 
+            slot="children"
+            tree={node.children}         
+            handleNodeChosen={handleNodeChosen}
+            chosenBreadcrumbsArray={chosenBreadcrumbsArray}
+            showAll={showAll}
+            openAllShown={openAllShown}
+            parentBreadcrumbsArray = {getNewBreadcrumbsArray(parentBreadcrumbsArray, node)}
+          />
+        </TreeNode>
+      {:else}
+        <TreeNode level={parentBreadcrumbsArray.length} selected={node.highlight} onClick={(e) => clickTreeNode(e, node)}>
+          <div slot="label"
+            class:chosen={breadcrumbsEqual(chosenBreadcrumbsArray, getNewBreadcrumbsArray(parentBreadcrumbsArray, node))} 
+          >
+            {@html node.label}
+          </div>
+        </TreeNode>
+      {/if}
     {/if}
-  {/if}
-{/each}
+  {/each}
+</ul>
 
 <style>
   .chosen {

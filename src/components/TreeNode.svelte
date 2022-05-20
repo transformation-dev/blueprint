@@ -10,6 +10,7 @@
   import arrowDown from 'svelte-awesome/icons/arrow-down'
 
   function toggle(e) {
+    console.log(level)
     console.log('got toggle', e)
     e.stopPropagation()
     opened = !opened
@@ -17,9 +18,11 @@
 
 </script>
 
-<li on:click={toggle} style="padding-left:{level * 1}rem;" transition:slide>
+<li on:click={toggle} style="padding-left: 1.5rem;" transition:slide>
   <div style="display: flex;">
-    <Icon data={opened ? arrowDown : arrowRight} />
+    <div style="width: 1.5rem;">
+      <Icon data={opened ? arrowDown : arrowRight} />
+    </div>
     <slot name="label"></slot>
   </div>
   {#if opened}

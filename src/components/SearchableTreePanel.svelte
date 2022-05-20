@@ -92,16 +92,14 @@
   </Searchbar> -->
 
     <h1>Search</h1>
-    <ul>
-      <!-- Using a callback because an event is ugly with the recursion, and a store only updates if the user selects a different node  -->
-      <RecursiveTreeNode
-        tree={preparedTree}
-        showAll={showAll}
-        openAllShown={openAllShown}
-        handleNodeChosen={handleNodeChosen}
-        chosenBreadcrumbsArray={chosenBreadcrumbsArray}
-      />
-    </ul>
+    <!-- Using a callback because an event is ugly with the recursion, and a store only updates if the user selects a different node  -->
+    <RecursiveTreeNode
+      tree={preparedTree}
+      showAll={showAll}
+      openAllShown={openAllShown}
+      handleNodeChosen={handleNodeChosen}
+      chosenBreadcrumbsArray={chosenBreadcrumbsArray}
+    />
   <!-- </Block> -->
   </div>
 

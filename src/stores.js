@@ -117,49 +117,55 @@ export const queueSwimlanes = writable({
 
 export const chosenOrgBreadcrumbsArrayStore = writable([])
 
-const dagNode = {id: 'DAGNode', label: 'DAG Node'}
+const dagNode = { id: 'DAGNode', label: 'DAG Node' }
 export const authorizedTreeStore = writable([
   {
     id: 'node1',
     label: 'Node 1',
-    children: [  
+    children: [
       {
         id: 'node1.1',
         label: 'Node 1.1',
-        children: [  
+        children: [
           {
             id: 'node1.1.1',
-            label: 'Node 1.1.1', // Intentionally missing children to test
+            label: 'Node 1.1.1',
+            children: [
+              {
+                id: 'node1.1.1.1',
+                label: 'Node 1.1.1.1',
+              },
+            ],
           },
           {
             id: 'node1.1.2',
             label: 'Node 1.1.2 is Strong',
-            children: []  // Intentionally has children but empty to test
+            children: [],  // Intentionally has children but empty to test
           },
           dagNode,
-        ]
+        ],
       },
       {
         id: 'node1.2',
         label: 'Node 1.2',
-        children: []
+        children: [],
       },
       dagNode,
-    ]
+    ],
   },
   {
     id: 'node2',
     label: 'Node 2',
-    children: []
+    children: [],
   },
   {
     id: 'node3',
-    label: 'Node 3',
+    label: 'Node 3',  // Intentionally missing children to test
   },
   {
     id: 'node4',
     label: 'Node 4',
-    children: []
+    children: [],
   },
 ])
 
