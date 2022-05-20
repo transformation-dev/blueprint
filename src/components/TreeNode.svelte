@@ -6,8 +6,8 @@
 
   import { slide } from 'svelte/transition'
   import Icon from 'svelte-awesome'
-  import arrowRight from 'svelte-awesome/icons/arrow-right'
-  import arrowDown from 'svelte-awesome/icons/arrow-down'
+  import caretRight from 'svelte-awesome/icons/caret-right'
+  import caretDown from 'svelte-awesome/icons/caret-down'
 
   function toggle(e) {
     console.log(level)
@@ -18,10 +18,12 @@
 
 </script>
 
-<li on:click={toggle} style="padding-left: 1.5rem;" transition:slide>
+<li on:click={toggle} style="padding-left: {level ? 1.5 : 0}rem;" transition:slide>
   <div style="display: flex;">
     <div style="width: 1.5rem;">
-      <Icon data={opened ? arrowDown : arrowRight} />
+      {#if $$slots.children}
+        <Icon data={opened ? caretDown : caretRight} />
+      {/if}
     </div>
     <slot name="label"></slot>
   </div>
