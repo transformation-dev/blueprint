@@ -61,8 +61,9 @@
     foundCount = 0
     showAll = (! searchString || searchString.length === 0)
     console.log(JSON.stringify(tree, null, 2))
+    // @ts-ignore
     treeCopy = structuredClone(tree)  // Works with circular references which means it should also work with a DAG
-    stitchParents(treeCopy, null)
+    stitchParents(treeCopy, null)  // TODO: Store it with parents already stitched
     markTree(treeCopy, searchString)
     openAllShown = foundCount < 40
     preparedTree = treeCopy

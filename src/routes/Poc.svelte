@@ -22,5 +22,4 @@
 
 <h1>POC</h1>
 
-
 <SearchableTreePanel tree={$authorizedTreeStore} handleNodeChosen={handleOrgChosen} chosenBreadcrumbsArray={$chosenOrgBreadcrumbsArrayStore} />

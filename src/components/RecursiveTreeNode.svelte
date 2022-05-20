@@ -1,14 +1,17 @@
 
 <script>
 
-  export let tree
+  export let tree  // root is assumed to be an array
   export let showAll
   export let openAllShown
   export let handleNodeChosen  // Using a callback because the event approach was ugly with the recursion 
   export let chosenBreadcrumbsArray
   export let parentBreadcrumbsArray = []
 
+  import TreeNode from './TreeNode.svelte'
+
   function clickTreeNode(e, node) {
+    console.log('got clickTreeNode', node)
     // var $ = f7.$
     // if ($(e.target).is('.treeview-toggle')) return
     handleNodeChosen(getNewBreadcrumbsArray(parentBreadcrumbsArray, node))
@@ -28,33 +31,20 @@
     return true
   }
 
-  import { slide } from 'svelte/transition'
-  import Icon from 'svelte-awesome'
-  import arrowRight from 'svelte-awesome/icons/arrow-right'
-  import arrowLeft from 'svelte-awesome/icons/arrow-left'
-
-  // export let level = 0
-	
-  function toggle() {
-    // node.expanded = !node.expanded
-    console.log('got toggle')
-  }
-
-  console.log
-
 </script>
 
 {#each tree as node}
   {#if node.show || showAll}
     {#if node.children?.length > 0}
-      <!-- <TreeviewItem selectable selected={node.highlight} opened={node.show && openAllShown} onClick={(e) => clickTreeNode(e, node)}> -->
-      <li on:click={toggle} style="padding-left:{parentBreadcrumbsArray.length * 1}rem" transition:slide>
-        <div 
+      <TreeNode level={parentBreadcrumbsArray.length} selected={node.highlight} opened={node.show && openAllShown} onClick={(e) => clickTreeNode(e, node)}>
+      
+        <div slot="label"
           class:chosen={breadcrumbsEqual(chosenBreadcrumbsArray, getNewBreadcrumbsArray(parentBreadcrumbsArray, node))} 
         >
           {@html node.label}
         </div>
         <svelte:self 
+          slot="children"
           tree={node.children}         
           handleNodeChosen={handleNodeChosen}
           chosenBreadcrumbsArray={chosenBreadcrumbsArray}
@@ -62,16 +52,15 @@
           openAllShown={openAllShown}
           parentBreadcrumbsArray = {getNewBreadcrumbsArray(parentBreadcrumbsArray, node)}
         />
-      </li>
+      </TreeNode>
     {:else}
-      <!-- <TreeviewItem selectable selected={node.highlight} onClick={(e) => clickTreeNode(e, node)}> -->
-      <li on:click={toggle} style="padding-left:{parentBreadcrumbsArray.length * 1}rem" transition:slide>
-        <div 
+      <TreeNode level={parentBreadcrumbsArray.length} selected={node.highlight} onClick={(e) => clickTreeNode(e, node)}>
+        <div slot="label"
           class:chosen={breadcrumbsEqual(chosenBreadcrumbsArray, getNewBreadcrumbsArray(parentBreadcrumbsArray, node))} 
         >
           {@html node.label}
         </div>
-      </li>
+      </TreeNode>
     {/if}
   {/if}
 {/each}
