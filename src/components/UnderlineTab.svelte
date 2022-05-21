@@ -49,15 +49,14 @@
   }
 
   .label {
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 1rem;
+    font-weight: 300;
     color: var(--agnostic-primary-light);
   }
 
   .label:hover {
     color: var(--agnostic-primary-hover);
   }
-
 
   .tab-marker {
     height: 5px;

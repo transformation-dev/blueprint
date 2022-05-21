@@ -1,8 +1,10 @@
 
 <script>
-  import './index.scss'
+  // import './index.scss'
   import 'agnostic-svelte/css/common.min.css'
-  import { Button, Header, HeaderNav, HeaderNavItem } from 'agnostic-svelte'
+  import Header from 'agnostic-svelte/components/Header/Header.svelte'
+  import HeaderNav from 'agnostic-svelte/components/Header/HeaderNav.svelte'
+  import HeaderNavItem from 'agnostic-svelte/components/Header/HeaderNavItem.svelte'
 
   import Debug from "debug"
   const debug = Debug("blueprint:App")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
@@ -10,11 +12,6 @@
   import { Body } from 'svelte-body'
 
   import logo from './assets/transformation-blueprint-logo.png'
-
-  // const {NODE_ENV} = process.env
-  // if (NODE_ENV !== 'production') {
-  //   // require('whatwg-fetch')
-  // }
 
   import {link as routerLink, location} from 'svelte-spa-router'  // TODO: Move these to svelte-viewstate-store 
   import Icon from 'svelte-awesome'
@@ -32,7 +29,6 @@
   //   scope: '/'
   // })
 
-
   // if (location.pathname === '/') {
   //   replace('/#/')
   // }
@@ -48,6 +44,26 @@
     debug('Got response from /logout: %O', parsed)
     $authenticated = parsed.authenticated
   }
+
+  // let treeDrawer
+  // const assignDrawerRef = (ev) => {
+  //   treeDrawer = ev.detail.instance
+  //   treeDrawer.show()
+  // }
+
+  // const openTree = () => {
+  //   treeDrawer?.show()
+  // }
+
+  // const closeTree = () => {
+  //   treeDrawer?.hide()
+  // }
+
+let toasts = []
+const addToast = (newToast) => {  // { type, message, duration }
+  toasts = [...toasts, newToast];
+}
+
 </script>
 
 <svelte:head>
@@ -73,8 +89,31 @@
   </button>
 </Header>
 
-<div class="page">
-  <svelte:component this={$activeComponent} />
+<div class="flex">
+  <div>Tree or Breadcrumbs</div>
+
+  <!-- The resizer -->
+  <div class="resizer" id="dragMe"></div>
+
+  <div class="flex flex-column flex-fill">
+    <div id="toasts" class="flex flex-column flex-fill">
+      <div id="toast-1" class="flex">
+        <div class="flex flex-fill justify-center">
+          Toast 1
+        </div>
+        <div class="mie8">Close Icon</div>
+      </div>
+      <div id="toast-2" class="flex">
+        <div class="flex flex-fill justify-center">
+          Toast 2
+        </div>
+        <div class="mie8">Close Icon</div>
+      </div>
+    </div>
+    <div id="page" class="p16">
+      <svelte:component this={$activeComponent} />
+    </div>
+  </div>
 </div>
 
 
@@ -115,6 +154,10 @@
     --agnostic-header-color: var(--agnostic-primary-light);
     --agnostic-vertical-pad: 0px;
     --agnostic-header-nav-spacing: 0px;
+
+    --agnostic-font-weight-light: 300;
+    --agnostic-font-family-serif: Georgia, Cambria, "Times New Roman", Times, serif;
+    --agnostic-font-family-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", sans-serif;
 
     --fluid-24: 0px;
 
@@ -162,12 +205,6 @@
     box-shadow: inset 1px 1px 5px black;
   }
 
-  /* Focusing the button with a mouse, touch, or stylus will make it look like a button is down. */
-  /* .no-focus-link:focus:not(:focus-visible) {
-    outline: 0px;
-    box-shadow: inset 1px 1px 5px black;
-  } */
-
   a {
     color: var(--agnostic-primary);
   }
@@ -188,8 +225,13 @@
     border: 0px;
   }
 
-  .page {
+  #page {
     padding: 1rem;
+  }
+
+  :root {
+    font-family: var(--agnostic-font-family-body);
+    font-weight: var(--agnostic-font-weight-light);
   }
 
 </style>

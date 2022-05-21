@@ -6,8 +6,11 @@
   import envelope from 'svelte-awesome/icons/envelope'
   import key from 'svelte-awesome/icons/key'
 
-  import {onMount} from 'svelte'
-  import { Button, Input, Toast, Toasts } from 'agnostic-svelte'
+  import { onMount } from 'svelte'
+  import Button from 'agnostic-svelte/components/Button/Button.svelte'
+  import Input from 'agnostic-svelte/components/Input/Input.svelte'
+  import Toast from 'agnostic-svelte/components/Toasts/Toast.svelte'
+  import Toasts from 'agnostic-svelte/components/Toasts/Toasts.svelte'
 
   import {RealtimeStore} from '@transformation-dev/svelte-realtime-store'
 

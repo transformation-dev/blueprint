@@ -1,10 +1,10 @@
 
 <script>
   export let opened = false
-  export let selected = false
+  export let highlighted = false
   export let level = 0
 
-  import { slide } from 'svelte/transition'
+  import { slide, fly } from 'svelte/transition'
   import Icon from 'svelte-awesome'
   import caretRight from 'svelte-awesome/icons/caret-right'
   import caretDown from 'svelte-awesome/icons/caret-down'
@@ -18,7 +18,8 @@
 
 </script>
 
-<li on:click={toggle} style="padding-left: {level ? 1.5 : 0}rem;" transition:slide>
+<!-- Using short duration on out transition to prevent a stutter when the tree disapears -->
+<li on:click={toggle} style="padding-left: {level ? 1.5 : 0}rem;" in:slide out:slide="{{ duration: 1 }}">
   <div style="display: flex;">
     <div style="width: 1.5rem;">
       {#if $$slots.children}
