@@ -8,6 +8,8 @@ context('Authentication', () => {
     cy.get("#logout")
       .click()
 
+    cy.get("#toast-close")
+      .click()
   })
 
   it('should display an error on a blank email', () => {
@@ -17,6 +19,9 @@ context('Authentication', () => {
 
     cy.get("#toast-message")
       .should("contain", "Invalid email")
+
+    cy.get("#toast-close")
+      .click()
   })
 
   it('should declare success when an email is sent', () => {
@@ -32,6 +37,9 @@ context('Authentication', () => {
 
     cy.get("#toast-message")
       .should("contain", "Code sent")
+
+    cy.get("#toast-close")
+      .click()
   })
 
   it('should display an error on a blank code', () => {
@@ -41,6 +49,9 @@ context('Authentication', () => {
 
     cy.get("#toast-message")
       .should("contain", "Invalid code")
+
+    cy.get("#toast-close")
+      .click()
   })
 
   it('should display an error when a bad code is entered', () => {
@@ -52,6 +63,9 @@ context('Authentication', () => {
 
     cy.get("#toast-message")
       .should("contain", "Invalid code")
+
+    cy.get("#toast-close")
+      .click()
   })
 
   it('should go to the plan page when a good code is entered', () => {
@@ -60,22 +74,28 @@ context('Authentication', () => {
       .type(Cypress.env('TESTING_OVERRIDE_CODE'))
       .get("#verify-code")
       .click()
+    
+    cy.get("#toast-close")
+      .click()
 
     cy.get("#todo-formulation-grid")
   })
-  
+
   it('should display a message when you log out', () => {
     cy.get("#logout")
       .click()
 
     cy.get("#toast-message")
       .should("contain", "You are logged out")
+
+    cy.get("#toast-close")
+      .click()
   })
 
   // eslint-disable-next-line no-undef
-  afterEach(() => {
-    cy.get("#logout")
-      .click()
-  })
+  // afterEach(() => {
+  //   cy.get("#logout")
+  //     .click()
+  // })
 
 })

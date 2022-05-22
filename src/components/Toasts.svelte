@@ -15,7 +15,7 @@
       <div class="flex flex-fill justify-center self-center small" class:warning={toast.messageType==="warning"} class:error={toast.messageType==="error"} class:success={toast.messageType==="success"}>
         {toast.message}
       </div>
-      <button on:click={(e) => closeToast(toast)} class="mie1 inherit-colors no-border">
+      <button id="toast-close" on:click={(e) => closeToast(toast)} class="mie1 inherit-colors no-border">
         <Icon scale={.7} data={close} class="mis4 mie4" />
       </button>
     </div>
