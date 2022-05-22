@@ -9,18 +9,21 @@
   import Debug from "debug"
   const debug = Debug("blueprint:App")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
+  import { slide } from 'svelte/transition'
   import { Body } from 'svelte-body'
 
   import logo from './assets/transformation-blueprint-logo.png'
 
   import {link as routerLink, location} from 'svelte-spa-router'  // TODO: Move these to svelte-viewstate-store 
+
   import Icon from 'svelte-awesome'
   import signOut from 'svelte-awesome/icons/sign-out'
+  import close from 'svelte-awesome/icons/close'
 
   // import {ViewstateStore} from '@transformation-dev/svelte-viewstate-store'
 
   import { routes, activeComponent } from './router'
-  import { authenticated } from './stores'
+  import { authenticated, toastsStore, addToast, closeToast } from './stores'
   import UnderlineTab from './components/UnderlineTab.svelte'
 
   // const teamID = new ViewstateStore({
@@ -43,6 +46,9 @@
     const parsed = await response.json()
     debug('Got response from /logout: %O', parsed)
     $authenticated = parsed.authenticated
+    if (parsed.authenticated === false) {
+      addToast({ messageType: 'success', message: 'You are logged out'})
+    }
   }
 
   // let treeDrawer
@@ -58,11 +64,6 @@
   // const closeTree = () => {
   //   treeDrawer?.hide()
   // }
-
-let toasts = []
-const addToast = (newToast) => {  // { type, message, duration }
-  toasts = [...toasts, newToast];
-}
 
 </script>
 
@@ -95,21 +96,22 @@ const addToast = (newToast) => {  // { type, message, duration }
   <!-- The resizer -->
   <div class="resizer" id="dragMe"></div>
 
+  <!-- The right side -->
   <div class="flex flex-column flex-fill">
+    <!-- Toasts TODO: move to a component -->
     <div id="toasts" class="flex flex-column flex-fill">
-      <div id="toast-1" class="flex">
-        <div class="flex flex-fill justify-center">
-          Toast 1
+      {#each $toastsStore as toast}
+        <div id="toast-message" transition:slide class="flex" class:warning={toast.messageType==="warning"} class:error={toast.messageType==="error"} class:success={toast.messageType==="success"}>
+          <div class="flex flex-fill justify-center" class:warning={toast.messageType==="warning"} class:error={toast.messageType==="error"} class:success={toast.messageType==="success"}>
+            {toast.message}
+          </div>
+          <button on:click={(e) => closeToast(toast)} class="mie1 inherit-color no-border">
+            <Icon scale={1} data={close} class="mis4 mie4" />
+          </button>
         </div>
-        <div class="mie8">Close Icon</div>
-      </div>
-      <div id="toast-2" class="flex">
-        <div class="flex flex-fill justify-center">
-          Toast 2
-        </div>
-        <div class="mie8">Close Icon</div>
-      </div>
+      {/each}
     </div>
+    <!-- The page -->
     <div id="page" class="p16">
       <svelte:component this={$activeComponent} />
     </div>
@@ -169,6 +171,30 @@ const addToast = (newToast) => {  // { type, message, duration }
     --blueprint-tradeoff: #CCCCCC;
   }
 
+  .inherit-color {
+    background-color: inherit;
+    color: inherit;
+  }
+
+  .no-border {
+    border: 0px;
+  }
+
+  .warning {
+    background-color: var(--agnostic-warning-light);
+    color: var(--agnostic-warning-dark);
+  }
+
+  .error {
+    background-color: var(--agnostic-error-light);
+    color: var(--agnostic-error-dark);
+  }
+
+  .success {
+    background-color: var(--agnostic-action-light);
+    color: var(--agnostic-action-dark);
+  }
+
   .header-overrides {
     padding-block-start: 0px;
   }
@@ -213,7 +239,6 @@ const addToast = (newToast) => {  // { type, message, duration }
   #logout:hover,
   a:hover { 
     color: var(--agnostic-primary-hover);
-    text-decoration: none;
   }
 
   .logout,
@@ -221,7 +246,7 @@ const addToast = (newToast) => {  // { type, message, duration }
     margin-inline: 8px; 
     margin-block: 8px;
     color: var(--agnostic-primary-light);
-    background-color: var(--agnostic-header-background-color);
+    background-color: inherit;
     border: 0px;
   }
 

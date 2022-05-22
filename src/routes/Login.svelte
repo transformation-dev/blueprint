@@ -9,12 +9,10 @@
   import { onMount } from 'svelte'
   import Button from 'agnostic-svelte/components/Button/Button.svelte'
   import Input from 'agnostic-svelte/components/Input/Input.svelte'
-  import Toast from 'agnostic-svelte/components/Toasts/Toast.svelte'
-  import Toasts from 'agnostic-svelte/components/Toasts/Toasts.svelte'
 
-  import {RealtimeStore} from '@transformation-dev/svelte-realtime-store'
+  import { RealtimeStore } from '@transformation-dev/svelte-realtime-store'
 
-  import { authenticated } from '../stores'
+  import { authenticated, addToast } from '../stores'
 
   // It may seem counterintiuitive to have checkAuthentication in this Login component
   // now that the user doesn't enter a password, but the router will mount this component if
@@ -30,7 +28,8 @@
     const parsed = await response.json()
     debug('Got response from /api/check-authentication: %O', parsed)
     $authenticated = parsed.authenticated
-    showToast(parsed)
+    console.log(parsed)
+    addToast(parsed)
   }
 
   // onMount(checkAuthentication)
@@ -48,7 +47,7 @@
     })
     const parsed = await response.json()
     debug('In sendCode after calling /api/send-code. response: %O', parsed)
-    showToast(parsed)
+    addToast(parsed)
   }
 
   async function verifyCode(event) {
@@ -66,9 +65,9 @@
 
     const parsed = await response.json()
     if (parsed.success) {
-      showToast({ message: 'Login successful', messageType: 'success' })
+      addToast({ message: 'Login successful', messageType: 'success' })
     } else {
-      showToast({ message: 'Invalid code', messageType: 'error' })
+      addToast({ message: 'Invalid code', messageType: 'warning' })
     }
     $authenticated = parsed.success
     // await checkAuthentication()
@@ -77,17 +76,6 @@
   let email = ''  // TODO: get this from localStorage (and store it there in handleLogin)
   let code = ''
 
-  let toastEnabled = false
-  let toastMessage = ''
-  let toastMessageType = 'error'
-  function showToast({ message, messageType }) {
-    toastMessage = message
-    toastMessageType = messageType
-    toastEnabled = true
-    setTimeout(() => {
-      toastEnabled = false
-    }, 3000)
-  }
 </script>
 
 <style>
@@ -114,9 +102,3 @@
     <div class="mbe16" />
   </form>
 </div>
-
-<Toasts portalRootSelector="body" horizontalPosition="center" verticalPosition="top">
-  <Toast isOpen={toastEnabled} type={toastMessageType}>
-    <p id="toast-message">{toastMessage}</p>
-  </Toast>
-</Toasts>

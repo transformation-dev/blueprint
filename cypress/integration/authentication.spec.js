@@ -20,11 +20,15 @@ context('Authentication', () => {
   })
 
   it('should declare success when an email is sent', () => {
+    cy.intercept('/api/passwordless-login/send-code').as('sendCode')
+
     cy.visit("/#/plan")
       .get("#email")
       .type("whatever@mailinator.com")
       .get("#send-code")
       .click()
+
+    cy.wait('@sendCode')
 
     cy.get("#toast-message")
       .should("contain", "Code sent")
@@ -58,6 +62,14 @@ context('Authentication', () => {
       .click()
 
     cy.get("#todo-formulation-grid")
+  })
+
+  it('should display a message when you log out', () => {
+    cy.get("#logout")
+      .click()
+
+    cy.get("#toast-message")
+      .should("contain", "You are logged out")
   })
 
   // eslint-disable-next-line no-undef

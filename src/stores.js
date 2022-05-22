@@ -1,6 +1,6 @@
 import Debug from 'debug'
 
-import { writable, derived } from 'svelte/store'
+import { writable, derived, get } from 'svelte/store'
 
 import { Dragster } from '@transformation-dev/dragster'
 
@@ -237,6 +237,24 @@ export const plan = new RealtimeStore({
   },
 })
 
-export function addDragster(node) {
+export function addDragster(node) {  // TODO: Why is this in stores.js? There are no actual stores
   return new Dragster(node)
+}
+
+export const toastsStore = writable([])
+const toastsMap = new Set()  // Using a Set so I can delete it using the original object
+export const addToast = (newToast, overrideDuration) => {  // { messageType, message, duration (in milliseconds) }
+  toastsMap.add(newToast)
+  const duration = overrideDuration || newToast.duration || { warning: 10000, success: 3000 }[newToast.messageType] || false
+  if (duration) {
+    setTimeout(() => {
+      toastsMap.delete(newToast)
+      toastsStore.set([...toastsMap])
+    }, duration)
+  }
+  toastsStore.set([...toastsMap])
+}
+export const closeToast = (toast) => {  // { messageType, message, duration (in milliseconds) }
+  toastsMap.delete(toast)
+  toastsStore.set([...toastsMap])
 }

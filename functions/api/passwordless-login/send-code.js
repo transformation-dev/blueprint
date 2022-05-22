@@ -37,7 +37,7 @@ export async function onRequestPost({ request, env, params }) {
   sendGridRequest.headers.set('Content-Type', 'application/json')
   const sendGridResponse = await fetch(sendGridRequest)
   if (sendGridResponse.status !== 202) {
-    return jsonResponse({ success: false, message: 'Error sending email. Try again.', messageType: 'error' })
+    return jsonResponse({ success: false, message: 'Email not sent. Try again.', messageType: 'warning' })
   }
   // TODO: handle sendGridResponse error 404, 500, etc.
 
