@@ -12,8 +12,8 @@ jobs:
     strategy:
       matrix:
         node-version: [17.x]
-        # os: [ubuntu-latest]
-        os: [macos-12]
+        os: [ubuntu-latest]
+        # os: [macos-12]
 
     steps:
     - uses: actions/checkout@v2
@@ -23,14 +23,27 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
-    - name: npm ci and coverage testing
+    - name: npm ci
+      env:
+        CI: true
+      run: |
+        npm ci
+
+    - name: npm coverage:c8
       env:
         CI: true
         SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
         TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
       run: |
-        npm ci
-        npm run coverage
+        npm run coverage:c8
+
+    - name: npm coverage:nyc
+      env:
+        CI: true
+        SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
+        TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
+      run: |
+        npm run coverage:nyc
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2

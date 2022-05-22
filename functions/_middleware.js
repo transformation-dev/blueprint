@@ -39,10 +39,8 @@ async function csp({
     const res = await next()
     const theBody = await res.text()
 
-    debug('The body before adding/changing nonces. %S', theBody)
-
-    const html = theBody  // TODO: upgrade this to use the HTML rewriter
-      // .replace(/4ce3a419321c4f39b926af6776a4b68f/g, nonce)  // this is only used in vite dev mode
+    // TODO: upgrade this to use the HTML rewriter
+    const html = theBody
       .replace(  // this is only used in vite dev mode
         '<script type="module" src="/src/main.js',
         `<script type="module" nonce="${nonce}" src="/src/main.js`,

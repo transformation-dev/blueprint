@@ -63,7 +63,7 @@ context('Authentication', () => {
 
     cy.get("#todo-formulation-grid")
   })
-
+  
   it('should display a message when you log out', () => {
     cy.get("#logout")
       .click()
