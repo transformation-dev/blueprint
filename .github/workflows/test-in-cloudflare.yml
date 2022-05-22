@@ -51,5 +51,5 @@ jobs:
         SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
         TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
       run: |
-        npx cypress run
+       npm run cypress:run
         
