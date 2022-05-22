@@ -62,7 +62,6 @@
   $: {
     foundCount = 0
     showAll = (! searchString || searchString.length === 0)
-    console.log(JSON.stringify(tree, null, 2))
     // @ts-ignore
     treeCopy = structuredClone(tree)  // Works with circular references which means it should also work with a DAG
     stitchParents(treeCopy, null)  // TODO: Store it with parents already stitched
@@ -113,7 +112,7 @@
     padding: 1rem;
     background-color: var(--agnostic-dark);
     color: var(--agnostic-primary-light);
-    /* height: 100%; */
+    min-width: 400px;
   }
 
 </style>

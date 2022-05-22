@@ -112,7 +112,8 @@
     --agnostic-primary-hover: #659ac1;
     --agnostic-primary-light: #dcf1ff;
     --agnostic-primary-border: #c1d9e9;
-    --agnostic-primary-dark: #063f69;
+    --agnostic-primary-dark-original: #063f69;
+    --agnostic-primary-dark: #29465B;
     --agnostic-secondary: #49826A;
     --agnostic-secondary-hover: #80AB9B;
     --agnostic-action: #2fb751;

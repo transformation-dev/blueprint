@@ -1,5 +1,6 @@
 /* eslint-disable prefer-const */
 import Debug from 'debug'
+import { nanoid } from 'nanoid'
 import { getDebug } from './_utils'
 
 const debug = getDebug('blueprint:_middleware')
@@ -12,7 +13,8 @@ async function csp({
   const url = new URL(request.url)
   if (url.pathname === '/' || url.pathname === '/index.html') {
     debug('/ or /index.html requested. Setting CSP header.')
-    const nonce = crypto.randomUUID().replace(/-/g, '')
+    // const nonce = crypto.randomUUID().replace(/-/g, '')
+    const nonce = nanoid()
 
     const CSPheaderArray = [
       `script-src 'self' 'nonce-${nonce}' 'strict-dynamic';`,
@@ -30,8 +32,14 @@ async function csp({
     const res = await next()
     const theBody = await res.text()
 
+    debug('The body before adding/changing nonces. %S', theBody)
+
     const html = theBody  // TODO: upgrade this to use the HTML rewriter
-      .replace(/4ce3a419321c4f39b926af6776a4b68f/g, nonce)  // this is only used in vite dev mode
+      // .replace(/4ce3a419321c4f39b926af6776a4b68f/g, nonce)  // this is only used in vite dev mode
+      .replace(  // this is only used in vite dev mode
+        '<script type="module" src="/src/main.js',
+        `<script type="module" nonce="${nonce}" src="/src/main.js`,
+      )
       .replace(  // also only in vite dev mode
         'src="/@vite/client"',
         `nonce="${nonce}" src="/@vite/client"`,
