@@ -12,7 +12,8 @@ jobs:
     strategy:
       matrix:
         node-version: [17.x]
-        os: [ubuntu-latest]
+        # os: [ubuntu-latest]
+        os: [macos-12]
 
     steps:
     - uses: actions/checkout@v2
