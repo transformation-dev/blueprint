@@ -1,6 +1,7 @@
 /* eslint-disable prefer-const */
 import Debug from 'debug'
-import { nanoid } from 'nanoid/non-secure'
+import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
+import { nanoid } from 'nanoid'
 import { getDebug } from './_utils'
 
 const debug = getDebug('blueprint:_middleware')
@@ -14,7 +15,13 @@ async function csp({
   if (url.pathname === '/' || url.pathname === '/index.html') {
     debug('/ or /index.html requested. Setting CSP header.')
     // const nonce = crypto.randomUUID().replace(/-/g, '')
-    const nonce = nanoid()
+
+    let nonce
+    if (env.CF_ENV === 'production') {
+      nonce = nanoid()
+    } else {
+      nonce = nanoidNonSecure()
+    }
 
     const CSPheaderArray = [
       `script-src 'self' 'nonce-${nonce}' 'strict-dynamic';`,

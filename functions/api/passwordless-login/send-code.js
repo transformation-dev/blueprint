@@ -1,5 +1,8 @@
 import Debug from 'debug'
-import { jsonResponse, getDebug, getSecureRandomCode } from '../../_utils'
+import { customAlphabet as customAlphabetNonSecure } from 'nanoid/non-secure'
+import { customAlphabet } from 'nanoid'
+
+import { jsonResponse, getDebug } from '../../_utils'
 
 const debug = getDebug('blueprint:api:passwordless-login:send-code')
 
@@ -12,7 +15,12 @@ export async function onRequestPost({ request, env, params }) {
     return jsonResponse({ success: false, message: 'Invalid email', messageType: 'warning' })
   }
   const { origin } = new URL(targetURL)
-  const code = getSecureRandomCode(6)
+  let code
+  if (env.CF_ENV === 'production') {
+    code = customAlphabet('1234567890', 6)()
+  } else {
+    code = customAlphabetNonSecure('1234567890', 6)()
+  }
   const CODE_LIFE_IN_MINUTES = 10
   await env.SESSIONS.put(code, JSON.stringify(body), { expirationTtl: 60 * CODE_LIFE_IN_MINUTES })  // TODO: wrap in try/catch
 

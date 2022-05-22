@@ -3,7 +3,8 @@
 /* eslint-disable operator-assignment */
 /* eslint-disable no-bitwise */
 import Debug from 'debug'
-import { customAlphabet, nanoid } from 'nanoid/non-secure'
+import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
+import { nanoid } from 'nanoid'
 
 export const jsonResponse = (value) => new Response(JSON.stringify(value), {
   headers: { 'Content-Type': 'application/json' },
@@ -30,68 +31,6 @@ export const getDebug = (name, delay = 50) => {
 
 const debug = getDebug('blueprint:_utils')
 
-// /**
-//  * License: WTFPL, CC0, ZAP (Zero For 0wned Anti-copyright Pledge), etc
-//  * derived from this: https://gist.github.com/sarciszewski/88a7ed143204d17c3e42
-//  */
-// export const getSecureRandomInt = (min, max) => {  // min and max are inclusive
-//   // let i = rval = bits = bytes = 0
-//   let bits = 0
-//   let bytes = 0
-//   let rval = 0
-//   const range = max - min
-//   if (range < 1) {
-//     return min
-//   }
-//   // Calculate Math.ceil(Math.log(range, 2)) using binary operators
-//   let tmp = range
-//   /**
-//    * mask is a binary string of 1s that we can & (binary AND) with our random
-//    * value to reduce the number of lookups
-//    */
-//   let mask = 1
-//   while (tmp > 0) {
-//     if (bits % 8 === 0) {
-//       bytes++
-//     }
-//     bits++
-//     mask = mask << 1 | 1 // 0x00001111 -> 0x00011111
-//     tmp = tmp >>> 1      // 0x01000000 -> 0x00100000
-//   }
-
-//   const values = new Uint8Array(bytes)
-//   do {
-//     crypto.getRandomValues(values)
-
-//     // Turn the random bytes into an integer
-//     rval = 0
-//     for (let i = 0; i < bytes; i++) {
-//       rval |= (values[i] << (8 * i))
-//     }
-//     // Apply the mask
-//     rval &= mask
-//     // We discard random values outside of the range and try again
-//     // rather than reducing by a modulo to avoid introducing bias
-//     // to our random numbers.
-//   } while (rval > range)
-
-//   // We should return a value in the interval [min, max]
-//   return (rval + min)
-// }
-
-// export const getSecureRandomCode = (digits) => {
-//   let code = ''
-//   for (let i = 0; i < digits; i++) {
-//     code += getSecureRandomInt(0, 9)
-//   }
-//   return code
-// }
-
-export const getSecureRandomCode = (digits) => {
-  const code = customAlphabet('1234567890', digits)()
-  return code
-}
-
 export const verifyCode = async ({ env, code, targetURL }) => {
   debug('_utils.verifyCode() called')
   const sessionString = code ? await env.SESSIONS.get(code) : null
@@ -107,7 +46,11 @@ export const verifyCode = async ({ env, code, targetURL }) => {
     location = `${pathname}${search}${hash}` || '/#/login'
     debug('location: %s', location)
     const DEFAULT_SESSION_TTL_DAYS = 30
-    sessionID = nanoid()
+    if (env.CF_ENV === 'production') {
+      sessionID = nanoid()
+    } else {
+      sessionID = nanoidNonSecure()
+    }
     await env.SESSIONS.put(sessionID, JSON.stringify({ sessionID, email }), { expirationTtl: 60 * 60 * 24 * DEFAULT_SESSION_TTL_DAYS })  // TODO: wrap in try/catch
     success = true
   } else {

@@ -1,5 +1,5 @@
 import Debug from 'debug'
-import { jsonResponse, getDebug, getSecureRandomCode } from '../_utils'
+import { jsonResponse, getDebug } from '../_utils'
 
 const debug = getDebug('blueprint:api:check-authentication')
 
