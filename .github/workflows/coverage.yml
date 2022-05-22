@@ -24,13 +24,12 @@ jobs:
 
     - name: npm ci and coverage testing
       env:
+        CI: true
         SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
         TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
       run: |
         npm ci
         npm run coverage
-      env:
-        CI: true
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
