@@ -60,6 +60,7 @@
 
   .tab-marker {
     height: 5px;
+    margin-bottom: -1px;
   }
 
   .selected {

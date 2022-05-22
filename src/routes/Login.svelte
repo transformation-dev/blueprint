@@ -78,11 +78,6 @@
 
 </script>
 
-<style>
-  .icon {
-    color: var(--blueprint-culture);
-  }
-</style>
 
 <div class="flex justify-center">
   <form class="p16">
@@ -102,3 +97,10 @@
     <div class="mbe16" />
   </form>
 </div>
+
+
+<style>
+  .icon {
+    color: var(--blueprint-culture);
+  }
+</style>

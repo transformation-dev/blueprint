@@ -46,6 +46,9 @@ jobs:
         interval: 5000
 
     - name: Cypress run
+      env:
+        SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
+        TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
       run: |
         npx cypress run
       env:

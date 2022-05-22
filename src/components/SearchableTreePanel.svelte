@@ -71,7 +71,8 @@
 
 </script>
 
-<div class='page'>
+
+<div class='flex flex-column tree-panel'>
 
   <!-- <Searchbar
     placeholder="Search"
@@ -91,7 +92,7 @@
     </div>
   </Searchbar> -->
 
-    <h1>Search</h1>
+    <p>Search</p>
     <!-- Using a callback because an event is ugly with the recursion, and a store only updates if the user selects a different node  -->
     <RecursiveTreeNode
       tree={preparedTree}
@@ -103,3 +104,14 @@
   <!-- </Block> -->
   </div>
 
+
+<style>
+
+  .tree-panel {
+    padding: 1rem;
+    background-color: var(--agnostic-dark);
+    color: var(--agnostic-primary-light);
+    /* height: 100%; */
+  }
+
+</style>

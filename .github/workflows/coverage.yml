@@ -23,6 +23,9 @@ jobs:
         node-version: ${{ matrix.node-version }}
 
     - name: npm ci and coverage testing
+      env:
+        SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
+        TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
       run: |
         npm ci
         npm run coverage
