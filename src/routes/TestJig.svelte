@@ -1,9 +1,9 @@
 <script>
-  import {RealtimeStore} from '@transformation-dev/svelte-realtime-store'
-  // import ShortUniqueId from 'short-unique-id'
+  import { RealtimeStore } from '@transformation-dev/svelte-realtime-store'
+  import { nanoid } from 'nanoid'
   
   const connected = RealtimeStore.connected
-  const storeID = self.crypto.randomUUID()  // Using a random number so parallelized test runs don't interfere with each other
+  const storeID = nanoid()  // Using a random number so parallelized test runs don't interfere with each other
 
   const a = new RealtimeStore({storeID, debounceWait: 1000, forceEmitBack: true, defaultValue: 2000})
   const aPrime = new RealtimeStore({storeID, ignoreLocalSet: true, defaultValue: 2000})
