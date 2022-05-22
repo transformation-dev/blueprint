@@ -1,6 +1,6 @@
 /* eslint-disable prefer-const */
 import Debug from 'debug'
-import { nanoid } from 'nanoid'
+import { nanoid } from 'nanoid/non-secure'
 import { getDebug } from './_utils'
 
 const debug = getDebug('blueprint:_middleware')

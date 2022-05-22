@@ -3,7 +3,7 @@
 /* eslint-disable operator-assignment */
 /* eslint-disable no-bitwise */
 import Debug from 'debug'
-import { customAlphabet, nanoid } from 'nanoid'
+import { customAlphabet, nanoid } from 'nanoid/non-secure'
 
 export const jsonResponse = (value) => new Response(JSON.stringify(value), {
   headers: { 'Content-Type': 'application/json' },
