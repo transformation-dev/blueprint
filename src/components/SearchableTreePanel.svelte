@@ -1,6 +1,8 @@
 <script>
   
   import RecursiveTreeNode from './RecursiveTreeNode.svelte'
+  // @ts-ignore
+  import structuredClone from '@ungap/structured-clone'  // TODO: Remove this polyfill when it'll pass tests in GitHub Actions
 
   export let tree
   export let handleNodeChosen  // Using a callback because the event approach was ugly with the recursion 
