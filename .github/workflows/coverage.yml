@@ -29,13 +29,13 @@ jobs:
       run: |
         npm ci
 
-    - name: npm coverage:c8
-      env:
-        CI: true
-        SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
-        TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
-      run: |
-        npm run coverage:c8
+    # - name: npm coverage:c8
+    #   env:
+    #     CI: true
+    #     SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
+    #     TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
+    #   run: |
+    #     npm run coverage:c8
 
     - name: npm coverage:nyc
       env:
