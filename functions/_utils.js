@@ -33,6 +33,15 @@ const debug = getDebug('blueprint:_utils')
 
 export const verifyCode = async ({ env, code, targetURL }) => {
   debug('_utils.verifyCode() called')
+  if (!(
+    env.CF_ENV === 'production'
+    || (
+      typeof env.TESTING_OVERRIDE_CODE === 'string'
+      && env.TESTING_OVERRIDE_CODE.length > 0
+    ))
+  ) {
+    throw new Error('*** ERROR!!! TESTING_OVERRIDE_CODE is expected in non-production environments for testing ***')
+  }
   const sessionString = code ? await env.SESSIONS.get(code) : null
   let location
   let maxAge = '31536000'
