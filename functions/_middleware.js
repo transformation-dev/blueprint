@@ -83,7 +83,7 @@ async function csp({
     }
 
     newRes.headers.set('content-security-policy', CSPheader)
-    newRes.headers.set('content-type', 'text/html')
+    newRes.headers.set('content-type', 'text/html; charset=utf-8')
     // TODO: move the below to apply to all appropriate responses instead of just index.html
     newRes.headers.set('X-Frame-Options', 'DENY')
     newRes.headers.set('X-Content-Type-Options', 'nosniff')

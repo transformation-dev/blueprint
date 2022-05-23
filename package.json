@@ -49,6 +49,7 @@
     "lighthouse": "^9.5.0",
     "nyc": "^15.1.0",
     "sass": "^1.49.0",
+    "snyk": "^1.936.0",
     "start-server-and-test": "^1.14.0",
     "svelte-awesome": "^2.4.4",
     "svelte-body": "^1.3.6",

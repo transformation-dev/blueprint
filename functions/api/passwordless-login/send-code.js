@@ -42,7 +42,7 @@ export async function onRequestPost({ request, env, params }) {
     body: JSON.stringify(sendGridBody),
   })
   sendGridRequest.headers.set('Authorization', `Bearer ${env.SENDGRID_LOGIN}`)
-  sendGridRequest.headers.set('Content-Type', 'application/json')
+  sendGridRequest.headers.set('Content-Type', 'application/json; charset=utf-8')
   const sendGridResponse = await fetch(sendGridRequest)
   if (sendGridResponse.status !== 202) {
     return jsonResponse({ success: false, message: 'Email not sent. Try again.', messageType: 'warning' })

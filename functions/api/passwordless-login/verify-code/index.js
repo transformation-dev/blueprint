@@ -17,7 +17,7 @@ export async function onRequestPost({ request, env, params }) {
 
   res.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
   res.headers.set('Set-Cookie', cookieHeader)
-  res.headers.set('Content-Type', 'application/json')
+  res.headers.set('Content-Type', 'application/json; charset=utf-8')
 
   return res
 }
