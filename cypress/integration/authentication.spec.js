@@ -93,9 +93,12 @@ context('Authentication', () => {
   })
 
   // eslint-disable-next-line no-undef
-  // afterEach(() => {
-  //   cy.get("#logout")
-  //     .click()
-  // })
+  afterEach(() => {
+    cy.get("#logout")
+      .click()
+
+    cy.get("#toast-close")
+      .click()
+  })
 
 })
