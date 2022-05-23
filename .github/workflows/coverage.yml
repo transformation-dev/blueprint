@@ -43,13 +43,13 @@ jobs:
     #   #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
     #     directory: ./coverage-server
 
-    - name: npm coverage:nyc
-      env:
-        CI: true
-        SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
-        TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
-      run: |
-        npm run coverage:nyc
+    # - name: npm coverage:nyc
+    #   env:
+    #     CI: true
+    #     SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
+    #     TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
+    #   run: |
+    #     npm run coverage:nyc
 
     # - name: Upload coverage to Codecov
     #   uses: codecov/codecov-action@v2
