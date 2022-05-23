@@ -33,6 +33,7 @@ jobs:
       env:
         SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
         CYPRESS_TESTING_OVERRIDE_CODE: ${{ secrets.CYPRESS_TESTING_OVERRIDE_CODE }}
+        TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload screenshots

@@ -2,6 +2,10 @@
 
 context('Authentication', () => {
 
+  it('has TESTING_OVERRIDE_CODE', () => {
+    expect(Cypress.env('TESTING_OVERRIDE_CODE')).to.be.a('string')
+  })
+
   it('should only be able to get to pages where allowUnauthenticated=true', () => {
     cy.visit('/#/')
 
@@ -93,12 +97,12 @@ context('Authentication', () => {
   })
 
   // eslint-disable-next-line no-undef
-  afterEach(() => {
-    cy.get("#logout")
-      .click()
+  // afterEach(() => {
+  //   cy.get("#logout")
+  //     .click()
 
-    cy.get("#toast-close")
-      .click()
-  })
+  //   cy.get("#toast-close")
+  //     .click()
+  // })
 
 })
