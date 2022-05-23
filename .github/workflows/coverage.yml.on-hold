@@ -1,0 +1,70 @@
+name: Coverage
+
+on:
+  - workflow_dispatch
+  - workflow_call
+
+jobs:
+  coverage:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        node-version: [17.x]
+        os: [ubuntu-latest]
+        # os: [macos-12]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: npm ci
+      env:
+        CI: true
+      run: |
+        npm ci
+
+    # - name: npm coverage:c8
+    #   env:
+    #     CI: true
+    #     SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
+    #     TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
+    #   run: |
+    #     npm run coverage:c8
+
+    - name: npm coverage:nyc
+      env:
+        CI: true
+        SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
+        TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
+      run: |
+        npm run coverage:nyc
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v2
+      with:
+      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+        directory: ./coverage
+
+    - name: Upload coverage-server to Codecov
+      uses: codecov/codecov-action@v2
+      with:
+      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+        directory: ./coverage-server
+
+    # - name: upload html report as artifact
+    #   uses: actions/upload-artifact@master
+    #   with:
+    #     name: coverage-report
+    #     path: coverage/lcov-report
+
+    # - name: check coverage levels
+    #   run: |
+    #     npm run coverage:check
+    #   env:
+    #     CI: true
