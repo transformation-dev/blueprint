@@ -30,6 +30,9 @@ jobs:
         build: npm run build
         start: npm run start
         wait-on: 'http://localhost:8788'
+        env:
+          CYPRESS_SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
+          CYPRESS_TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
 
     - name: Upload screenshots
       uses: actions/upload-artifact@v3
