@@ -30,7 +30,10 @@ jobs:
         build: npm run build
         start: npm run start
         wait-on: 'http://localhost:8788'
-      env: SENDGRID_LOGIN=${{ secrets.SENDGRID_LOGIN }},TESTING_OVERRIDE_CODE=${{ secrets.TESTING_OVERRIDE_CODE }},GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+      env: 
+        SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
+        TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload screenshots
       uses: actions/upload-artifact@v3
