@@ -8,6 +8,15 @@ const debug = getDebug('blueprint:api:passwordless-login:send-code')
 
 export async function onRequestPost({ request, env, params }) {
   Debug.enable(env.DEBUG)
+  if (!(
+    env.CF_ENV === 'production'
+    || (
+      typeof env.SENDGRID_LOGIN === 'string'
+      && env.SENDGRID_LOGIN.length > 0
+    ))
+  ) {
+    throw new Error('*** ERROR!!! TESTING_OVERRIDE_CODE is expected in non-production environments for testing ***')
+  }
   debug('onRequestPost() called')
   const body = await request.json()
   const { email, targetURL } = body
