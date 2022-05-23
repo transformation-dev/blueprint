@@ -38,7 +38,7 @@ export const verifyCode = async ({ env, code, targetURL }) => {
   let maxAge = '31536000'
   let success = true
   let sessionID = ''
-  if (sessionString || (env.CF_ENV !== 'production' && code === env.TESTING_OVERRIDE_CODE)) {
+  if (code?.length === 6 && (sessionString || (env.CF_ENV !== 'production' && code === env.TESTING_OVERRIDE_CODE))) {
     const value = JSON.parse(sessionString)
     const email = value ? value.email : 'testing@transformation.dev'
     const confirmedTargetURL = value ? value.targetURL : targetURL
