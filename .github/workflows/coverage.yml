@@ -31,6 +31,13 @@ jobs:
         start: npm run start
         wait-on: 'http://localhost:8788'
 
+    - name: Upload screenshots
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: test-screenshots
+        path: cypress/screenshots
+
 
 
     # - name: Upload coverage to Codecov
