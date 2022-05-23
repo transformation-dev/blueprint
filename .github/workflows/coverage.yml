@@ -37,6 +37,12 @@ jobs:
       run: |
         npm run coverage:c8
 
+    # - name: Upload coverage-server to Codecov
+    #   uses: codecov/codecov-action@v2
+    #   with:
+    #   #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+    #     directory: ./coverage-server
+
     - name: npm coverage:nyc
       env:
         CI: true
@@ -45,17 +51,17 @@ jobs:
       run: |
         npm run coverage:nyc
 
-    - name: Upload coverage-server to Codecov
-      uses: codecov/codecov-action@v2
-      with:
-      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-        directory: ./coverage-server
+    # - name: Upload coverage to Codecov
+    #   uses: codecov/codecov-action@v2
+    #   with:
+    #   #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+    #     directory: ./coverage
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
-      with:
-      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-        directory: ./coverage
+      # with:
+      #  token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+      #  directory: ./coverage
 
     # - name: upload html report as artifact
     #   uses: actions/upload-artifact@master
