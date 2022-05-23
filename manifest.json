@@ -1,0 +1,17 @@
+{
+  "name": "Transformation.dev Blueprint",
+  "short_name": "Blueprint",
+  "description": "Transformation.dev Blueprint",
+  "lang": "en-US",
+  "start_url": "/#/",
+  "display": "standalone",
+  "background_color": "#29465B",
+  "theme_color": "#29465B",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}

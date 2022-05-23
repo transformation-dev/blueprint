@@ -1,0 +1,58 @@
+name: Coverage
+
+on:
+  - workflow_dispatch
+  - workflow_call
+
+jobs:
+  coverage:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        node-version: [17.x]
+        os: [ubuntu-latest]
+        # os: [macos-12]
+
+    steps:
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Cypress run
+      uses: cypress-io/github-action@v3
+      with:
+        build: npm run build
+        start: npm run start
+        wait-on: 'http://localhost:8788'
+      env: 
+        SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
+        TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload screenshots
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: test-screenshots
+        path: cypress/screenshots
+
+
+
+    # - name: Upload coverage to Codecov
+    #   uses: codecov/codecov-action@v2
+    #   with:
+    #   #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+    #     directory: ./coverage
+
+    # - name: Upload coverage-server to Codecov
+    #   uses: codecov/codecov-action@v2
+    #   with:
+    #   #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+    #     directory: ./coverage-server
+

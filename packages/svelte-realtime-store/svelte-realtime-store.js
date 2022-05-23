@@ -77,7 +77,7 @@ export class RealtimeStore {
   }
 }
 
-RealtimeStore.connected = writable(false)
+RealtimeStore.connected = writable(false)  // TODO: change to static
 
 RealtimeStore.afterAuthenticated = function (callback) {  // TODO: Does this need to be an => function?
   try {

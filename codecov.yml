@@ -1,6 +1,9 @@
   disable_default_path_fixes: yes
   coverage:
     status:
+      patch:
+        default:
+          target: 80%
       project:
         default:
           target: auto

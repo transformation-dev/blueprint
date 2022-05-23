@@ -3,84 +3,104 @@
   const debug = Debug("blueprint:Login")
 
   import Icon from 'svelte-awesome'
-  import {envelope, key} from 'svelte-awesome/icons'
-  import {onMount} from 'svelte'
+  import envelope from 'svelte-awesome/icons/envelope'
+  import key from 'svelte-awesome/icons/key'
 
-  import {RealtimeStore} from '@transformation-dev/svelte-realtime-store'
+  import { onMount } from 'svelte'
+  import Button from 'agnostic-svelte/components/Button/Button.svelte'
+  import Input from 'agnostic-svelte/components/Input/Input.svelte'
 
-  import {authenticated} from '../stores'
+  import { RealtimeStore } from '@transformation-dev/svelte-realtime-store'
 
-  const credentials = {username: 'lmaccherone', password: 'admin'}  // TODO: Get from fields
+  import { authenticated, addToast } from '../stores'
 
+  // It may seem counterintiuitive to have checkAuthentication in this Login component
+  // now that the user doesn't enter a password, but the router will mount this component if
+  // the user navigates to a page that requires authentication.
   async function checkAuthentication() {
     debug('checkAuthentication() called')
-    const response = await fetch('/checkauth', { 
+    const response = await fetch('/api/check-authentication', { 
       headers: {
         'Accept': 'application/json'
       },
       credentials: 'same-origin', 
     })
     const parsed = await response.json()
-    debug('Got response from /checkauth: %O', parsed)
-    if (parsed.authenticated) {
-      $authenticated = true
-      RealtimeStore.restoreConnection((connected) => {
-        debug('Callback from restoreConnection. connected: %O', connected)
-      })
-    }
+    debug('Got response from /api/check-authentication: %O', parsed)
+    $authenticated = parsed.authenticated
+    console.log(parsed)
+    addToast(parsed)
   }
-  onMount(checkAuthentication)
 
-  async function handleLogin(event) {
-    const response = await fetch('/login', {
+  // onMount(checkAuthentication)
+
+  async function sendCode(event) {
+    debug('sendCode() called')
+    const response = await fetch('/api/passwordless-login/send-code', {
       method: 'POST', 
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
       credentials: 'same-origin', 
-      body: JSON.stringify(credentials)
+      body: JSON.stringify({ email, targetURL: window.location.href })
     })
-    debug('In handleLogin after login attempt. response: %O', response)
-    if (response.ok) {
-      $authenticated = true
-      RealtimeStore.restoreConnection((connected) => {
-        debug('Callback from restoreConnection. connected: %O', connected)
-      })
-    }
+    const parsed = await response.json()
+    debug('In sendCode after calling /api/send-code. response: %O', parsed)
+    addToast(parsed)
   }
-  
+
+  async function verifyCode(event) {
+    debug('verifyCode() called')
+
+    const response = await fetch('/api/passwordless-login/verify-code', {
+      method: 'POST', 
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      credentials: 'same-origin', 
+      body: JSON.stringify({ code, targetURL: window.location.href })
+    })
+
+    const parsed = await response.json()
+    if (parsed.success) {
+      addToast({ message: 'Login successful', messageType: 'success' })
+    } else {
+      addToast({ message: 'Invalid code', messageType: 'warning' })
+    }
+    $authenticated = parsed.success
+    // await checkAuthentication()
+  }
+
+  let email = ''  // TODO: get this from localStorage (and store it there in handleLogin)
+  let code = ''
+
 </script>
 
-<div class="tile is-ancestor">
-  <div class="tile is-parent">
-    <div class="tile is-child is-12"></div>
-  </div>
-</div>
-<div class="tile is-ancestor">
-  <div class="tile is-parent">
-    <div class="tile is-child"></div>
-    <div class="tile is-5 is-child has-text-centered box">
-      <p class="title has-text-centered">Hello!</p>
-        <div class="field">
-            <p class="control has-icons-left">
-              <input class="input" type="email" placeholder="Email">
-                <span class="icon is-small is-left">
-                  <Icon data={envelope}/>
-                </span> 
-            </p>
-          </div>
-          <div class="field">
-            <p class="control has-icons-left">
-              <input class="input" type="password" placeholder="Password">
-              <span class="icon is-small is-left">
-                <Icon data={key}/>
-              </span>
-            </p>
-          </div>
-      <button class="button is-success is-centered" id="login" on:click={handleLogin}>login</button>
-    </div>
-    <div class="tile is-child"></div>
-  </div>
+
+<div class="flex justify-center">
+  <form class="p16">
+    <Input id="email" isRounded label="Email" placeholder="email@example.com" bind:value={email} />
+    <div class="mbe16" />
+    <Button id="send-code" mode="primary" isRounded on:click={sendCode}>
+      <Icon class="mie8" data={envelope} />
+      Send Code to Email
+    </Button>
+    <div class="mbe40" />
+    <Input id="code" isRounded label="Code" placeholder="123456" bind:value={code}/>
+    <div class="mbe16" />
+    <Button id="verify-code" mode="action" isRounded on:click={verifyCode}>
+      <Icon class="mie8" data={key} />
+      Verify Code
+    </Button>
+    <div class="mbe16" />
+  </form>
 </div>
 
+
+<style>
+  .icon {
+    color: var(--blueprint-culture);
+  }
+</style>

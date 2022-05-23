@@ -1,6 +1,12 @@
 <script>
   import Icon from 'svelte-awesome'
-  import {trophy, comments, listUl, lightbulbO, question, balanceScale} from 'svelte-awesome/icons'
+  import trophy from 'svelte-awesome/icons/trophy'
+  import comments from 'svelte-awesome/icons/comments'
+  import listUl from 'svelte-awesome/icons/list-ul'
+  import lightbulbO from 'svelte-awesome/icons/lightbulb-o'
+  import question from 'svelte-awesome/icons/question'
+  import balanceScale from 'svelte-awesome/icons/balance-scale'
+
 
   const a = new Array(30)
 
@@ -20,8 +26,9 @@
 
 </script>
 
+
 <!-- Legend -->
-<div style="position: sticky; top: 3rem; padding-left: 30px; padding-right: 15px;" class="columns has-background-white">
+<div class="columns has-background-white">
   {#each levelConfig as level}
     <div class="column is-label">
       <div class="columns has-text-centered is-gapless is-vcentered">
@@ -74,6 +81,7 @@
 
   </div>
 </div>
+
 
 <style>
   .legend-color-indicator {

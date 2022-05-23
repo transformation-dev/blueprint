@@ -1,6 +1,6 @@
 import Debug from 'debug'
 
-import { writable, derived, get } from 'svelte/store'
+import { writable, derived } from 'svelte/store'
 
 import { Dragster } from '@transformation-dev/dragster'
 
@@ -8,8 +8,6 @@ import { ViewstateStore } from '@transformation-dev/svelte-viewstate-store'
 import { RealtimeStore } from '@transformation-dev/svelte-realtime-store'
 
 const debug = Debug('blueprint:stores.js')  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
-
-// TODO: Change every name to have "Store" at the end to make it clear that you need to use $<store_nameStore> to access the value
 
 // export const { connected } = RealtimeStore
 export const connected = writable(true)
@@ -30,8 +28,6 @@ export const readyToGo = derived(  // 'not ready', 'getting ready', 'ready'
   },
   'not ready',
 )
-
-export const accountInitializedStore = writable(true)
 
 export const openPracticeID = new ViewstateStore({
   identifier: 'openPracticeID',
@@ -115,60 +111,6 @@ export const queueSwimlanes = writable({
   },
 })
 
-export const chosenOrgBreadcrumbsArrayStore = writable([])
-
-const dagNode = { id: 'DAGNode', label: 'DAG Node' }
-export const authorizedTreeStore = writable([
-  {
-    id: 'node1',
-    label: 'Node 1',
-    children: [
-      {
-        id: 'node1.1',
-        label: 'Node 1.1',
-        children: [
-          {
-            id: 'node1.1.1',
-            label: 'Node 1.1.1',
-            children: [
-              {
-                id: 'node1.1.1.1',
-                label: 'Node 1.1.1.1',
-              },
-            ],
-          },
-          {
-            id: 'node1.1.2',
-            label: 'Node 1.1.2 is Strong',
-            children: [],  // Intentionally has children but empty to test
-          },
-          dagNode,
-        ],
-      },
-      {
-        id: 'node1.2',
-        label: 'Node 1.2',
-        children: [],
-      },
-      dagNode,
-    ],
-  },
-  {
-    id: 'node2',
-    label: 'Node 2',
-    children: [],
-  },
-  {
-    id: 'node3',
-    label: 'Node 3',  // Intentionally missing children to test
-  },
-  {
-    id: 'node4',
-    label: 'Node 4',
-    children: [],
-  },
-])
-
 // export const plan = realtimeClient.realtime({_entityID: 'plan'}, {
 export const plan = new RealtimeStore({
   _entityID: 'plan',
@@ -237,25 +179,6 @@ export const plan = new RealtimeStore({
   },
 })
 
-export function addDragster(node) {  // TODO: Why is this in stores.js? There are no actual stores
+export function addDragster(node) {
   return new Dragster(node)
-}
-
-export const toastsStore = writable([])
-const toastsSet = new Set()  // Using a Set so I can delete it using the original object
-export const addToast = (newToast, overrideDuration) => {  // { messageType, message, duration (in milliseconds) }
-  toastsSet.add(newToast)
-  // const duration = overrideDuration || newToast.duration || { warning: 10000, success: 3000 }[newToast.messageType] || false
-  const duration = false
-  if (duration) {
-    setTimeout(() => {
-      toastsSet.delete(newToast)
-      toastsStore.set([...toastsSet])
-    }, duration)
-  }
-  toastsStore.set([...toastsSet])
-}
-export const closeToast = (toast) => {  // { messageType, message, duration (in milliseconds) }
-  toastsSet.delete(toast)
-  toastsStore.set([...toastsSet])
 }

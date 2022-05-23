@@ -9,3 +9,4 @@ on:
 jobs:
   coverage-on-pr:
     uses: ./.github/workflows/coverage.yml
+    secrets: inherit

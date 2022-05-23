@@ -1,12 +1,16 @@
+
 <script>
+
   import Debug from "debug"
   const debug = Debug("blueprint:Plan")  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
   
   // Import packages
-  import {fly} from 'svelte/transition'
-  import {arrowCircleLeft, arrowCircleRight, spinner} from 'svelte-awesome/icons'
-  import Icon from 'svelte-awesome'
   import {ViewstateStore} from '@transformation-dev/svelte-viewstate-store' 
+  import {fly} from 'svelte/transition'
+  import Icon from 'svelte-awesome'
+  import arrowCircleLeft from 'svelte-awesome/icons/arrow-circle-left'
+  import arrowCircleRight from 'svelte-awesome/icons/arrow-circle-right'
+  import spinner from 'svelte-awesome/icons/spinner'
 
   // Import local code
   import {addDragster} from '../../stores'
@@ -96,51 +100,51 @@
 
 </script>
 
-<div class="section">
-  <div class="columns has-background-primary">
-    {#if $startOn > 0}
-      <div id="pan-left" use:addDragster in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} class="column drop-zone is-narrow has-text-centered" on:click={panLeft} on:drop={dropLeft} on:dragster-enter={startPanTimer} on:dragster-leave={clearPanTimer} on:dragover={dragOver}>
-        {#if panTimer}
-          <Icon data={spinner} pulse scale="1.75" style="fill: white; padding: 5px"/>
-        {:else}
-          <Icon data={arrowCircleLeft} scale="1.75" style="fill: white; padding: 5px"/>
-        {/if}
-        <div class="rotate-left has-text-centered has-text-white">{slides[$startOn - 1].label}&nbsp;&nbsp;&nbsp;</div>
-      </div>
-    {/if}
 
-    {#if $startOn <= 0 &&  endOn >= 0}
-      <div in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} class="column has-text-centered has-background-info">
-        <FormulationGrid slideLabel={slides[0].label} />
-      </div>
-    {/if}
+<div class="columns has-background-primary">
+  {#if $startOn > 0}
+    <div id="pan-left" use:addDragster in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} class="column drop-zone is-narrow has-text-centered" on:click={panLeft} on:drop={dropLeft} on:dragster-enter={startPanTimer} on:dragster-leave={clearPanTimer} on:dragover={dragOver}>
+      {#if panTimer}
+        <Icon data={spinner} pulse scale="1.75" style="fill: white; padding: 5px"/>
+      {:else}
+        <Icon data={arrowCircleLeft} scale="1.75" style="fill: white; padding: 5px"/>
+      {/if}
+      <div class="rotate-left has-text-centered has-text-white">{slides[$startOn - 1].label}&nbsp;&nbsp;&nbsp;</div>
+    </div>
+  {/if}
 
-    {#if $startOn <= 1 && endOn >= 1}
-      <div in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} class="column has-text-centered has-background-primary">
-        <DoingKanban />
-      </div>
-    {/if}
+  {#if $startOn <= 0 &&  endOn >= 0}
+    <div id="todo-formulation-grid" in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} class="column has-text-centered has-background-info">
+      <FormulationGrid slideLabel={slides[0].label} />
+    </div>
+  {/if}
 
-    {#if $startOn <= 2 &&  endOn >= 2}
-      <div in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} class="column has-text-centered has-background-info">
-        <FormulationGrid slideLabel={slides[2].label} />
-      </div>
-    {/if}
+  {#if $startOn <= 1 && endOn >= 1}
+    <div in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} class="column has-text-centered has-background-primary">
+      <DoingKanban />
+    </div>
+  {/if}
 
-    {#if endOn < NUMBER_OF_SLIDES - 1}
-      <div id="pan-right" use:addDragster in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} on:click={panRight} on:drop={dropRight} on:dragster-enter={startPanTimer} on:dragster-leave={clearPanTimer} on:dragover={dragOver} class="column drop-zone is-narrow has-text-centered">
-        {#if panTimer}
-          <Icon data={spinner} pulse scale="1.75" style="fill: white; padding: 5px"/>
-        {:else}
-          <Icon data={arrowCircleRight} scale="1.75" style="fill: white; padding: 5px"/>
-        {/if}
-        <div class="rotate-right has-text-centered has-text-white">&nbsp;&nbsp;&nbsp;{slides[$startOn + 1].label}</div>
-      </div>
-    {/if}
-  </div>
+  {#if $startOn <= 2 &&  endOn >= 2}
+    <div in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} class="column has-text-centered has-background-info">
+      <FormulationGrid slideLabel={slides[2].label} />
+    </div>
+  {/if}
+
+  {#if endOn < NUMBER_OF_SLIDES - 1}
+    <div id="pan-right" use:addDragster in:fly={{x: inX, duration}} out:fly={{x: outX, duration}} on:click={panRight} on:drop={dropRight} on:dragster-enter={startPanTimer} on:dragster-leave={clearPanTimer} on:dragover={dragOver} class="column drop-zone is-narrow has-text-centered">
+      {#if panTimer}
+        <Icon data={spinner} pulse scale="1.75" style="fill: white; padding: 5px"/>
+      {:else}
+        <Icon data={arrowCircleRight} scale="1.75" style="fill: white; padding: 5px"/>
+      {/if}
+      <div class="rotate-right has-text-centered has-text-white">&nbsp;&nbsp;&nbsp;{slides[$startOn + 1].label}</div>
+    </div>
+  {/if}
 </div>
 
 <PracticeEditor />
+
 
 <style>
   .rotate-left {
