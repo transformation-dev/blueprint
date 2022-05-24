@@ -37,34 +37,25 @@ jobs:
       run: |
         npm run coverage:c8
 
-    # - name: Upload coverage-server to Codecov
-    #   uses: codecov/codecov-action@v2
-    #   with:
-    #   #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-    #     directory: ./coverage-server
+    - name: npm coverage:nyc
+      env:
+        CI: true
+        SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
+        TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
+      run: |
+        npm run coverage:nyc
 
-    # - name: npm coverage:nyc
-    #   env:
-    #     CI: true
-    #     SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
-    #     TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
-    #   run: |
-    #     npm run coverage:nyc
-
-    # - name: Upload coverage to Codecov
-    #   uses: codecov/codecov-action@v2
-    #   with:
-    #   #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-    #     directory: ./coverage
+    - name: Upload coverage-server to Codecov
+      uses: codecov/codecov-action@v2
+      with:
+      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+        directory: ./coverage-server
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
-      #  token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-      #  directory: ./coverage
-        files: ./coverage/coverage-final.json,./coverage-server/coverage-final.json
-        path_to_write_report: ./codecov_report.txt
-        verbose: true
+      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+        directory: ./coverage
 
     # - name: upload html report as artifact
     #   uses: actions/upload-artifact@master
@@ -85,9 +76,3 @@ jobs:
         name: test-screenshots
         path: cypress/screenshots
 
-    - name: Upload codecov report
-      uses: actions/upload-artifact@v3
-      if: ${{ always() }}
-      with:
-        name: codecov-report
-        path: codecov_report.txt
