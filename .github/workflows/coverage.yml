@@ -59,9 +59,12 @@ jobs:
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
-      # with:
+      with:
       #  token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
       #  directory: ./coverage
+        files: ./coverage/coverage-final.json,./coverage-server/coverage-final.json
+        path_to_write_report: ./codecov_report.txt
+        verbose: true
 
     # - name: upload html report as artifact
     #   uses: actions/upload-artifact@master
@@ -74,3 +77,17 @@ jobs:
     #     npm run coverage:check
     #   env:
     #     CI: true
+
+    - name: Upload screenshots
+        uses: actions/upload-artifact@v3
+        if: ${{ always() }}
+        with:
+          name: test-screenshots
+          path: cypress/screenshots
+
+    - name: Upload codecov report
+        uses: actions/upload-artifact@v3
+        if: ${{ always() }}
+        with:
+          name: codecov-report
+          path: codecov_report.txt
