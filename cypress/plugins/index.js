@@ -12,7 +12,7 @@
 // the project's config changing)
 
 module.exports = (on, config) => {
-  // require('@cypress/code-coverage/task')(on, config)
+  require('@cypress/code-coverage/task')(on, config)
   // include any other plugin code...
 
   config.env.TESTING_OVERRIDE_CODE = process.env.TESTING_OVERRIDE_CODE
