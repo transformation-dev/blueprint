@@ -45,17 +45,10 @@ jobs:
       run: |
         npm run coverage:nyc
 
-    - name: Upload coverage-server to Codecov
+    - name: Upload coverage files to Codecov
       uses: codecov/codecov-action@v2
-      with:
+      # with:
       #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-        directory: ./coverage-server
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v2
-      with:
-      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-        directory: ./coverage
 
     # - name: upload html report as artifact
     #   uses: actions/upload-artifact@master

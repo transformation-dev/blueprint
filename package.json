@@ -24,7 +24,7 @@
     "coverage:nyc": "rm -rf ./.nyc_output ./coverage && start-server-and-test coverage:build-and-start http://localhost:8788 cypress:run",
     "coverage:c8:dont-use": "rm -rf ./coverage-server && start-server-and-test coverage:build-and-start http://localhost:8788 cypress:run:c8",
     "coverage:nyc:dont-use": "start-server-and-test coverage:build-and-start http://localhost:8788 cypress:run",
-    "coverage:c8": "npx c8 --reporter=json npm run test",
+    "coverage:c8": "npx c8 --reporter=text-lcov npm run test",
     "coverage": "npm run coverage:c8 && npm run coverage:nyc",
     "coverage:report:dont-use": "nyc report --reporter=text-summary",
     "eslint": "npx eslint -c .eslintrc.cjs --ext .js,.svelte,.html .",
