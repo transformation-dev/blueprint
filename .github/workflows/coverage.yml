@@ -79,15 +79,15 @@ jobs:
     #     CI: true
 
     - name: Upload screenshots
-        uses: actions/upload-artifact@v3
-        if: ${{ always() }}
-        with:
-          name: test-screenshots
-          path: cypress/screenshots
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: test-screenshots
+        path: cypress/screenshots
 
     - name: Upload codecov report
-        uses: actions/upload-artifact@v3
-        if: ${{ always() }}
-        with:
-          name: codecov-report
-          path: codecov_report.txt
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: codecov-report
+        path: codecov_report.txt
