@@ -28,7 +28,6 @@
     "lint": "npm run eslint"
   },
   "devDependencies": {
-    "@contrast/contrast-cli": "^0.0.37",
     "@creativebulma/bulma-tooltip": "^1.2.0",
     "@cypress/code-coverage": "^3.9.12",
     "@sveltejs/vite-plugin-svelte": "^1.0.0-next.30",
