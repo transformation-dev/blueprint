@@ -90,7 +90,7 @@
 </Header>
 
 <div class="flex">
-  <SearchableTreePanel tree={$authorizedTreeStore} handleNodeChosen={handleOrgChosen} chosenBreadcrumbsArray={$chosenOrgBreadcrumbsArrayStore} />
+  <SearchableTreePanel tree={$authorizedTreeStore} chosenBreadcrumbsArrayStore={chosenOrgBreadcrumbsArrayStore} />
 
   <!-- The resizer -->
   <div class="resizer" id="dragMe"></div>
@@ -131,8 +131,8 @@
     --agnostic-gray-extra-light: #f8f8f8;
     --agnostic-gray-light: #e9e9e9;
     --agnostic-gray-mid: #d8d8d8;
-    --agnostic-gray-mid-dark: #ccc;
-    --agnostic-gray-dark: #757575;
+    --agnostic-gray-mid-dark: #555555;
+    --agnostic-gray-dark: #353535;
     --agnostic-dark: #1c1c1c;
     --agnostic-light: #fff;
     --agnostic-disabled-bg: var(--agnostic-gray-light);
@@ -206,6 +206,7 @@
   #logout:hover,
   a:hover { 
     color: var(--agnostic-primary-hover);
+    cursor: pointer;
   }
 
   .logout,

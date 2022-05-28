@@ -29,39 +29,18 @@ jobs:
       run: |
         npm ci
 
-    - name: npm coverage:c8
+    - name: npm run coverage
       env:
         CI: true
         SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
         TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
       run: |
-        npm run coverage:c8
+        npm run coverage
 
-    # - name: Upload coverage-server to Codecov
-    #   uses: codecov/codecov-action@v2
-    #   with:
-    #   #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-    #     directory: ./coverage-server
-
-    # - name: npm coverage:nyc
-    #   env:
-    #     CI: true
-    #     SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
-    #     TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
-    #   run: |
-    #     npm run coverage:nyc
-
-    # - name: Upload coverage to Codecov
-    #   uses: codecov/codecov-action@v2
-    #   with:
-    #   #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-    #     directory: ./coverage
-
-    - name: Upload coverage to Codecov
+    - name: Upload coverage files to Codecov
       uses: codecov/codecov-action@v2
       # with:
-      #  token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
-      #  directory: ./coverage
+      #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
 
     # - name: upload html report as artifact
     #   uses: actions/upload-artifact@master
@@ -74,3 +53,11 @@ jobs:
     #     npm run coverage:check
     #   env:
     #     CI: true
+
+    - name: Upload screenshots
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: test-screenshots
+        path: cypress/screenshots
+
