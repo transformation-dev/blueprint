@@ -206,6 +206,7 @@
   #logout:hover,
   a:hover { 
     color: var(--agnostic-primary-hover);
+    cursor: pointer;
   }
 
   .logout,

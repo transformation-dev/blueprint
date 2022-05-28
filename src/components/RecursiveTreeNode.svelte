@@ -30,6 +30,7 @@
 
 </script>
 
+
 <ul>
   {#each tree as node}
     {#if node.show || showAll}
@@ -39,7 +40,7 @@
           <div slot="label"
             class:chosen={breadcrumbsEqual(chosenBreadcrumbsArray, getNewBreadcrumbsArray(parentBreadcrumbsArray, node))} 
           >
-            {@html node.label}
+            {@html node.labelHighlighted || node.label}
           </div>
           <svelte:self 
             slot="children"
@@ -56,7 +57,7 @@
           <div slot="label"
             class:chosen={breadcrumbsEqual(chosenBreadcrumbsArray, getNewBreadcrumbsArray(parentBreadcrumbsArray, node))} 
           >
-            {@html node.label}
+            {@html node.labelHighlighted || node.label}
           </div>
         </TreeNode>
       {/if}
@@ -64,8 +65,11 @@
   {/each}
 </ul>
 
+
 <style>
+
   .chosen {
     color: var(--agnostic-primary-hover);
   }
+
 </style>

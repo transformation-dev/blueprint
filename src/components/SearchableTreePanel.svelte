@@ -6,25 +6,28 @@
   export let chosenBreadcrumbsArrayStore
 
   import RecursiveTreeNode from './RecursiveTreeNode.svelte'
+  import BreadcrumbsPanel from './BreadcrumbsPanel.svelte'
 
   // @ts-ignore
   import structuredClone from '@ungap/structured-clone'  // TODO: Remove this polyfill when it'll pass tests in GitHub Actions
   import chevronLeft from 'svelte-awesome/icons/chevron-left'
-  import chevronRight from 'svelte-awesome/icons/chevron-right'
   import close from 'svelte-awesome/icons/close'
   import Icon from 'svelte-awesome'
+  import { tick } from 'svelte'
 
   function highlightSearchText(node, searchString) {
     if (searchString.length === 0 || node.alreadyHighlighted) return
-    node.label = node.label.replace(new RegExp(searchString, 'gi'), '<strong>$&</strong>')
+    node.labelHighlighted = node.label.replace(new RegExp(searchString, 'gi'), '<strong>$&</strong>')
     node.alreadyHighlighted = true
   }
   
   function showNodeAndAncestors(node) {
-    node.show = true
-    if (node.parents) {
-      for (let parent of node.parents) {
-        showNodeAndAncestors(parent)
+    if (node) {
+      node.show = true
+      if (node.parents) {
+        for (let parent of node.parents) {
+          showNodeAndAncestors(parent)
+        }
       }
     }
   }
@@ -58,11 +61,29 @@
     }    
   }
 
-  let panelCollapsed = false
-  function collapsePanel() {
-    panelCollapsed = true
+  let minimumPanelHeight = 500
+  function updatePanelHeight() {
+    minimumPanelHeight = Math.max(500, document.getElementById('hidden-breadcrumbs-box')?.getBoundingClientRect()?.width + 40)
   }
+
+  function collapseAllNodes(tree) {
+    for (const node of tree) {
+      node.show = false
+      if (node.children) collapseAllNodes(node.children)
+    }  
+  }
+
+  let panelCollapsed = false
+  async function collapsePanel() {
+    searchString = ''
+    panelCollapsed = true
+    await tick()
+    updatePanelHeight()
+  }
+
   function expandPanel() {
+    collapseAllNodes(preparedTree)
+    showNodeAndAncestors($chosenBreadcrumbsArrayStore[$chosenBreadcrumbsArrayStore.length - 1])
     panelCollapsed = false
   }
 
@@ -86,7 +107,6 @@
     markTree(treeCopy, searchString)
     openAllShown = foundCount < 40
     preparedTree = treeCopy
-    
   }
 
   function handleNodeChosen(breadcrumbsArray) {
@@ -96,43 +116,23 @@
 
 </script>
 
-
 {#if panelCollapsed}
 
   <!-- Breadcrumbs panel -->
-  <div class='breadcrumbs-panel' on:click={expandPanel}>
-    <div class="rotated">
-      <div class="breadcrumbs">
-        {#each $chosenBreadcrumbsArrayStore as node}
-          {#if $chosenBreadcrumbsArrayStore.indexOf(node) < $chosenBreadcrumbsArrayStore.length - 1}
-            <span on:click={(e) => {
-              handleNodeChosen($chosenBreadcrumbsArrayStore.slice(0, $chosenBreadcrumbsArrayStore.indexOf(node) + 1))
-            }}>
-              {node.label}
-            </span>
-            <!-- <Icon scale={0.7} data={chevronRight} /> -->
-            <span class="breadcrumb-separator"> > </span>
-          {:else}
-            &nbsp;
-          {/if}
-        {/each}
-      </div>
-      <div class="breadcrumb-name">
-        {$chosenBreadcrumbsArrayStore.length > 0 ? $chosenBreadcrumbsArrayStore[$chosenBreadcrumbsArrayStore.length - 1].label : ''}
-      </div>
-
-    </div>
+  <div class='breadcrumbs-panel' style="min-height: {minimumPanelHeight}px;" on:click={expandPanel} >
+    <BreadcrumbsPanel handleNodeChosen={handleNodeChosen} chosenBreadcrumbsArray={$chosenBreadcrumbsArrayStore} hidden />
+    <BreadcrumbsPanel handleNodeChosen={handleNodeChosen} chosenBreadcrumbsArray={$chosenBreadcrumbsArrayStore} />
   </div>
 
 {:else}
 
   <!-- Tree panel -->
-  <div class='flex flex-column tree-panel'>
+  <div class='flex flex-column tree-panel' style="min-height: {minimumPanelHeight}px;">
 
     <!-- Search bar -->
     <div id="search-bar" class="flex flex-row items-center">
       <div id="search-bubble" class="mis8 mbs8 mbe8 flex flex-fill items-center">
-        <input id="search-input" type="text" class="input input-rounded dark flex-fill p4 pis8" placeholder="Search" bind:value={searchString} />
+        <input id="search-input" type="text" class="flex-fill p4 pis8" placeholder="Search" bind:value={searchString} />
         <button id="collapse-tree" on:click={clearSearch} class="flex inherit-colors">
           <Icon data={close} class="m8" />
         </button>
@@ -172,31 +172,7 @@
     background-color: var(--agnostic-dark);
     color: var(--agnostic-primary-light);
     width: 56px; 
-  }
-
-  .rotated { 
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    display: block;
-    width: 100%;
-    min-width: 500px;
-    transform: rotate(90deg) translate(-20px, 0px);
-    transform-origin: 8px 100%;
-  }
-
-  .breadcrumb-name {
-    font-size: 1.1rem;
-  }
-
-  .breadcrumbs {
-    font-size: .7rem;
-  }
-
-  .breadcrumb-separator {
-    font-weight: 800;
-    margin-left: 6px;
-    margin-right: 6px;
+    cursor: pointer;
   }
 
   #search-bar {
