@@ -8,17 +8,19 @@
 <div id="{hidden ? "hidden-" : ""}breadcrumbs-box" class:rotated={!hidden} class:offscreen={hidden}>
   <div id="{hidden ? "hidden-" : ""}breadcrumbs" class="breadcrumbs">
     {#each chosenBreadcrumbsArray as node}
-      {#if chosenBreadcrumbsArray.indexOf(node) < chosenBreadcrumbsArray.length - 1}
-        <span class="link" on:click={(e) => {
-          e.stopPropagation()
-          handleNodeChosen(chosenBreadcrumbsArray.slice(0, chosenBreadcrumbsArray.indexOf(node) + 1))
-        }}>
-          {node.label}
-        </span>
-        <!-- <Icon scale={0.7} data={chevronRight} /> -->
-        <span class="breadcrumb-separator"> > </span>
-      {:else}
-        &nbsp;
+      {#if node.id !== 'root'}
+        {#if chosenBreadcrumbsArray.indexOf(node) < chosenBreadcrumbsArray.length - 1}
+          <span class="link" on:click={(e) => {
+            e.stopPropagation()
+            handleNodeChosen(chosenBreadcrumbsArray.slice(0, chosenBreadcrumbsArray.indexOf(node) + 1))
+          }}>
+            {node.label}
+          </span>
+          <!-- <Icon scale={0.7} data={chevronRight} /> -->
+          <span class="breadcrumb-separator"> > </span>
+        {:else}
+          &nbsp;
+        {/if}
       {/if}
     {/each}
   </div>

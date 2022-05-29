@@ -5,7 +5,7 @@
   // export let handleNodeChosen  // Using a callback because the event approach was ugly with the recursion TODO: Consider switching this to a store now that this contains both expanded and collapsed modes
   export let chosenBreadcrumbsArrayStore
 
-  import RecursiveTreeNode from './RecursiveTreeNode.svelte'
+  import TreeNode from './TreeNode.svelte'
   import BreadcrumbsPanel from './BreadcrumbsPanel.svelte'
 
   // @ts-ignore
@@ -21,56 +21,56 @@
     node.alreadyHighlighted = true
   }
   
-  function showNodeAndAncestors(node) {
+  function expandNodeAndAncestors(node) {
     if (node) {
-      node.show = true
+      node.expanded = true
       if (node.parents) {
         for (let parent of node.parents) {
-          showNodeAndAncestors(parent)
+          expandNodeAndAncestors(parent)
         }
       }
     }
   }
 
   function highlightNode(node) {
-    foundCount++
-    node.highlight = true
     highlightSearchText(node, searchString)
-    showNodeAndAncestors(node)
+    expandNodeAndAncestors(node)
   }
 
-  function markTree(tree, searchString) {
-    for (const node of tree) {
-      if (searchString?.length > 0 && node.label.toLowerCase().includes(searchString)) highlightNode(node)  // TODO: Allow specification of multiple fields to search
-      if (node.children && node.children.length > 0) {
-        markTree(node.children, searchString)
+  function markTree(node, searchString) {  // makes search text <strong> and expands the node and ancestors
+    if (searchString?.length > 0 && node.label.toLowerCase().includes(searchString)) highlightNode(node)  // TODO: Allow specification of multiple fields to search
+    if (node.children?.length > 0) {
+      for (let child of node.children) {
+        markTree(child, searchString)
       }
-    }
-  }
-
-  function stitchParents(tree, parent = null) { // TODO: Upgrade this to work with a DAG
-    for (const node of tree) {
-      if (parent) {
-        if (node.parents) {
-          node.parents.push(parent)
-        } else {
-          node.parents = [parent]
-        }
-      }
-      if (node.children) stitchParents(node.children, node)
     }    
   }
+
+  function stitchParents(node, parent = null) {
+    if (parent) {
+      node.parents = node.parents || []
+      node.parents.push(parent)
+    }
+    if (node.children?.length > 0) {
+      for (let child of node.children) {
+        stitchParents(child, node)
+      }
+    }  
+  }
+  stitchParents(tree, null)  // TODO: Store it with parents already stitched
 
   let minimumPanelHeight = 500
   function updatePanelHeight() {
     minimumPanelHeight = Math.max(500, document.getElementById('hidden-breadcrumbs-box')?.getBoundingClientRect()?.width + 40)
   }
 
-  function collapseAllNodes(tree) {
-    for (const node of tree) {
-      node.show = false
-      if (node.children) collapseAllNodes(node.children)
-    }  
+  function collapseAllNodes(node) {
+    node.expanded = (node.id === 'root')
+    if (node.children?.length > 0) {
+      for (const child of node.children) {
+        collapseAllNodes(child)
+      }
+    }
   }
 
   let panelCollapsed = false
@@ -81,9 +81,24 @@
     updatePanelHeight()
   }
 
+  function expandTreeToChosen(node, breadcrumbsArray, level = 0) {
+    const targetID = breadcrumbsArray[level]?.id
+    if (!targetID || level >= breadcrumbsArray.length - 1) return
+    if (node.id === targetID) {
+      node.expanded = true
+      if (level < breadcrumbsArray.length - 1 && node.children?.length > 0) {
+        for (const child of node.children) {
+          expandTreeToChosen(child, breadcrumbsArray, level + 1)
+        } 
+      } else {
+        return
+      }
+    } 
+  }
+
   function expandPanel() {
     collapseAllNodes(preparedTree)
-    showNodeAndAncestors($chosenBreadcrumbsArrayStore[$chosenBreadcrumbsArrayStore.length - 1])
+    expandTreeToChosen(preparedTree, $chosenBreadcrumbsArrayStore)
     panelCollapsed = false
   }
 
@@ -94,18 +109,15 @@
 
   let treeCopy
   let preparedTree
-  let showAll = true
-  let openAllShown = true
-  let foundCount = 0
   $: {
     searchString = searchString.toLowerCase()
-    foundCount = 0
-    showAll = (! searchString || searchString.length === 0)
-    // @ts-ignore
     treeCopy = structuredClone(tree)  // Works with circular references which means it should also work with a DAG
-    stitchParents(treeCopy, null)  // TODO: Store it with parents already stitched
-    markTree(treeCopy, searchString)
-    openAllShown = foundCount < 40
+    collapseAllNodes(treeCopy)
+    if (searchString.length > 0) {
+      markTree(treeCopy, searchString)
+    } else {
+      expandTreeToChosen(treeCopy, $chosenBreadcrumbsArrayStore)
+    }
     preparedTree = treeCopy
   }
 
@@ -145,10 +157,9 @@
     <!-- Tree -->
     <!-- Using a callback because an event is ugly with the recursion, and a store only updates if the user selects a different node  -->
     <div class="m8">
-      <RecursiveTreeNode
-        tree={preparedTree}
-        showAll={showAll}
-        openAllShown={openAllShown}
+      <TreeNode
+        node={ preparedTree }
+        expanded={ true }
         handleNodeChosen={handleNodeChosen}
         chosenBreadcrumbsArray={$chosenBreadcrumbsArrayStore}
       />
