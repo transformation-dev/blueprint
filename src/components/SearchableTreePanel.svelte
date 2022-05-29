@@ -5,7 +5,7 @@
   // export let handleNodeChosen  // Using a callback because the event approach was ugly with the recursion TODO: Consider switching this to a store now that this contains both expanded and collapsed modes
   export let chosenBreadcrumbsArrayStore
 
-  import RecursiveTreeNode from './RecursiveTreeNode.svelte'
+  import TreeNode from './TreeNode.svelte'
   import BreadcrumbsPanel from './BreadcrumbsPanel.svelte'
 
   // @ts-ignore
@@ -21,25 +21,23 @@
     node.alreadyHighlighted = true
   }
   
-  function showNodeAndAncestors(node) {
+  function expandNodeAndAncestors(node) {
     if (node) {
-      node.show = true
+      node.expanded = true
       if (node.parents) {
         for (let parent of node.parents) {
-          showNodeAndAncestors(parent)
+          expandNodeAndAncestors(parent)
         }
       }
     }
   }
 
   function highlightNode(node) {
-    foundCount++
-    node.highlight = true
     highlightSearchText(node, searchString)
-    showNodeAndAncestors(node)
+    expandNodeAndAncestors(node)
   }
 
-  function markTree(tree, searchString) {
+  function markTree(tree, searchString) {  // makes search text <strong> and expands the node and ancestors
     for (const node of tree) {
       if (searchString?.length > 0 && node.label.toLowerCase().includes(searchString)) highlightNode(node)  // TODO: Allow specification of multiple fields to search
       if (node.children && node.children.length > 0) {
@@ -48,7 +46,7 @@
     }
   }
 
-  function stitchParents(tree, parent = null) { // TODO: Upgrade this to work with a DAG
+  function stitchParents(tree, parent = null) {
     for (const node of tree) {
       if (parent) {
         if (node.parents) {
@@ -60,6 +58,7 @@
       if (node.children) stitchParents(node.children, node)
     }    
   }
+  stitchParents(tree, null)  // TODO: Store it with parents already stitched
 
   let minimumPanelHeight = 500
   function updatePanelHeight() {
@@ -68,7 +67,7 @@
 
   function collapseAllNodes(tree) {
     for (const node of tree) {
-      node.show = false
+      node.expanded = false
       if (node.children) collapseAllNodes(node.children)
     }  
   }
@@ -81,9 +80,23 @@
     updatePanelHeight()
   }
 
+  function expandTreeToChosen(tree, breadcrumbsArray, level = 0) {
+    const targetID = breadcrumbsArray[level+1].id  // THE +1 IS ONLY HERE BECAUSE THE BREADCRUMBS ARRAY INCLUDES THE ROOT AND THIS TREE DOES NOT BUT WE ARE GOING TO FIX THAT NEXT
+    for (const node of tree) {
+      if (node.id === targetID) {
+        node.expanded = true
+        if (level < breadcrumbsArray.length && node.children) {
+          expandTreeToChosen(node.children, breadcrumbsArray, level + 1)
+        } else {
+          return
+        }
+      }
+    }
+  }
+
   function expandPanel() {
     collapseAllNodes(preparedTree)
-    showNodeAndAncestors($chosenBreadcrumbsArrayStore[$chosenBreadcrumbsArrayStore.length - 1])
+    expandTreeToChosen(preparedTree, $chosenBreadcrumbsArrayStore)
     panelCollapsed = false
   }
 
@@ -94,18 +107,11 @@
 
   let treeCopy
   let preparedTree
-  let showAll = true
-  let openAllShown = true
-  let foundCount = 0
   $: {
     searchString = searchString.toLowerCase()
-    foundCount = 0
-    showAll = (! searchString || searchString.length === 0)
-    // @ts-ignore
     treeCopy = structuredClone(tree)  // Works with circular references which means it should also work with a DAG
-    stitchParents(treeCopy, null)  // TODO: Store it with parents already stitched
+    collapseAllNodes(treeCopy)
     markTree(treeCopy, searchString)
-    openAllShown = foundCount < 40
     preparedTree = treeCopy
   }
 
@@ -145,10 +151,9 @@
     <!-- Tree -->
     <!-- Using a callback because an event is ugly with the recursion, and a store only updates if the user selects a different node  -->
     <div class="m8">
-      <RecursiveTreeNode
-        tree={preparedTree}
-        showAll={showAll}
-        openAllShown={openAllShown}
+      <TreeNode
+        node={{ label: "root", expanded: true, children: preparedTree }}
+        isRoot={true}
         handleNodeChosen={handleNodeChosen}
         chosenBreadcrumbsArray={$chosenBreadcrumbsArrayStore}
       />
