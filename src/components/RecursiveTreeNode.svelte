@@ -1,7 +1,7 @@
 
 <script>
 
-  export let tree  // root is assumed to be an array
+  export let tree  // an array
   export let showAll
   export let openAllShown
   export let handleNodeChosen  // Using a callback because the event approach was ugly with the recursion 
