@@ -2,11 +2,10 @@
 <script>
 
   export let node  // a TreeNode
-  export let isRoot = false
   export let handleNodeChosen  // Using a callback because the event approach was ugly with the recursion 
   export let chosenBreadcrumbsArray
   export let parentBreadcrumbsArray = []
-  export let expanded = true
+  export let expanded
 
   import { slide } from 'svelte/transition'
   import Icon from 'svelte-awesome'
@@ -15,8 +14,8 @@
 
   function toggle(e, node) {
     e.stopPropagation()
-    expanded = !expanded
     node.expanded = !node.expanded
+    expanded = node.expanded
   }
 
   function clickTreeNode(e, node) {
@@ -40,11 +39,11 @@
 </script>
 
 
-{#if !isRoot}
+{#if node.id !== 'root'}
   <div class="flex">
     <div on:click={(e) => toggle(e, node)} style="width: 1.5rem;">
       {#if node.children?.length > 0}
-        <Icon data={expanded ? caretRight : caretDown} />
+        <Icon data={expanded ? caretDown : caretRight} />
       {/if}
     </div>
     <div on:click={(e) => clickTreeNode(e, node)}>
@@ -55,17 +54,17 @@
   </div>
 {/if}
 
-{#if (node.expanded) && node.children}
+{#if (expanded) && node.children}
   <ul>
     {#each node.children as child}
       <!-- No out to prevent a stutter when the tree collapses -->
-      <li style="padding-left: {isRoot ? 0 : 1.5}rem;" in:slide>
+      <li style="padding-left: {node.id === 'root' ? 0 : 1.5}rem;" in:slide>
         <svelte:self 
           node={child}         
           handleNodeChosen={handleNodeChosen}
           chosenBreadcrumbsArray={chosenBreadcrumbsArray}
           parentBreadcrumbsArray = {getNewBreadcrumbsArray(parentBreadcrumbsArray, node)}
-          expanded={node.expanded}
+          expanded={child.expanded}
         />
       </li>
     {/each}

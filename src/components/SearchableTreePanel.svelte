@@ -37,26 +37,25 @@
     expandNodeAndAncestors(node)
   }
 
-  function markTree(tree, searchString) {  // makes search text <strong> and expands the node and ancestors
-    for (const node of tree) {
-      if (searchString?.length > 0 && node.label.toLowerCase().includes(searchString)) highlightNode(node)  // TODO: Allow specification of multiple fields to search
-      if (node.children && node.children.length > 0) {
-        markTree(node.children, searchString)
+  function markTree(node, searchString) {  // makes search text <strong> and expands the node and ancestors
+    if (searchString?.length > 0 && node.label.toLowerCase().includes(searchString)) highlightNode(node)  // TODO: Allow specification of multiple fields to search
+    if (node.children?.length > 0) {
+      for (let child of node.children) {
+        markTree(child, searchString)
       }
-    }
+    }    
   }
 
-  function stitchParents(tree, parent = null) {
-    for (const node of tree) {
-      if (parent) {
-        if (node.parents) {
-          node.parents.push(parent)
-        } else {
-          node.parents = [parent]
-        }
+  function stitchParents(node, parent = null) {
+    if (parent) {
+      node.parents = node.parents || []
+      node.parents.push(parent)
+    }
+    if (node.children?.length > 0) {
+      for (let child of node.children) {
+        stitchParents(child, node)
       }
-      if (node.children) stitchParents(node.children, node)
-    }    
+    }  
   }
   stitchParents(tree, null)  // TODO: Store it with parents already stitched
 
@@ -65,11 +64,13 @@
     minimumPanelHeight = Math.max(500, document.getElementById('hidden-breadcrumbs-box')?.getBoundingClientRect()?.width + 40)
   }
 
-  function collapseAllNodes(tree) {
-    for (const node of tree) {
-      node.expanded = false
-      if (node.children) collapseAllNodes(node.children)
-    }  
+  function collapseAllNodes(node) {
+    node.expanded = (node.id === 'root')
+    if (node.children?.length > 0) {
+      for (const child of node.children) {
+        collapseAllNodes(child)
+      }
+    }
   }
 
   let panelCollapsed = false
@@ -80,18 +81,19 @@
     updatePanelHeight()
   }
 
-  function expandTreeToChosen(tree, breadcrumbsArray, level = 0) {
-    const targetID = breadcrumbsArray[level+1].id  // THE +1 IS ONLY HERE BECAUSE THE BREADCRUMBS ARRAY INCLUDES THE ROOT AND THIS TREE DOES NOT BUT WE ARE GOING TO FIX THAT NEXT
-    for (const node of tree) {
-      if (node.id === targetID) {
-        node.expanded = true
-        if (level < breadcrumbsArray.length && node.children) {
-          expandTreeToChosen(node.children, breadcrumbsArray, level + 1)
-        } else {
-          return
-        }
+  function expandTreeToChosen(node, breadcrumbsArray, level = 0) {
+    const targetID = breadcrumbsArray[level]?.id
+    if (!targetID || level >= breadcrumbsArray.length - 1) return
+    if (node.id === targetID) {
+      node.expanded = true
+      if (level < breadcrumbsArray.length - 1 && node.children?.length > 0) {
+        for (const child of node.children) {
+          expandTreeToChosen(child, breadcrumbsArray, level + 1)
+        } 
+      } else {
+        return
       }
-    }
+    } 
   }
 
   function expandPanel() {
@@ -111,7 +113,11 @@
     searchString = searchString.toLowerCase()
     treeCopy = structuredClone(tree)  // Works with circular references which means it should also work with a DAG
     collapseAllNodes(treeCopy)
-    markTree(treeCopy, searchString)
+    if (searchString.length > 0) {
+      markTree(treeCopy, searchString)
+    } else {
+      expandTreeToChosen(treeCopy, $chosenBreadcrumbsArrayStore)
+    }
     preparedTree = treeCopy
   }
 
@@ -152,8 +158,8 @@
     <!-- Using a callback because an event is ugly with the recursion, and a store only updates if the user selects a different node  -->
     <div class="m8">
       <TreeNode
-        node={{ label: "root", expanded: true, children: preparedTree }}
-        isRoot={true}
+        node={ preparedTree }
+        expanded={ true }
         handleNodeChosen={handleNodeChosen}
         chosenBreadcrumbsArray={$chosenBreadcrumbsArrayStore}
       />
