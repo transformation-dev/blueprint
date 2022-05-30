@@ -1,10 +1,10 @@
+
 <script>
-  import { replace } from 'svelte-spa-router'
-  import { debug } from 'svelte/internal';
+  import { parseBody } from '../utils'
+
   async function status() {
     const response = await fetch('/api/status')
-    const status = await response.json()
-    console.log(status)
+    const status = await parseBody(response)
     return status
   }
 
@@ -15,6 +15,7 @@
   }
 
 </script>
+
 
 <h2 class="routetitle">Home!</h2>
 

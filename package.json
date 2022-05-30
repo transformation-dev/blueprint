@@ -56,6 +56,7 @@
     "vite-plugin-istanbul": "^2.5.0"
   },
   "dependencies": {
+    "@transformation-dev/accept": "file:packages/accept",
     "@transformation-dev/dragster": "file:packages/dragster",
     "@transformation-dev/svelte-realtime-store": "file:packages/svelte-realtime-store",
     "@transformation-dev/svelte-viewstate-store": "file:packages/svelte-viewstate-store",

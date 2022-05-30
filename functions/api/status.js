@@ -1,5 +1,5 @@
 import Debug from 'debug'
-import { jsonResponse, getDebug } from '../_utils'
+import { negotiatedResponse, getDebug } from '../_utils'
 
 const debug = getDebug('blueprint:api:status')
 
@@ -17,5 +17,5 @@ export async function onRequestGet({ request, env, params }) {
     count,
     // env.CF_ENV,  // BE CAREFUL NOT TO EVER COMMIT WITH JUST `env` OR WE'LL LEAK ENVIRONMENT VARIABLES
   }
-  return jsonResponse(myResponse)
+  return negotiatedResponse(myResponse, request)
 }
