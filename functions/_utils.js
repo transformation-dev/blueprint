@@ -1,14 +1,57 @@
-/* eslint-disable object-curly-newline */
-/* eslint-disable no-mixed-operators */
-/* eslint-disable operator-assignment */
-/* eslint-disable no-bitwise */
 import Debug from 'debug'
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
 import { nanoid } from 'nanoid'
+import { stringify, parse } from '@ungap/structured-clone/json'
+import Accept from '@transformation-dev/accept'
 
 export const jsonResponse = (value) => new Response(JSON.stringify(value), {
   headers: { 'Content-Type': 'application/json' },
 })
+
+const MEDIA_TYPES_SUPPORTED = ['application/sc+json', 'application/json']
+const DEFAULT_MEDIA_TYPE_FOR_ERROR = 'application/json'
+
+function returnResponse(stringifiedBody, mediaType, status) {
+  return new Response(
+    stringifiedBody,
+    {
+      headers: {
+        'Content-Type': mediaType,
+        'Content-Encoding': 'gzip',  // Causes response to be gzipped by Cloudflare Workers: https://community.cloudflare.com/t/worker-doesnt-return-gzip-brotli-compressed-data/337644/3
+        // 'Content-Encoding': 'br',  // TODO: Upgrade this to Brotli compression once Cloudflare Workers support it. It's gzip only for now
+      },
+      status: status || 200,
+    },
+  )
+}
+
+function stringifyBody(body, mediaType) {
+  if (mediaType === 'application/sc+json') {
+    return stringify(body)
+  }
+  return JSON.stringify(body)
+}
+
+export const negotiatedResponse = (body, request, supported = MEDIA_TYPES_SUPPORTED) => {  // supported is like @hapi/accept preferences but errors if chosen type is in the supported list
+  // Use my fork of @hapi/accept to decide on the best content-type to use for the response
+  const mediaType = Accept.mediaType(request.headers.get('accept'), supported)
+  const mediaTypeIfError = MEDIA_TYPES_SUPPORTED.includes(mediaType) ? mediaType : DEFAULT_MEDIA_TYPE_FOR_ERROR
+
+  if (body instanceof Error) {
+    const stringifiedBody = stringifyBody(body, mediaTypeIfError)
+    return returnResponse(stringifiedBody, mediaTypeIfError, body.statusCode || body.status || 500)
+  }
+
+  if (mediaType !== mediaTypeIfError) {  // that means it isn't in the supported list
+    let message = `No acceptable Content-Type. Supported: ${JSON.stringify(supported)}`
+    if (supported.length === 1 && supported[0] === 'application/sc+json') {
+      message += '. See: https://github.com/ungap/structured-clone#tojson'
+    }
+    return returnResponse(message, mediaTypeIfError, 406)
+  }
+
+  return returnResponse(stringifyBody(body, mediaType), mediaType)
+}
 
 export const getDebug = (name, delay = 50) => {
   const debugRaw = Debug(name)

@@ -119,8 +119,8 @@ export const chosenOrgBreadcrumbsArrayStore = writable([])
 
 const dagNode = { id: 'DAGNode', label: 'DAG Node' }
 export const authorizedTreeStore = writable({
-  id: 'root',
-  label: 'Root',
+  id: 'companyID',
+  label: 'Company',
   children: [
     {
       id: 'node1',

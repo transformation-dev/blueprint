@@ -1,0 +1,28 @@
+{
+  "name": "@transformation-dev/accept",
+  "description": "HTTP Accept-* headers parsing",
+  "version": "0.6.0",
+  "repository": "git://github.com/transformation-dev/blueprint",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib"
+  ],
+  "keywords": [
+    "HTTP",
+    "header",
+    "accept",
+    "accept-encoding"
+  ],
+
+  "dependencies": {
+
+  },
+  "devDependencies": {
+
+  },
+  "scripts": {
+
+  },
+  "license": "BSD-3-Clause"
+}
