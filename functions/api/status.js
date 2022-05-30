@@ -1,5 +1,4 @@
 import Debug from 'debug'
-import { serialize, deserialize } from '@ungap/structured-clone'
 import { negotiatedResponse, getDebug } from '../_utils'
 
 const debug = getDebug('blueprint:api:status')
@@ -18,5 +17,5 @@ export async function onRequestGet({ request, env, params }) {
     count,
     // env.CF_ENV,  // BE CAREFUL NOT TO EVER COMMIT WITH JUST `env` OR WE'LL LEAK ENVIRONMENT VARIABLES
   }
-  return negotiatedResponse(myResponse, request, ['application/json'])
+  return negotiatedResponse(myResponse, request)
 }

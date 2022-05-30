@@ -1,15 +1,20 @@
 import Debug from 'debug'
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
 import { nanoid } from 'nanoid'
-import { stringify, parse } from '@ungap/structured-clone/json'
+// eslint-disable-next-line import/no-unresolved
+import { stringify } from '@ungap/structured-clone/json'
 import Accept from '@transformation-dev/accept'
+
+import { HTTPError } from '../src/utils'
+
+export { HTTPError }  // Doing this so that _utils.js is the only server-side code that needs to reach outside of /functions
 
 export const jsonResponse = (value) => new Response(JSON.stringify(value), {
   headers: { 'Content-Type': 'application/json' },
 })
 
 const MEDIA_TYPES_SUPPORTED = ['application/sc+json', 'application/json']
-const DEFAULT_MEDIA_TYPE_FOR_ERROR = 'application/json'
+const MEDIA_TYPE_FOR_ERROR = 'application/json'
 
 function returnResponse(stringifiedBody, mediaType, status) {
   return new Response(
@@ -35,14 +40,14 @@ function stringifyBody(body, mediaType) {
 export const negotiatedResponse = (body, request, supported = MEDIA_TYPES_SUPPORTED) => {  // supported is like @hapi/accept preferences but errors if chosen type is in the supported list
   // Use my fork of @hapi/accept to decide on the best content-type to use for the response
   const mediaType = Accept.mediaType(request.headers.get('accept'), supported)
-  const mediaTypeIfError = MEDIA_TYPES_SUPPORTED.includes(mediaType) ? mediaType : DEFAULT_MEDIA_TYPE_FOR_ERROR
+  const mediaTypeIfError = MEDIA_TYPE_FOR_ERROR
 
   if (body instanceof Error) {
     const stringifiedBody = stringifyBody(body, mediaTypeIfError)
     return returnResponse(stringifiedBody, mediaTypeIfError, body.statusCode || body.status || 500)
   }
 
-  if (mediaType !== mediaTypeIfError) {  // that means it isn't in the supported list
+  if (!MEDIA_TYPES_SUPPORTED.includes(mediaType)) {
     let message = `No acceptable Content-Type. Supported: ${JSON.stringify(supported)}`
     if (supported.length === 1 && supported[0] === 'application/sc+json') {
       message += '. See: https://github.com/ungap/structured-clone#tojson'
