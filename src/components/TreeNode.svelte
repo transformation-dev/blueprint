@@ -41,12 +41,12 @@
 
 {#if node.id !== 'root'}
   <div class="flex">
-    <div on:click={(e) => toggle(e, node)} style="width: 1.5rem;">
+    <div class="link toggle" on:click={(e) => toggle(e, node)}>
       {#if node.children?.length > 0}
         <Icon data={expanded ? caretDown : caretRight} />
       {/if}
     </div>
-    <div on:click={(e) => clickTreeNode(e, node)}>
+    <div on:click={(e) => clickTreeNode(e, node)} class="link">
       <div class:chosen={breadcrumbsEqual(chosenBreadcrumbsArray, getNewBreadcrumbsArray(parentBreadcrumbsArray, node))} >
         {@html node.labelHighlighted || node.label}
       </div>
@@ -76,6 +76,15 @@
 
   .chosen {
     color: var(--agnostic-primary-hover);
+  }
+
+  .link:hover {
+    color: var(--agnostic-primary-hover);
+    cursor: pointer;
+  }
+
+  .toggle {
+    width: 1.5rem;
   }
 
 </style>
