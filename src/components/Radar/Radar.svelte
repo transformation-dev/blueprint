@@ -336,6 +336,13 @@
       }
     }
 
+    const margin = 0.05  // Leave this much of the space unused
+    const multiplier = 1 + margin
+    maxPracticeWidth *= multiplier
+    maxPracticeHeight *= multiplier
+    maxDisciplineWidth *= multiplier
+    maxDisciplineHeight *= multiplier
+
     disciplineFontSize = Math.min(disciplineMaxWidth / maxDisciplineWidth, disciplineMaxHeight / maxDisciplineHeight)  
     practiceFontSize = Math.min(disciplineFontSize, practiceMaxWidth / maxPracticeWidth, practiceMaxHeight / maxPracticeHeight)
 
