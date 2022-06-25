@@ -23,6 +23,9 @@
   import UnderlineTab from './components/UnderlineTab.svelte'
   import Toasts from './components/Toasts.svelte'
   import SearchableTreePanel from './components/SearchableTreePanel.svelte'
+  // import AppUsingBulma from './App-using-Bulma.svelte'
+  // import BreadcrumbsPanel from './components/BreadcrumbsPanel.svelte'
+  // import Counter from './lib/Counter.svelte'
 
   // const teamID = new ViewstateStore({
   //   identifier: 'teamID',

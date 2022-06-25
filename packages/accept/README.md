@@ -2,7 +2,7 @@
 
 # @transformation-dev/accept
 
-This is a fork of the @hapi/accept module to remove dependencies that don't run in Cloudflare Worksers
+This is a fork of the @hapi/accept module to remove dependencies that don't run in Cloudflare Workers
 
 #### HTTP Accept-* headers parsing.
 
