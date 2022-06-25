@@ -19,6 +19,7 @@ import JsonInjection from './routes/JsonInjection.svelte'
 import Poc from './routes/Poc.svelte'
 import Morgan from './routes/Morgan.svelte'
 import RadarTest from './routes/RadarTest.svelte'
+import RadarHolman from './routes/RadarHolman.svelte'
 
 const debug = Debug('blueprint:router')  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
@@ -37,6 +38,7 @@ export const routes = new Map(Object.entries({
   // TODO: Clean up below once we know have examples of all
   '/poc': { component: Poc, navbarLabel: 'POC', allowUnauthenticated: true },
   '/morgan': Morgan,
+  '/radar-holman-7bTyobXsPg8gpXon': { component: RadarHolman, allowUnauthenticated: true },
 
   // Don't delete
   '*': NotFound,  // Catch-all

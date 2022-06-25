@@ -8,8 +8,6 @@ const radarProps = {
     // baseColor: "#AA0000",  // Default is MatrX green
     // goalColor: "#AA0000",
     // showLogo: false,
-    // showTitle: false,
-    // showSubTitle: false,
     title: "Radar for <my sample org>",
     // radarSize: 150,
     // sidebarWidth: 40,
