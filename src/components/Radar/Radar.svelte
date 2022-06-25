@@ -6,7 +6,6 @@
   export let disciplines
 
   export let _logoBackgroundColor = "#FFFFFF"
-  export let _logoMainColor = "#808080"
   export let identifyingData = null
   export let title = "MatrX DevSecOps Radar"
   export let subTitle = null
