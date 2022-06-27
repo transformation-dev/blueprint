@@ -421,7 +421,7 @@
       innerRadius={outerRadius-disciplineBandHeight}
       outerRadius={outerRadius}
       fill="#FFFFFF"
-      strokeWidth={strokeWidth * 2}
+      strokeWidth={strokeWidth}
       stroke={disciplineStroke}
       label={discipline.label}
       description={discipline.description}

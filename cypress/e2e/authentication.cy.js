@@ -72,7 +72,7 @@ context('Authentication', () => {
       .click()
   })
 
-  it('should go to the plan page when a good code is entered', () => {
+  it.only('should go to the plan page when a good code is entered', () => {
     cy.visit("/#/plan")
       .get("#code")
       .type(Cypress.env('TESTING_OVERRIDE_CODE'))
@@ -82,7 +82,8 @@ context('Authentication', () => {
     cy.get("#toast-close")
       .click()
 
-    cy.get("#todo-formulation-grid")
+    cy.reload()  // Added this revisit because I had a bug where I was sending an immediately expiring cookie
+      .get("#todo-formulation-grid")
   })
 
   it('should display a message when you log out', () => {

@@ -10,7 +10,7 @@ const radarProps = {
     // showLogo: false,
     title: "Holman",
     // radarSize: 150,
-    // sidebarWidth: 40,
+    sidebarWidth: 50,
     showSummaryStats: false,
     // descriptionsInLegend: false,  // Default is true
     levelConfig: [
@@ -108,7 +108,7 @@ const radarProps = {
           {
             _entityID: "Container-based CI",
             label: "Container-based CI",
-            description: "18% - Team is using GitHub or Azure DevOps for both soure control (SCM) and continuous integration (CI)",
+            description: "18% - Team is using a containter based continuous integration (CI) system like GitHub Actions",
           },
           {
             _entityID: "Working Agreements",
@@ -124,17 +124,17 @@ const radarProps = {
       },
       {
         label: "Runtime Protection",
-        description: "(mostly for applications that are less actively developed and/or less modern architecture). We'll use Contrast Protect which is a Runtime Application Self Protection (RASP) Tool or existing Intrusion Protection System (IPS)",
+        description: "Prevents vulnerabilities from being exploited at runtime",
         practices: [
           {
             _entityID: "RASP",
             label: "RASP",
-            description: "15% - Runtime protection is in place for all applications where pre-PR-merge vulnerability detection and rapid resolution is infeasible",
+            description: "15% - Runtime appliction self protection (RASP via Contrast Protect) is used on all applications where pre-PR-merge vulnerability detection and rapid resolution is not present but may also be used on even those applications",
           },
           {
             _entityID: "DDoS",
             label: "DDoS",
-            description: "5% - Distributed Denial of Service (DDoS) Protection is in place for your customer facing applications",
+            description: "5% - Distributed Denial of Service (DDoS via Cloudflare) Protection is in place for your customer facing applications",
           },
         ]
       },
@@ -143,8 +143,8 @@ const radarProps = {
         practices: [
           {
             _entityID: "SANS",
-            label: "SANS",
-            description: "15% - The team has one representative that has been through SANS DevSecOps Training and/or SANS Cloud Security training",
+            label: "Secure Coding",
+            description: "15% - The team has one representative that has been through secure coding training (SANS or TBD, possibly Secure Code Warrior)",
           },
         ]
       },
