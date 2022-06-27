@@ -11,11 +11,11 @@
 // This function is called when a project is opened or re-opened (e.g. due to
 // the project's config changing)
 
-module.exports = (on, config) => {
-  require('@cypress/code-coverage/task')(on, config)
+export default async (on, config) => {
+  const coverageTask = await import('@cypress/code-coverage/task.js')
+  coverageTask.default(on, config)
   // include any other plugin code...
 
-  config.env.TESTING_OVERRIDE_CODE = process.env.TESTING_OVERRIDE_CODE
   // It's IMPORTANT to return the config object
   // with any changed environment variables
   return config

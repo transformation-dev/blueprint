@@ -11,24 +11,13 @@
 // This function is called when a project is opened or re-opened (e.g. due to
 // the project's config changing)
 
-const plugins = (on, config) => {
-  import coverageTask from '@cypress/code-coverage/task'
-
-  coverageTask(on, config)
+module.exports = (on, config) => {
+  require('@cypress/code-coverage/task')(on, config)
   // include any other plugin code...
 
+  config.env.TESTING_OVERRIDE_CODE = process.env.TESTING_OVERRIDE_CODE
+  
   // It's IMPORTANT to return the config object
   // with any changed environment variables
   return config
 }
-
-export default plugins
-
-// module.exports = (on, config) => {
-//   require('@cypress/code-coverage/task')(on, config)
-//   // include any other plugin code...
-
-//   // It's IMPORTANT to return the config object
-//   // with any changed environment variables
-//   return config
-// }

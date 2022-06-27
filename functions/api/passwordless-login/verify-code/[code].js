@@ -10,7 +10,7 @@ export async function onRequestGet({ request, env, params }) {
   const { code } = params
   const { cookieHeader, success, location } = await verifyCode({ env, code, targetURL: request.url.href })
 
-  // Returning a redirect regardless of success or failure
+  // Returning a redirect regardless, success redirects to target and failure redirects to login page
   const res = new Response(null, {
     status: 302,
     statusText: 'Redirecting',

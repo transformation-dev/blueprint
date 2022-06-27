@@ -249,7 +249,7 @@ export const toastsStore = writable([])
 const toastsSet = new Set()  // Using a Set so I can delete it using the original object
 export const addToast = (newToast, overrideDuration) => {  // { messageType, message, duration (in milliseconds) }
   toastsSet.add(newToast)
-  const duration = overrideDuration || newToast.duration || { warning: 10000, success: 3000 }[newToast.messageType] || false
+  const duration = overrideDuration || newToast.duration || { warning: 10000, success: 3000, info: 1000 }[newToast.messageType] || false
   if (duration) {
     setTimeout(() => {
       toastsSet.delete(newToast)

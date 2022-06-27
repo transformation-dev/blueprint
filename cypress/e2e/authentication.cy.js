@@ -82,7 +82,8 @@ context('Authentication', () => {
     cy.get("#toast-close")
       .click()
 
-    cy.get("#todo-formulation-grid")
+    cy.reload()  // Added this reload to duplicate bug where login was sending an immediately expiring cookie
+      .get("#todo-formulation-grid")
   })
 
   it('should display a message when you log out', () => {

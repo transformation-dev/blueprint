@@ -28,11 +28,10 @@
     const parsed = await response.json()
     debug('Got response from /api/check-authentication: %O', parsed)
     $authenticated = parsed.authenticated
-    console.log(parsed)
     addToast(parsed)
   }
 
-  // onMount(checkAuthentication)
+  onMount(checkAuthentication)  // Need this so cookie is rechecked on reload
 
   async function sendCode(event) {
     debug('sendCode() called')

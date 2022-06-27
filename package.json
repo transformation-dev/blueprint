@@ -21,7 +21,7 @@
     "coverage:build": "npm run build:durable_objects && npx vite build --config vite-coverage.config.js",
     "coverage:build-and-start": "npm run coverage:build && npm run start",
     "coverage:nyc": "rm -rf ./.nyc_output ./coverage && start-server-and-test coverage:build-and-start http://localhost:8788 cypress:run",
-    "coverage:c8": "npx c8 --reporter=text-lcov npm run test",
+    "coverage:c8": "npx c8 --all npm run test",
     "coverage": "npm run coverage:c8 && npm run coverage:nyc",
     "coverage:report:dont-use": "nyc report --reporter=text-summary",
     "eslint": "npx eslint -c .eslintrc.cjs --ext .js,.svelte,.html .",
@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "@creativebulma/bulma-tooltip": "^1.2.0",
-    "@cypress/code-coverage": "^3.9.12",
+    "@cypress/code-coverage": "^3.10.0",
     "@sveltejs/vite-plugin-svelte": "^1.0.0-next.30",
     "@transformation-dev/wrangler": "^0.0.16",
     "agnostic-svelte": "^1.1.22",
@@ -38,7 +38,7 @@
     "bulmaswatch": "^0.8.1",
     "c8": "^7.11.0",
     "codecov": "^3.8.3",
-    "cypress": "^9.6.1",
+    "cypress": "^10.2.0",
     "esbuild": "^0.14.23",
     "eslint": "^8.10.0",
     "eslint-config-airbnb-base": "^15.0.0",
@@ -63,6 +63,7 @@
     "@ungap/structured-clone": "^1.0.1",
     "debug": "^4.3.3",
     "nanoid": "^3.3.4",
+    "sort-on": "^5.0.0",
     "svelte": "^3.44.0",
     "svelte-spa-router": "^3.2.0"
   }

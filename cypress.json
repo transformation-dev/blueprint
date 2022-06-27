@@ -1,5 +1,0 @@
-{
-  "video": false,
-  "defaultCommandTimeout": 3000,
-  "baseUrl": "http://localhost:8788"
-}
