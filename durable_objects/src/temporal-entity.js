@@ -62,9 +62,8 @@ export class TemporalEntity {
     this.env = env
     this.state.blockConcurrencyWhile(async () => {
       this.#entityMeta = await this.state.storage.get('entityMeta')
-      if (!this.#entityMeta) {
-        this.#entityMeta = { timeline: [] }
-      } else if (this.#entityMeta?.timeline?.length > 0) {
+      this.#entityMeta ??= { timeline: [] }
+      if (this.#entityMeta?.timeline?.length > 0) {
         this.#current = await this.state.storage.get(this.#entityMeta.timeline.at(-1))
       }
     })
@@ -95,22 +94,30 @@ export class TemporalEntity {
   async put(value, userID, validFrom = new Date().toISOString(), impersonatorID = undefined) {
     throwUnless(value, 'value required by TemporalEntity put() is missing')
     throwUnless(userID, 'userID required by TemporalEntity put() is missing')
-    // TODO: Add validation of value against entityMeta.schema
+    // TODO: Add validation of value against schema
     // TODO: Assert that validFrom is greater than the current validFrom
 
     let oldCurrent
     if (this.#current) {
       oldCurrent = structuredClone(this.#current)  // TODO: Confirm we actually need the clone in prod
-      oldCurrent.meta.validTo = validFrom
-      this.state.storage.put(oldCurrent.meta.validFrom, oldCurrent)
     } else {
       oldCurrent = { value: {} }
     }
 
     const previousValues = diff(value, oldCurrent.value)
+    if (Object.keys(previousValues).length === 0) return this.#current
+
+    if (this.#current) {
+      oldCurrent.meta.validTo = validFrom
+      this.state.storage.put(oldCurrent.meta.validFrom, oldCurrent)
+    }
+
     this.#current = {}
-    this.#current.meta = { userID, previousValues, validFrom, validTo: TemporalEntity.END_OF_TIME, impersonatorID }
+    this.#current.meta = { userID, previousValues, validFrom, validTo: TemporalEntity.END_OF_TIME }
+    if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
     this.#current.value = value
+    this.#entityMeta ??= { timeline: [] }  // I don't think this is needed in prod but the mock I use for testing lacks fidelity
+    // this.#entityMeta.timeline ??= []  // Tests seem to work without this
     this.#entityMeta.timeline.push(validFrom)
 
     this.state.storage.put(validFrom, this.#current)
@@ -136,7 +143,7 @@ export class TemporalEntity {
   // If you want to delete a key send in a delta with that key set to undefined
   // To add a key, just include it in delta
   // To change a valu, just set it to the new value in the delta
-  async patch(delta, userID, validFrom = new Date().toISOString(), impersonatorID = null) {
+  async patch(delta, userID, validFrom = new Date().toISOString(), impersonatorID = undefined) {
     function apply(obj, d) {
       for (const key of Object.keys(d)) {
         if (d[key] instanceof Object) {

@@ -18,8 +18,8 @@ class Storage {
 }
 
 function getNewState(initialData = {}) {
-  const blockConcurrencyWhile = async (fn) => {
-    await fn()
+  async function blockConcurrencyWhile(fn) {
+    await fn.call(this)  // I don't think this works as it should because it has the wrong `this` context
   }
   return { storage: new Storage(initialData), blockConcurrencyWhile }
 }
@@ -40,7 +40,8 @@ test('TemporalEntity', async (t) => {
     t.deepEqual(meta.previousValues, pv, 'should have previousValue with undefined')
     t.assert(meta.validFrom <= new Date().toISOString, 'should initialize validFrom with a date before now')
     t.equal(meta.validTo, TemporalEntity.END_OF_TIME, 'should initialize validTo with TemporalEntity.END_OF_TIME')
-    t.equal(meta.impersonatorID, null, 'should initialize impersonatorID with null')
+    t.assert(!Object.hasOwn(meta, 'impersonatorID', 'should not contain impersonatorID'))
+
     t.end()
   })
 
@@ -55,12 +56,15 @@ test('TemporalEntity', async (t) => {
     t.deepEqual(value, { b: 3, c: 4 }, 'should get back patched value (note, a was deleted)')
     t.equal(meta.impersonatorID, 'impersonator1', 'should get back impersonatorID')
     t.equal(state.storage.data.entityMeta.timeline.at(-1), newValidFromISOString, 'should have new validFrom in timeline')
+    t.equal(state.storage.data.entityMeta.timeline.at(-2), lastValidFromISOString, 'should have old validFrom in timeline')
+    t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline')
 
     t.end()
   })
 
   t.test('END_OF_TIME', (t) => {
     t.equal(TemporalEntity.END_OF_TIME, '9999-01-01T00:00:00.000Z', 'should be equal to 9999-01-01T00:00:00.000Z')
+
     t.end()
   })
 
@@ -82,6 +86,26 @@ test('TemporalEntity', async (t) => {
     } catch (e) {
       t.equal(e.message, 'userID required by TemporalEntity put() is missing', 'should throw if attempted to put() without userID')
     }
+
+    t.end()
+  })
+
+  t.test('idempotentency', (t) => {
+    const state3 = getNewState()
+    const env3 = {}
+    const te3 = new TemporalEntity(state3, env3)
+
+    te3.put({ a: 1 }, 'userY')
+    t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+
+    te3.put({ a: 1 }, 'userZ')
+    t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 2nd put with same value but different userID')
+
+    te3.put({ a: 2 }, 'userZ')
+    t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 3rd put with different value')
+
+    te3.put({ a: 2 }, 'userZ')
+    t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should still 2 entries in timeline after 4th put')
 
     t.end()
   })
