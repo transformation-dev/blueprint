@@ -13,7 +13,9 @@
   export let showLogo = true
   export let innerRadius = 10
   export let radarSize = 100  // height and width
+  export let showSidebar = true
   export let sidebarWidth = 60
+  if (! showSidebar) sidebarWidth = 0
   export let descriptionsInLegend = true
   export let showSummaryStats = true
   export let practiceStroke = "#999999"
@@ -117,6 +119,7 @@
   let viewBoxStartY = (title?.length > 0 || subTitle?.length > 0) ? -1 * titleHeight : 0
   // @ts-ignore
   let viewBoxHeight = (title?.length > 0 || subTitle?.length > 0) ? radarSize + titleHeight : radarSize
+  let vhPercent = 100 * (viewBoxHeight / (viewBoxHeight - viewBoxStartY) - 0.05) 
   let centerXViewBox = (radarSize + sidebarWidth) / 2
   let centerX = radarSize / 2
   let centerY = radarSize / 2
@@ -350,9 +353,16 @@
 
 </script>
 
-
 <svelte:options namespace="svg"/>
-<svg version="1.1" on:click={clearHighlight} viewBox="0 {viewBoxStartY} {radarSize+sidebarWidth} {viewBoxHeight}" preserveAspectRatio="xMinYMin meet">
+<svg 
+  version="1.1" on:click={clearHighlight} 
+  viewBox="0 {viewBoxStartY} {radarSize+sidebarWidth} {viewBoxHeight}" 
+  preserveAspectRatio="xMidYMin meet"
+  style="
+    max-height: {vhPercent}vh;
+    max-width: 100vw;
+  "
+>
 
   <!-- Transformation.dev Blueprint logo -->
   {#if showLogo}
@@ -443,17 +453,19 @@
 
   {/each}
 
-  <Sidebar
-    levelConfigAnnotated={levelConfigAnnotated}
-    percentages={percentages}
-    maxFontSize={disciplineFontSize}
-    legendFontColor={legendFontColor}
-    sidebarWidth={sidebarWidth}
-    radarSize={radarSize}
-    descriptionsInLegend={descriptionsInLegend}
-    stats={stats}
-    showSummaryStats={showSummaryStats}
-  />
+  {#if showSidebar}
+    <Sidebar
+      levelConfigAnnotated={levelConfigAnnotated}
+      percentages={percentages}
+      maxFontSize={disciplineFontSize}
+      legendFontColor={legendFontColor}
+      sidebarWidth={sidebarWidth}
+      radarSize={radarSize}
+      descriptionsInLegend={descriptionsInLegend}
+      stats={stats}
+      showSummaryStats={showSummaryStats}
+    />
+  {/if}
 
 </svg>
 
@@ -465,4 +477,5 @@
     font-weight: 300;
     letter-spacing: 0;
   }
+
 </style>

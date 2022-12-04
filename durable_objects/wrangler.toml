@@ -16,6 +16,7 @@ main = "./index.mjs"
 bindings = [
   {name = "COUNTER", class_name = "Counter"},
   {name = "COUNTER", class_name = "PreviewCounter"},
+  {name = "TEMPORAL_ENTITY", class_name = "TemporalEntity"},
 ]
 
 [[migrations]]
@@ -23,5 +24,9 @@ tag = "v1" # Should be unique for each entry
 new_classes = ["Counter"]
 
 [[migrations]]
-tag = "v2" # Should be unique for each entry
+tag = "v2"
 new_classes = ["PreviewCounter"]
+
+[[migrations]]
+tag = "v3"
+new_classes = ["TemporalEntity"]

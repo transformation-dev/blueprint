@@ -20,6 +20,7 @@ import Poc from './routes/Poc.svelte'
 import Morgan from './routes/Morgan.svelte'
 import RadarTest from './routes/RadarTest.svelte'
 import RadarHolman from './routes/RadarHolman.svelte'
+import RadarExample from './routes/RadarExample.svelte'
 
 const debug = Debug('blueprint:router')  // Don't forget to set environment variable with 'DEBUG=blueprint:*' and localStorage with debug='blueprint:*'
 
@@ -39,6 +40,7 @@ export const routes = new Map(Object.entries({
   '/poc': { component: Poc, navbarLabel: 'POC', allowUnauthenticated: true },
   '/morgan': Morgan,
   '/radar-holman-7bTyobXsPg8gpXon': { component: RadarHolman, allowUnauthenticated: true },
+  '/radar-example': { component: RadarExample, allowUnauthenticated: true },
 
   // Don't delete
   '*': NotFound,  // Catch-all

@@ -6,6 +6,8 @@
 //   debugRaw(value)
 // }
 
+export * from './temporal-entity.js'
+
 // Worker. I'm not sure why this is needed since we never call it. I'm guessing it's legacy
 export default {
   fetch() {
@@ -24,7 +26,6 @@ export class Counter {
 
   // Handle HTTP requests from clients.
   async fetch(request) {
-    // Apply requested action.
     const url = new URL(request.url)
 
     // Durable Object storage is automatically cached in-memory, so reading the

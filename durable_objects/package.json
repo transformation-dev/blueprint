@@ -2,12 +2,23 @@
   "name": "@transformation-dev/durable_objects",
   "version": "1.0.0",
   "description": "Something",
+  "type": "module",
+  "directories": {
+    "test": "test"
+  },
   "scripts": {
     "publish": "npm run build && npx wrangler publish",
     "build": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm --target=esnext --bundle",
-    "dev": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm  --bundle --watch"
+    "dev": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm  --bundle --watch",
+    "test": "tape test/* | tap-spec"
   },
   "dependencies": {
-    "debug": "^4.3.3"
+    "debug": "^4.3.3",
+    "cbor-x": "^1.4.1",
+    "deep-object-diff": "^1.1.9"
+  },
+  "devDependencies": {
+    "tap-spec": "^5.0.0",
+    "tape": "^5.6.1"
   }
 }

@@ -8,9 +8,8 @@ const radarProps = {
     // baseColor: "#AA0000",  // Default is Transformation.dev Blueprint green
     // goalColor: "#AA0000",
     // showLogo: false,
-    title: "Holman",
+    title: "Example",
     // radarSize: 150,
-    // showSidebar: false,
     sidebarWidth: 50,
     showSummaryStats: false,
     // descriptionsInLegend: false,  // Default is true
@@ -29,11 +28,11 @@ const radarProps = {
       {_entityID: "Deferral", excludeFromGoal: true, label: "Deferral", description: "Reconsider once there is an \"easy-button\" for this", color: "#666666"},
     ],
     teams: [
-      {_entityID: "Team0", label: "Vehicle Remarketing"},
-      {_entityID: "Team1", label: "Insights & Driver Insights"},
-      {_entityID: "Team2", label: "Germany"},
-      {_entityID: "Team3", label: "Fleet"},
-      {_entityID: "Team4", label: "Retail"},
+      {_entityID: "Team0", label: "Website"},
+      {_entityID: "Team1", label: "Insights"},
+      {_entityID: "Team2", label: "7 Dwarves"},
+      {_entityID: "Team3", label: "The Red Pill"},
+      {_entityID: "Team4", label: "Masters of the Universe"},
     ],
     assessmentData: [
       // Vehicle Remarketing
