@@ -19,7 +19,7 @@ export async function onRequestGet({ request, env, params }) {
   const stub2 = env.TEMPORAL_ENTITY.get(
     env.TEMPORAL_ENTITY.idFromName('some temporal entity'),  // TODO: Use self generated IDs
   )
-  const toSend = { value: { a: 1 }, userID: 'larry' }
+  const toSend = { value: { a: 2 }, userID: 'larry' }
   const encodedToSend = cbor.encode(toSend)
   const response2 = await stub2.fetch('/', { method: 'PUT', body: encodedToSend })
   const value2ab = await response2.arrayBuffer()

@@ -18,10 +18,7 @@ class Storage {
 }
 
 function getNewState(initialData = {}) {
-  async function blockConcurrencyWhile(fn) {
-    await fn.call(this)  // I don't think this works as it should because it has the wrong `this` context
-  }
-  return { storage: new Storage(initialData), blockConcurrencyWhile }
+  return { storage: new Storage(initialData) }
 }
 
 test('TemporalEntity', async (t) => {
@@ -29,9 +26,9 @@ test('TemporalEntity', async (t) => {
   const env = {}
   const te = new TemporalEntity(state, env)
 
-  t.test('put() with only value and userID', (t) => {
-    te.put({ a: 1, b: 2 }, 'user1')
-    const { meta, value } = te.get()
+  t.test('put() with only value and userID', async (t) => {
+    await te.put({ a: 1, b: 2 }, 'user1')
+    const { meta, value } = await te.get()
     t.deepEqual(value, { a: 1, b: 2 }, 'should get back value')
     t.equal(meta.userID, 'user1', 'should get back userID')
     const pv = Object.create(null)
@@ -45,14 +42,14 @@ test('TemporalEntity', async (t) => {
     t.end()
   })
 
-  t.test('patch() with validFrom and impersonatorID (note, this also tests put())', (t) => {
+  t.test('patch() with validFrom and impersonatorID (note, this also tests put())', async (t) => {
     const lastValidFromISOString = state.storage.data.entityMeta.timeline.at(-1)
     const lastValidFromDate = new Date(lastValidFromISOString)
     const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
     const newValidFromISOString = newValidFromDate.toISOString()
-    te.patch({ a: undefined, b: 3, c: 4 }, 'user2', newValidFromISOString, 'impersonator1')
+    await te.patch({ a: undefined, b: 3, c: 4 }, 'user2', newValidFromISOString, 'impersonator1')
 
-    const { meta, value } = te.get()
+    const { meta, value } = await te.get()
     t.deepEqual(value, { b: 3, c: 4 }, 'should get back patched value (note, a was deleted)')
     t.equal(meta.impersonatorID, 'impersonator1', 'should get back impersonatorID')
     t.equal(state.storage.data.entityMeta.timeline.at(-1), newValidFromISOString, 'should have new validFrom in timeline')
@@ -87,25 +84,37 @@ test('TemporalEntity', async (t) => {
       t.equal(e.message, 'userID required by TemporalEntity put() is missing', 'should throw if attempted to put() without userID')
     }
 
+    try {
+      await te2.put({ a: 100 }, 'userX')
+      await te2.put({ a: 1000 }, 'userX', '1999-01-01T00:00:00.000Z')
+      t.fail('async thrower did not throw')
+    } catch (e) {
+      t.equal(
+        e.message,
+        'the validFrom for a TemporalEntity update is not greater than the prior validFrom',
+        'should throw if passed in validFrom is before prior validFrom',
+      )
+    }
+
     t.end()
   })
 
-  t.test('idempotentency', (t) => {
+  t.test('idempotentency', async (t) => {
     const state3 = getNewState()
     const env3 = {}
     const te3 = new TemporalEntity(state3, env3)
 
-    te3.put({ a: 1 }, 'userY')
+    await te3.put({ a: 1 }, 'userY')
     t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
 
-    te3.put({ a: 1 }, 'userZ')
-    t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 2nd put with same value but different userID')
+    await te3.put({ a: 1 }, 'userZ')
+    t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should still have 1 entry in timeline after 2nd put with same value but different userID')
 
-    te3.put({ a: 2 }, 'userZ')
+    await te3.put({ a: 2 }, 'userZ')
     t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 3rd put with different value')
 
-    te3.put({ a: 2 }, 'userZ')
-    t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should still 2 entries in timeline after 4th put')
+    await te3.put({ a: 2 }, 'userZ')
+    t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should still have 2 entries in timeline after 4th put')
 
     t.end()
   })

@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable no-underscore-dangle */
@@ -57,19 +58,26 @@ export class TemporalEntity {
 
   #current  // { value, meta }
 
+  #hydrated
+
+  async #hydrate() {
+    if (this.#hydrated) return
+    this.#entityMeta = await this.state.storage.get('entityMeta')
+    this.#entityMeta ??= { timeline: [] }
+    if (this.#entityMeta.timeline.length > 0) {
+      this.#current = await this.state.storage.get(this.#entityMeta.timeline.at(-1))
+    }
+    this.#hydrated = true
+  }
+
   constructor(state, env) {
     this.state = state
     this.env = env
-    this.state.blockConcurrencyWhile(async () => {
-      this.#entityMeta = await this.state.storage.get('entityMeta')
-      this.#entityMeta ??= { timeline: [] }
-      if (this.#entityMeta?.timeline?.length > 0) {
-        this.#current = await this.state.storage.get(this.#entityMeta.timeline.at(-1))
-      }
-    })
+    this.#hydrated = false
+    // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
   }
 
-  // The body and return is always a CBOR object
+  // The body and return is always a CBOR-SC object
   async fetch(request) {
     const url = new URL(request.url)
 
@@ -90,16 +98,30 @@ export class TemporalEntity {
 
   // TODO: Create a schema registry and passing in schemas which will use semantic versioning (e.g. OrgNode@1.7.12)
   //       put() and patch() to allow for the specification of schemas { value, schemas} in the body
-
-  async put(value, userID, validFrom = new Date().toISOString(), impersonatorID = undefined) {
+  async put(value, userID, validFrom, impersonatorID) {
     throwUnless(value, 'value required by TemporalEntity put() is missing')
     throwUnless(userID, 'userID required by TemporalEntity put() is missing')
-    // TODO: Add validation of value against schema
-    // TODO: Assert that validFrom is greater than the current validFrom
+
+    await this.#hydrate()
+
+    if (validFrom && this.#entityMeta?.timeline?.length > 0) {
+      throwIf(validFrom <= this.#entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
+    } else {
+      let validFromDate = new Date()
+      if (this.#entityMeta?.timeline?.length > 0) {
+        const lastTimelineDate = new Date(this.#entityMeta.timeline.at(-1))
+        if (validFromDate <= lastTimelineDate) {
+          validFromDate = new Date(lastTimelineDate.getTime() + 1)
+        }
+        validFrom = new Date(validFromDate).toISOString()
+      } else {
+        validFrom = validFromDate.toISOString()
+      }
+    }
 
     let oldCurrent
     if (this.#current) {
-      oldCurrent = structuredClone(this.#current)  // TODO: Confirm we actually need the clone in prod
+      oldCurrent = structuredClone(this.#current)
     } else {
       oldCurrent = { value: {} }
     }
@@ -116,8 +138,6 @@ export class TemporalEntity {
     this.#current.meta = { userID, previousValues, validFrom, validTo: TemporalEntity.END_OF_TIME }
     if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
     this.#current.value = value
-    this.#entityMeta ??= { timeline: [] }  // I don't think this is needed in prod but the mock I use for testing lacks fidelity
-    // this.#entityMeta.timeline ??= []  // Tests seem to work without this
     this.#entityMeta.timeline.push(validFrom)
 
     this.state.storage.put(validFrom, this.#current)
@@ -142,8 +162,8 @@ export class TemporalEntity {
   // delta is in the form of a diff from npm package deep-object-diff
   // If you want to delete a key send in a delta with that key set to undefined
   // To add a key, just include it in delta
-  // To change a valu, just set it to the new value in the delta
-  async patch(delta, userID, validFrom = new Date().toISOString(), impersonatorID = undefined) {
+  // To change a value for one key, just set it to the new value in the delta
+  async patch(delta, userID, validFrom, impersonatorID) {
     function apply(obj, d) {
       for (const key of Object.keys(d)) {
         if (d[key] instanceof Object) {
@@ -161,7 +181,9 @@ export class TemporalEntity {
     }
 
     throwUnless(delta, 'delta required by TemporalEntity patch() is missing')
+    // TODO: throw if no prior value
 
+    await this.#hydrate()
     const newValue = structuredClone(this.#current.value)
     apply(newValue, delta)
 
@@ -178,7 +200,8 @@ export class TemporalEntity {
     }
   }
 
-  get() {
+  async get() {
+    await this.#hydrate()
     return this.#current
   }
 

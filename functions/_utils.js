@@ -13,7 +13,7 @@ export const jsonResponse = (value) => new Response(JSON.stringify(value), {
   headers: { 'Content-Type': 'application/json' },
 })
 
-const MEDIA_TYPES_SUPPORTED = ['application/cbor', 'application/json']
+const MEDIA_TYPES_SUPPORTED = ['application/cbor-sc', 'application/json']  // cbor-sc is my name for cbor with structuredClone extension
 const MEDIA_TYPE_FOR_ERROR = 'application/json'
 
 function returnResponse(stringifiedBody, mediaType, status) {
@@ -49,8 +49,8 @@ export const negotiatedResponse = (body, request, supported = MEDIA_TYPES_SUPPOR
 
   if (!MEDIA_TYPES_SUPPORTED.includes(mediaType)) {
     let message = `No acceptable Content-Type. Supported: ${JSON.stringify(supported)}`
-    if (supported.length === 1 && supported[0] === 'application/cbor') {
-      message += '. See: https://www.npmjs.com/package/cbor-x'
+    if (supported.length === 1 && supported[0] === 'application/cbor-sc') {
+      message += '. See: https://www.npmjs.com/package/cbor-x and use options = { structuredClone: true }'
     }
     return returnResponse(message, mediaTypeIfError, 406)
   }
