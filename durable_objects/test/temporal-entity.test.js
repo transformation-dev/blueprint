@@ -71,6 +71,13 @@ test('TemporalEntity', async (t) => {
     const te2 = new TemporalEntity(state2, env2)
 
     try {
+      await te2.patch({ a: 100 }, 'userX')
+      t.fail('async thrower did not throw')
+    } catch (e) {
+      t.equal(e.message, 'cannot call TemporalEntity.patch() when there is no prior value', 'should throw if attempted to patch() with no prior value')
+    }
+
+    try {
       await te2.put(undefined, 'userX')
       t.fail('async thrower did not throw')
     } catch (e) {
@@ -115,6 +122,23 @@ test('TemporalEntity', async (t) => {
 
     await te3.put({ a: 2 }, 'userZ')
     t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should still have 2 entries in timeline after 4th put')
+
+    t.end()
+  })
+
+  t.test('auto-assigned validFrom', async (t) => {
+    const state4 = getNewState()
+    const env4 = {}
+    const te4 = new TemporalEntity(state4, env4)
+    const validFromISOString = '2200-01-01T00:00:00.000Z'
+    const lastValidFromDate = new Date(validFromISOString)
+    const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
+    const newValidFromISOString = newValidFromDate.toISOString()
+
+    await te4.put({ a: 1 }, 'userY', validFromISOString)
+    await te4.put({ a: 2 }, 'userY')
+    const result = await te4.get()
+    t.equal(result.meta.validFrom, newValidFromISOString, 'should be 1ms later')
 
     t.end()
   })

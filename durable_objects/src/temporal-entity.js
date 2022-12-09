@@ -8,34 +8,17 @@ import { Encoder } from 'cbor-x'
 
 const cbor = new Encoder({ structuredClone: true })
 
-// The DurableObject storage API has no way to list all of the keys so we have to keep track of all the
-// validFrom dates manually and store the list under a key that's not a date stamp, like maybe "timeline".
-// For now, it'll just be an array of ISO date strings. Later we can store the index as defined below.
-
-/* TODO - Maybe add index to speed up searching for the active snapshot for a particular moment in time.
-
-Steps to creating the index:
-  - Read all of the validFrom dates into memory. These are the keys to the values in the durable object.
-  - Split the list in half and create the first level of the b-tree by specifying the cumulative ranges
-    of all the snapshots in each half of the tree.
-  - Then do the same recursively down until a half has 2 or fewer nodes
-
-To update the index:
-  - If the top level only has 2 children, then:
-    - Create a new top level child so the top level now has 3 children instead of 2. Make sure the lookup
-      algorithm knows to search all children and not rely upon their being only 2 children.
-  - If the 3rd top level child has more than say 5 children, then: add the new entry to the list of possible dates and rebalance
-  - Else: add the new entry to this 3rd top level child
-*/
+// The DurableObject storage API has no way to list just the keys so we have to keep track of all the
+// validFrom dates manually and store them under a key entityMeta.timeline
+// For now, timeline will just be an array of ISO date strings.
 
 // TODO: Don't forget to always soft delete to support ETL from last update
 
 // TODO: Add debounce functionality. Use default of say 1 hour unless overridden by schema
 
-// TODO: Implement optimistic concurrency control using ETag=validFrom and If-Match on PUT or PATCH, but not POST.
+// TODO: Implement optimistic concurrency control using ETag=validFrom and If-Match on PUT or PATCH.
 //       Send error 412 if If-Match doesn't match this.#current.meta.validFrom
-//       Note: implement the confirmation that the new validFrom is greater than the current validFrom
-//       Don't worry about implementing If-None-Match because it won't same all that much.
+//       Don't worry about implementing If-None-Match for get() because it caching won't save all that much.
 
 function throwIf(condition, message) {
   if (condition) {
@@ -104,8 +87,10 @@ export class TemporalEntity {
 
     await this.#hydrate()
 
-    if (validFrom && this.#entityMeta?.timeline?.length > 0) {
-      throwIf(validFrom <= this.#entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
+    if (validFrom) {
+      if (this.#entityMeta?.timeline?.length > 0) {
+        throwIf(validFrom <= this.#entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
+      }
     } else {
       let validFromDate = new Date()
       if (this.#entityMeta?.timeline?.length > 0) {
@@ -151,9 +136,8 @@ export class TemporalEntity {
     const u8a = new Uint8Array(ab)
     const options = cbor.decode(u8a)
     try {
-      const response = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID)
-      const responseAB = cbor.encode(response)
-      return new Response(responseAB)
+      const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID)
+      return new Response(cbor.encode(current))
     } catch (e) {
       return new Response(e.message, { status: 400 })
     }
@@ -181,9 +165,11 @@ export class TemporalEntity {
     }
 
     throwUnless(delta, 'delta required by TemporalEntity patch() is missing')
-    // TODO: throw if no prior value
 
     await this.#hydrate()
+
+    throwUnless(this.#entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity.patch() when there is no prior value')
+
     const newValue = structuredClone(this.#current.value)
     apply(newValue, delta)
 
@@ -191,10 +177,12 @@ export class TemporalEntity {
   }
 
   async PATCH(request) {
-    const options = cbor.decode(await request.arrayBuffer())
+    const ab = await request.arrayBuffer()
+    const u8a = new Uint8Array(ab)
+    const options = cbor.decode(u8a)
     try {
-      await this.patch(options.delta, options.userID, options.validFrom, options.impersonatorID)
-      return new Response()
+      const current = await this.patch(options.delta, options.userID, options.validFrom, options.impersonatorID)
+      return new Response(cbor.encode(current))
     } catch (e) {
       return new Response(e.message, { status: 400 })
     }
@@ -207,8 +195,8 @@ export class TemporalEntity {
 
   async GET(request) {
     try {
-      const result = await this.get()
-      return new Response(cbor.encode(result))
+      const current = await this.get()
+      return new Response(cbor.encode(current))
     } catch (e) {
       return new Response(e.message, { status: 400 })
     }
