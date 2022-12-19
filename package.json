@@ -26,7 +26,8 @@
     "coverage": "npm run coverage:c8 && npm run coverage:nyc",
     "coverage:report:dont-use": "nyc report --reporter=text-summary",
     "eslint": "npx eslint -c .eslintrc.cjs --ext .js,.svelte,.html .",
-    "lint": "npm run eslint"
+    "lint": "npm run eslint",
+    "postinstall": "cd durable_objects && npm install"
   },
   "devDependencies": {
     "@contrast/contrast": "^1.0.13",
