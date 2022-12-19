@@ -74,21 +74,24 @@ test('TemporalEntity', async (t) => {
       await te2.patch({ a: 100 }, 'userX')
       t.fail('async thrower did not throw')
     } catch (e) {
-      t.equal(e.message, 'cannot call TemporalEntity.patch() when there is no prior value', 'should throw if attempted to patch() with no prior value')
+      t.equal(e.message, 'cannot call TemporalEntity PATCH when there is no prior value', 'should throw if attempted to patch() with no prior value')
+      t.equal(e.status, 400, 'should have status 400')
     }
 
     try {
       await te2.put(undefined, 'userX')
       t.fail('async thrower did not throw')
     } catch (e) {
-      t.equal(e.message, 'value required by TemporalEntity put() is missing', 'should throw if attempted to put() without value')
+      t.equal(e.message, 'value required by TemporalEntity PUT is missing', 'should throw if attempted to put() without value')
+      t.equal(e.status, 400, 'should have status 400')
     }
 
     try {
       await te2.put({ a: 10 })
       t.fail('async thrower did not throw')
     } catch (e) {
-      t.equal(e.message, 'userID required by TemporalEntity put() is missing', 'should throw if attempted to put() without userID')
+      t.equal(e.message, 'userID required by TemporalEntity operation is missing', 'should throw if attempted to put() without userID')
+      t.equal(e.status, 400, 'should have status 400')
     }
 
     try {
@@ -101,6 +104,7 @@ test('TemporalEntity', async (t) => {
         'the validFrom for a TemporalEntity update is not greater than the prior validFrom',
         'should throw if passed in validFrom is before prior validFrom',
       )
+      t.equal(e.status, 400, 'should have status 400')
     }
 
     t.end()

@@ -6,9 +6,7 @@ import { getDebug } from './_utils'
 
 const debug = getDebug('blueprint:_middleware')
 
-async function csp({
-  request, env, next,
-}) {
+async function csp({ request, env, next }) {
   Debug.enable(env.DEBUG)
   // debug('%O', request.headers.get('Cookie') || '')
   const url = new URL(request.url)

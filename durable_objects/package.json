@@ -13,8 +13,9 @@
     "test": "tape test/* | tap-spec"
   },
   "dependencies": {
-    "debug": "^4.3.3",
+    "@transformation-dev/accept": "file:packages/accept",
     "cbor-x": "^1.4.1",
+    "debug": "^4.3.3",
     "deep-object-diff": "^1.1.9"
   },
   "devDependencies": {

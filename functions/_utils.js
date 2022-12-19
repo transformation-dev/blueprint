@@ -1,8 +1,9 @@
 import Debug from 'debug'
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
 import { nanoid } from 'nanoid'
+import { Encoder } from 'cbor-x'
 // eslint-disable-next-line import/no-unresolved
-import { stringify } from '@ungap/structured-clone/json'
+
 import Accept from '@transformation-dev/accept'
 
 import { HTTPError } from '../src/utils'
@@ -30,9 +31,10 @@ function returnResponse(stringifiedBody, mediaType, status) {
   )
 }
 
-function stringifyBody(body, mediaType) {
-  if (mediaType === 'application/sc+json') {
-    return stringify(body)
+const cborSC = new Encoder({ structuredClone: true })
+function encodeBody(body, mediaType) {
+  if (mediaType === 'application/cbor-sc') {
+    return cborSC.encode(body)
   }
   return JSON.stringify(body)
 }
@@ -43,7 +45,7 @@ export const negotiatedResponse = (body, request, supported = MEDIA_TYPES_SUPPOR
   const mediaTypeIfError = MEDIA_TYPE_FOR_ERROR
 
   if (body instanceof Error) {
-    const stringifiedBody = stringifyBody(body, mediaTypeIfError)
+    const stringifiedBody = encodeBody(body, mediaTypeIfError)
     return returnResponse(stringifiedBody, mediaTypeIfError, body.statusCode || body.status || 500)
   }
 
@@ -55,7 +57,7 @@ export const negotiatedResponse = (body, request, supported = MEDIA_TYPES_SUPPOR
     return returnResponse(message, mediaTypeIfError, 406)
   }
 
-  return returnResponse(stringifyBody(body, mediaType), mediaType)
+  return returnResponse(encodeBody(body, mediaType), mediaType)
 }
 
 export const getDebug = (name, delay = 50) => {

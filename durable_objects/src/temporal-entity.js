@@ -1,12 +1,13 @@
 /* eslint-disable no-param-reassign */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-restricted-syntax */
-/* eslint-disable no-underscore-dangle */
 
 import { diff } from 'deep-object-diff'
 import { Encoder } from 'cbor-x'
 
-const cbor = new Encoder({ structuredClone: true })
+import * as utils from './utils.js'
+
+const cborSC = new Encoder({ structuredClone: true })
 
 // The DurableObject storage API has no way to list just the keys so we have to keep track of all the
 // validFrom dates manually and store them under a key entityMeta.timeline
@@ -16,19 +17,14 @@ const cbor = new Encoder({ structuredClone: true })
 
 // TODO: Add debounce functionality. Use default of say 1 hour unless overridden by schema
 
-// TODO: Implement optimistic concurrency control using ETag=validFrom and If-Match on PUT or PATCH.
-//       Send error 412 if If-Match doesn't match this.#current.meta.validFrom
+// TODO: Get Debug() working
+
+// TODO: Implement optimistic concurrency control by setting the ETag to validFrom.
+//       On PUT or PATCH if If-Match doesn't match this.#current.meta.validFrom, then check to see if the fields changed are different.
+//       If the changes are for different fields, then go ahead with the update. Otherwise send error 412.
 //       Don't worry about implementing If-None-Match for get() because it caching won't save all that much.
 
-function throwIf(condition, message) {
-  if (condition) {
-    throw new Error(message)
-  }
-}
-
-function throwUnless(condition, message) {
-  throwIf(!condition, message)
-}
+// TODO: Move all of these to utils
 
 export class TemporalEntity {
   static #END_OF_TIME = '9999-01-01T00:00:00.000Z'
@@ -62,6 +58,8 @@ export class TemporalEntity {
 
   // The body and return is always a CBOR-SC object
   async fetch(request) {
+    console.log('TemporalEntity state.id.toString()', this.state.id.toString())
+
     const url = new URL(request.url)
 
     switch (url.pathname) {
@@ -82,14 +80,14 @@ export class TemporalEntity {
   // TODO: Create a schema registry and passing in schemas which will use semantic versioning (e.g. OrgNode@1.7.12)
   //       put() and patch() to allow for the specification of schemas { value, schemas} in the body
   async put(value, userID, validFrom, impersonatorID) {
-    throwUnless(value, 'value required by TemporalEntity put() is missing')
-    throwUnless(userID, 'userID required by TemporalEntity put() is missing')
+    utils.throwUnless(value, 'value required by TemporalEntity PUT is missing')
+    utils.throwUnless(userID, 'userID required by TemporalEntity operation is missing')
 
     await this.#hydrate()
 
     if (validFrom) {
       if (this.#entityMeta?.timeline?.length > 0) {
-        throwIf(validFrom <= this.#entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
+        utils.throwIf(validFrom <= this.#entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
       }
     } else {
       let validFromDate = new Date()
@@ -132,14 +130,20 @@ export class TemporalEntity {
   }
 
   async PUT(request) {
-    const ab = await request.arrayBuffer()
-    const u8a = new Uint8Array(ab)
-    const options = cbor.decode(u8a)
+    const mediaTypeHeaderInvalid = utils.mediaTypeHeaderInvalid(request)
+    if (mediaTypeHeaderInvalid) return mediaTypeHeaderInvalid
+    let options
+    try {
+      options = await utils.decodeCBORSC(request)
+    } catch (e) {
+      return new Response('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', { status: 400 })
+    }
     try {
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID)
-      return new Response(cbor.encode(current))
+      return new Response(cborSC.encode(current))  // TODO: Add Content-Type: application/cbor-sc
     } catch (e) {
-      return new Response(e.message, { status: 400 })
+      const status = e.status || 500
+      return new Response(e.message, { status })
     }
   }
 
@@ -164,11 +168,11 @@ export class TemporalEntity {
       return obj
     }
 
-    throwUnless(delta, 'delta required by TemporalEntity patch() is missing')
+    utils.throwUnless(delta, 'delta required by TemporalEntity PATCH is missing')
 
     await this.#hydrate()
 
-    throwUnless(this.#entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity.patch() when there is no prior value')
+    utils.throwUnless(this.#entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity PATCH when there is no prior value')
 
     const newValue = structuredClone(this.#current.value)
     apply(newValue, delta)
@@ -177,14 +181,20 @@ export class TemporalEntity {
   }
 
   async PATCH(request) {
-    const ab = await request.arrayBuffer()
-    const u8a = new Uint8Array(ab)
-    const options = cbor.decode(u8a)
+    const mediaTypeHeaderInvalid = utils.mediaTypeHeaderInvalid(request)
+    if (mediaTypeHeaderInvalid) return mediaTypeHeaderInvalid
+    let options
+    try {
+      options = await utils.decodeCBORSC(request)
+    } catch (e) {
+      return new Response('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', { status: 400 })
+    }
     try {
       const current = await this.patch(options.delta, options.userID, options.validFrom, options.impersonatorID)
-      return new Response(cbor.encode(current))
+      return new Response(cborSC.encode(current))
     } catch (e) {
-      return new Response(e.message, { status: 400 })
+      const status = e.status || 500
+      return new Response(e.message, { status })
     }
   }
 
@@ -194,11 +204,14 @@ export class TemporalEntity {
   }
 
   async GET(request) {
+    const acceptHeaderInvalid = utils.acceptHeaderInvalid(request)
+    if (acceptHeaderInvalid) return acceptHeaderInvalid
     try {
       const current = await this.get()
-      return new Response(cbor.encode(current))
+      return new Response(cborSC.encode(current))
     } catch (e) {
-      return new Response(e.message, { status: 400 })
+      const status = e.status || 500
+      return new Response(e.message, { status })
     }
   }
 }
