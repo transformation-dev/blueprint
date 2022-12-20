@@ -1,15 +1,6 @@
-compatibility_date = "2022-02-11"
-
+compatibility_date = "2022-09-08"
 name = "transformation-durable_objects"
-# type = "javascript" is required to use the `[build]` section
 type = "javascript"
-workers_dev = true
-
-[build.upload]
-# Upload the code directly from the src directory.
-dir = "./"
-# The "modules" upload format is required for all projects that export a Durable Objects class
-format = "modules"
 main = "./index.mjs"
 
 [durable_objects]
@@ -20,7 +11,7 @@ bindings = [
 ]
 
 [[migrations]]
-tag = "v1"
+tag = "v1" # Should be unique for each entry
 new_classes = ["Counter"]
 
 [[migrations]]
