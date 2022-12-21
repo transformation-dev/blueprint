@@ -52,4 +52,10 @@ jobs:
         TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
       run: |
        npm run cypress:run
-        
+    
+    - name: Upload screenshots
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: test-in-cloudflare-screenshots
+        path: cypress/screenshots
