@@ -77,7 +77,9 @@ context('Temporal Entity', () => {
       const u8a = new Uint8Array(ab)
       const o = cborSC.decode(u8a)
 
-      expect(o.meta.validFrom <= new Date().toISOString()).to.be.true
+      // const dString = new Date().toISOString()
+      // expect(o.meta.validFrom <= dString).to.be.true  // Flakey because it relies on time synchronization between the server and the client
+      
       expect(o.meta.id).to.be.a('string')
 
       id = o.meta.id
@@ -115,7 +117,7 @@ context('Temporal Entity', () => {
       const u8a = new Uint8Array(ab)
       const o = cborSC.decode(u8a)
 
-      expect(o.meta.validFrom <= new Date().toISOString()).to.be.true
+      // expect(o.meta.validFrom <= new Date().toISOString()).to.be.true  // Flakey because it relies on time synchronization between the server and the client
       expect(o.meta.id).to.be.a('string')
 
       t2 = o.meta.validFrom
