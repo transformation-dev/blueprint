@@ -1,6 +1,6 @@
 import Debug from 'debug'
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
-// import { nanoid } from 'nanoid'
+import { nanoid } from 'nanoid'
 
 import { getDebug } from '../../_utils'
 
@@ -29,9 +29,12 @@ export async function onRequest({ request, env, params }) {
     debug(`url for call to durable object: ${url}`)
   } else {
     // id = env.TEMPORAL_ENTITY.newUniqueId()  // TODO: This fails maybe because I'm using old miniflare/wrangler
-    // const name = env.CF_ENV === 'production' ? nanoid() : nanoidNonSecure()
-    id = ['production', 'preview'].includes(env.CF_ENV) ? env.TEMPORAL_ENTITY.newUniqueId() : env.TEMPORAL_ENTITY.idFromName(nanoidNonSecure()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
-    // id = env.TEMPORAL_ENTITY.idFromName(name)
+
+    const name = env.CF_ENV === 'production' ? nanoid() : nanoidNonSecure()
+    id = env.TEMPORAL_ENTITY.idFromName(name)
+
+    // id = ['production', 'preview'].includes(env.CF_ENV) ? env.TEMPORAL_ENTITY.newUniqueId() : env.TEMPORAL_ENTITY.idFromName(nanoidNonSecure()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
+
     url = '/'
   }
 
