@@ -1,4 +1,7 @@
 {
   "reports-dir": "./coverage-server",
-  "include": ["durable_objects", "functions"]
+  "include": ["durable_objects", "functions"],
+  "exclude": ["durable_objects/node_modules", "durable_objects/test"],
+  "exclude-after-remap": true,
+  "all": true
 }

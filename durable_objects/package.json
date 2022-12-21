@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Durable objects for Transformation.dev blueprint",
   "main": "./index.mjs",
+  "type": "module",
   "directories": {
     "test": "test"
   },

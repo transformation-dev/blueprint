@@ -1,6 +1,6 @@
 import Debug from 'debug'
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
-import { nanoid } from 'nanoid'
+// import { nanoid } from 'nanoid'
 
 import { getDebug } from '../../_utils'
 
@@ -10,34 +10,32 @@ export async function onRequest({ request, env, params }) {
   Debug.enable(env.DEBUG)
   debug('onRequest() called')
 
-  if (params?.id?.length > 1) {
-    // TODO: upgrade this to pass the rest along to the durable object
-    return new Response('error')
+  // If there is no id in the URL, then we randomly generate one. So, you might worry that this will create orphaned durable objects.
+  // However, keep in mind, if a durable object has no stored data, it ceases to exist as soon as it leaves memory.
+  // So, if the call is malformed or doesn't store anything, then the orphaned durable object will be short lived.
+  // Good practice is to do all of your validation and only store data once you are certain it's a valid request. For instance,
+  // POST is often the only method that will use the randomly generated id, so code your DO so it fails on an invalid POST before storing anything.
+  // PATCH should fail before it even attempts to store anything because there is no prior value when an id is randomly generated.
+  // GET should generally never try to store anything because it's a read-only operation. Etc.
+  debug('request.url: %O', request.url)
+  const idString = params?.id?.[0]
+  let id
+  let url
+  if (idString) {
+    debug(`idString: ${idString}`)
+    id = env.TEMPORAL_ENTITY.idFromString(idString)
+    const loc = request.url.indexOf(idString)
+    url = request.url.slice(loc + idString.length)
+    debug(`url for call to durable object: ${url}`)
+  } else {
+    // id = env.TEMPORAL_ENTITY.newUniqueId()  // TODO: This fails maybe because I'm using old miniflare/wrangler
+    // const name = env.CF_ENV === 'production' ? nanoid() : nanoidNonSecure()
+    id = ['production', 'preview'].includes(env.CF_ENV) ? env.TEMPORAL_ENTITY.newUniqueId() : env.TEMPORAL_ENTITY.idFromName(nanoidNonSecure()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
+    // id = env.TEMPORAL_ENTITY.idFromName(name)
+    url = '/'
   }
 
-
-  // TODO: Figure out why below doesn't work. Could be because I'm using old miniflare/wrangler. Fails on call to newUniqueId()
-  // debug(`idString: ${idString}`)
-  // let id
-  // if (idString) {
-  //   id = env.TEMPORAL_ENTITY.idFromString(idString)
-  // } else {
-  //   console.log('got here')
-  //   id = env.TEMPORAL_ENTITY.newUniqueId()
-  //   console.log('and here')
-  //   idString = id.toString()
-  //   console.log('and finally here')
-  // }
-  // debug(`id: ${id}`)
-  // debug(`idString: ${idString}`)
-  // const entityStub = env.TEMPORAL_ENTITY.get(id)
-
-
-  // I don't need to worry about GET and PATCH calls with randomly generated ids leaving orphaned DOs that hang
-  // around forever because as long as the durable object has no stored data, it ceases to exist as soon as it leaves memory
-  let id = params?.id?.[0]
-  id ??= env.CF_ENV === 'production' ? nanoid() : nanoidNonSecure()
-  const entityStub = env.TEMPORAL_ENTITY.get(env.TEMPORAL_ENTITY.idFromName(id))  // TODO: confirm there isn't a better way to get the stub when the ID is known
-  const response = await entityStub.fetch('/', request)
+  const entityStub = env.TEMPORAL_ENTITY.get(id)
+  const response = await entityStub.fetch(url, request)  // TODO: upgrade this to pass the rest along to the durable object
   return response
 }

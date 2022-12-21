@@ -58,19 +58,21 @@ export class TemporalEntity {
 
   // The body and return is always a CBOR-SC object
   async fetch(request) {
-    console.log('TemporalEntity state.id.toString()', this.state.id.toString())
-
     const url = new URL(request.url)
 
     switch (url.pathname) {
       case '/':
         if (request.method === 'GET') return this.GET(request)
         if (['PUT', 'PATCH'].includes(request.method)) return this[request.method](request)
-        else return new Response(`Unrecognized HTTP method ${request.method}`, { status: 405 })
+        else return new Response(`Unrecognized HTTP method ${request.method} for ${url.pathname}`, { status: 405 })
 
       case '/ticks':
         // Not yet implemented
         return new Response('/ticks not implemented yet', { status: 404 })
+
+      case '/entity-meta':
+        if (request.method === 'GET') return this.GETEntityMeta(request)
+        else return new Response(`Unrecognized HTTP method ${request.method} for ${url.pathname}`, { status: 405 })
 
       default:
         return new Response('Not found', { status: 404 })
@@ -118,7 +120,13 @@ export class TemporalEntity {
     }
 
     this.#current = {}
-    this.#current.meta = { userID, previousValues, validFrom, validTo: TemporalEntity.END_OF_TIME }
+    this.#current.meta = {
+      userID,
+      previousValues,
+      validFrom,
+      validTo: TemporalEntity.END_OF_TIME,
+      id: this.state.id.toString(),
+    }
     if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
     this.#current.value = value
     this.#entityMeta.timeline.push(validFrom)
@@ -209,6 +217,23 @@ export class TemporalEntity {
     try {
       const current = await this.get()
       return new Response(cborSC.encode(current))
+    } catch (e) {
+      const status = e.status || 500
+      return new Response(e.message, { status })
+    }
+  }
+
+  async getEntityMeta() {
+    await this.#hydrate()
+    return this.#entityMeta
+  }
+
+  async GETEntityMeta(request) {
+    const acceptHeaderInvalid = utils.acceptHeaderInvalid(request)
+    if (acceptHeaderInvalid) return acceptHeaderInvalid
+    try {
+      const entityMeta = await this.getEntityMeta()
+      return new Response(cborSC.encode(entityMeta))
     } catch (e) {
       const status = e.status || 500
       return new Response(e.message, { status })
