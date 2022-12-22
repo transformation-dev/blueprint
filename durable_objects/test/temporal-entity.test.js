@@ -130,7 +130,7 @@ test('TemporalEntity', async (t) => {
     t.end()
   })
 
-  t.test('auto-assigned validFrom', async (t) => {
+  t.test('auto-incremented validFrom', async (t) => {
     const state4 = getNewState()
     const env4 = {}
     const te4 = new TemporalEntity(state4, env4)

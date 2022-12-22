@@ -1,6 +1,6 @@
 import Debug from 'debug'
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
-import { nanoid } from 'nanoid'
+// import { nanoid } from 'nanoid'
 
 import { getDebug } from '../../_utils'
 
@@ -26,19 +26,17 @@ export async function onRequest({ request, env, params }) {
     id = env.TEMPORAL_ENTITY.idFromString(idString)
     const loc = request.url.indexOf(idString)
     url = request.url.slice(loc + idString.length)
-    debug(`url for call to durable object: ${url}`)
+    if (url === '') url = '/'
   } else {
-    // id = env.TEMPORAL_ENTITY.newUniqueId()  // TODO: This fails maybe because I'm using old miniflare/wrangler
-
-    // const name = env.CF_ENV === 'production' ? nanoid() : nanoidNonSecure()
-    // id = env.TEMPORAL_ENTITY.idFromName(name)
-
     id = ['production', 'preview'].includes(env.CF_ENV) ? env.TEMPORAL_ENTITY.newUniqueId() : env.TEMPORAL_ENTITY.idFromName(nanoidNonSecure()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
-
     url = '/'
   }
 
   const entityStub = env.TEMPORAL_ENTITY.get(id)
   const response = await entityStub.fetch(url, request)  // TODO: upgrade this to pass the rest along to the durable object
+  if (response.status !== 200) {
+    debug('DURABLE_OBJECT.fetch() to %O failed with status: %O', url, response.status)  // TODO: replace 'DURABLE_OBJECT' with the durable object's name
+    debug('response.text(): %O', await response.text())
+  }
   return response
 }

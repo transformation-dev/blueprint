@@ -125,7 +125,7 @@ export class TemporalEntity {
       previousValues,
       validFrom,
       validTo: TemporalEntity.END_OF_TIME,
-      id: this.state.id.toString(),
+      id: this.state?.id?.toString(),
     }
     if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
     this.#current.value = value
