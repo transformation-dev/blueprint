@@ -11,7 +11,8 @@
     "publish": "npm run build && npx wrangler publish",
     "build": "npm run test && npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm --target=esnext --bundle",
     "dev": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm  --bundle --watch",
-    "test": "tape test/* | tap-spec"
+    "test": "tape test/* | tap-spec",
+    "coverage": "c8 npm run test"
   },
   "dependencies": {
     "@transformation-dev/accept": "file:packages/accept",

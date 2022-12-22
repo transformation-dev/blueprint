@@ -44,7 +44,7 @@ export class TemporalEntity {
     this.#entityMeta = await this.state.storage.get('entityMeta')
     this.#entityMeta ??= { timeline: [] }
     if (this.#entityMeta.timeline.length > 0) {
-      this.#current = await this.state.storage.get(this.#entityMeta.timeline.at(-1))
+      this.#current = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-1)}`)
     }
     this.#hydrated = true
   }
@@ -116,7 +116,7 @@ export class TemporalEntity {
 
     if (this.#current) {
       oldCurrent.meta.validTo = validFrom
-      this.state.storage.put(oldCurrent.meta.validFrom, oldCurrent)
+      this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
     }
 
     this.#current = {}
@@ -131,7 +131,7 @@ export class TemporalEntity {
     this.#current.value = value
     this.#entityMeta.timeline.push(validFrom)
 
-    this.state.storage.put(validFrom, this.#current)
+    this.state.storage.put(`snapshot-${validFrom}`, this.#current)
     this.state.storage.put('entityMeta', this.#entityMeta)
 
     return this.#current
