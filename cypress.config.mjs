@@ -17,7 +17,7 @@ export default defineConfig({
     env: {
       TESTING_OVERRIDE_CODE: process.env.TESTING_OVERRIDE_CODE,
     },
-    // baseUrl: 'http://localhost:8788',
-    baseUrl: 'https://create-do-user.transformation.pages.dev',
+    baseUrl: 'http://localhost:8788',
+    // baseUrl: 'https://create-do-user.transformation.pages.dev',
   },
 })

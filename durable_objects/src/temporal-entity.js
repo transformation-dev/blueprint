@@ -59,19 +59,12 @@ export class TemporalEntity {
   // The body and return is always a CBOR-SC object
   async fetch(request) {
     const url = new URL(request.url)
-    console.log('url', JSON.stringify(url, null, 2))
-    console.log('method', request.method)
 
     switch (url.pathname) {
       case '/':
         if (request.method === 'GET') return this.GET(request)
         if (['PUT', 'PATCH'].includes(request.method)) {
-          console.log('calling PUT or PATCH')
           const response = await this[request.method](request)
-          console.log('got back from call to PUT or PATCH')
-          console.log('response.status', response.status)
-          const responseClone = response.clone()
-          console.log('response.text()', await responseClone.text())
           return response
         } else {
           return new Response(`Unrecognized HTTP method ${request.method} for ${url.pathname}`, { status: 405 })
@@ -155,9 +148,7 @@ export class TemporalEntity {
     try {
       options = await utils.decodeCBORSC(request)
     } catch (e) {
-      console.log('got here')
       const response = new Response('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', { status: 400 })
-      console.log('and here', response.body)
       return response
     }
     try {

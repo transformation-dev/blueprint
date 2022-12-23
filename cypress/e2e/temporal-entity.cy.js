@@ -5,7 +5,7 @@ const cborSC = new Encoder({ structuredClone: true })
 
 context('Temporal Entity', () => {
   
-  it.only('should respond with 415 on PUT without Content-Type header', () => {
+  it('should respond with 415 on PUT with Content-Type header application/json', () => {
     const o = { value: { a: 1, b: 2 }, userID: '1' }
     const u8a = cborSC.encode(o)
     const options = {
@@ -18,23 +18,6 @@ context('Temporal Entity', () => {
 
     cy.wrap(null).then(async () => {
       const response = await fetch('/api/temporal-entity', options)
-      console.log('response', response)
-      expect(response.status).to.eq(415)
-    })
-  })
-
-  it('should respond with 415 on PUT Content-Type header application/json', () => {
-    const options = {
-      method: 'PUT',
-      url: '/api/temporal-entity',
-      body: { a: 1 },
-      failOnStatusCode: false,
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    }
-    cy.request(options).as('request')
-    cy.get('@request').then(response => {
       expect(response.status).to.eq(415)
     })
   })

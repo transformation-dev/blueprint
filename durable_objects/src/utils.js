@@ -51,12 +51,8 @@ export function mediaTypeHeaderInvalid(request) {
 }
 
 export async function decodeCBORSC(request) {
-  console.log('decodeCBORSC() called')
   const ab = await request.arrayBuffer()
-  console.log('ab', ab)
   const u8a = new Uint8Array(ab)
-  console.log('u8a', u8a)
   const o = cborSC.decode(u8a)
-  console.log('o', o)
   return o
 }
