@@ -1,4 +1,4 @@
-compatibility_date = "2022-02-11"
+compatibility_date = "2022-12-20"
 
 name = "transformation-durable_objects"
 # type = "javascript" is required to use the `[build]` section

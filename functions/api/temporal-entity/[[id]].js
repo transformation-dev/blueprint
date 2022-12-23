@@ -36,7 +36,8 @@ export async function onRequest({ request, env, params }) {
   const response = await entityStub.fetch(url, request)  // TODO: upgrade this to pass the rest along to the durable object
   if (response.status !== 200) {
     debug('DURABLE_OBJECT.fetch() to %O failed with status: %O', url, response.status)  // TODO: replace 'DURABLE_OBJECT' with the durable object's name
-    debug('response.text(): %O', await response.text())
+    const responseClone = response.clone()
+    debug('response.text(): %O', await responseClone.text())
   }
   return response
 }

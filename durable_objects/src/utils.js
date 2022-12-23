@@ -28,7 +28,9 @@ export function throwUnless(condition, message, status = 400) {
 
 export function contentTypeHeaderInvalid(request) {
   const contentType = request.headers.get('Content-Type')
+  console.log('contentType', contentType)
   const mediaType = Accept.mediaType(contentType, MEDIA_TYPES_SUPPORTED)
+  console.log('mediaType', mediaType)
   if (!mediaType) {
     return new Response(`The Content-Type for the incoming body, ${JSON.stringify(contentType)}, is unsupported`, { status: 415 })
   }
@@ -49,7 +51,12 @@ export function mediaTypeHeaderInvalid(request) {
 }
 
 export async function decodeCBORSC(request) {
+  console.log('decodeCBORSC() called')
   const ab = await request.arrayBuffer()
+  console.log('ab', ab)
   const u8a = new Uint8Array(ab)
-  return cborSC.decode(u8a)
+  console.log('u8a', u8a)
+  const o = cborSC.decode(u8a)
+  console.log('o', o)
+  return o
 }
