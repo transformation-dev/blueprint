@@ -91,12 +91,14 @@ export class TemporalEntity {
 
     await this.#hydrate()
 
+    let validFromDate
     if (validFrom) {
       if (this.#entityMeta?.timeline?.length > 0) {
         utils.throwIf(validFrom <= this.#entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
       }
+      validFromDate = new Date(validFrom)
     } else {
-      let validFromDate = new Date()
+      validFromDate = new Date()
       if (this.#entityMeta?.timeline?.length > 0) {
         const lastTimelineDate = new Date(this.#entityMeta.timeline.at(-1))
         if (validFromDate <= lastTimelineDate) {
@@ -105,20 +107,26 @@ export class TemporalEntity {
         validFrom = new Date(validFromDate).toISOString()
       } else {
         validFrom = validFromDate.toISOString()
+        validFromDate = new Date(validFrom)
       }
     }
 
-    let oldCurrent
+    let debounce = false
+    let oldCurrent = { value: {} }
     if (this.#current) {
       oldCurrent = structuredClone(this.#current)
-    } else {
-      oldCurrent = { value: {} }
+      if (userID === this.#current?.meta?.userID && validFromDate - new Date(this.#current.meta.validFrom) < 60 * 60 * 1000) {
+        debounce = true
+        // Make oldCurrent and validFrom be from -2
+        oldCurrent = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-2)}`) ?? { value: {} }
+        validFrom = this.#current.meta.validFrom
+      }
     }
 
     const previousValues = diff(value, oldCurrent.value)
-    if (Object.keys(previousValues).length === 0) return this.#current
+    if (Object.keys(previousValues).length === 0) return this.#current  // Idempotent
 
-    if (this.#current) {
+    if (!debounce && this.#current) {
       oldCurrent.meta.validTo = validFrom
       this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
     }
@@ -133,10 +141,11 @@ export class TemporalEntity {
     }
     if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
     this.#current.value = value
-    this.#entityMeta.timeline.push(validFrom)
-
+    if (!debounce) {
+      this.#entityMeta.timeline.push(validFrom)
+      this.state.storage.put('entityMeta', this.#entityMeta)
+    }
     this.state.storage.put(`snapshot-${validFrom}`, this.#current)
-    this.state.storage.put('entityMeta', this.#entityMeta)
 
     return this.#current
   }

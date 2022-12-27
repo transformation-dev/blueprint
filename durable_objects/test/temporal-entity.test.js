@@ -21,7 +21,7 @@ function getNewState(initialData = {}) {
   return { storage: new Storage(initialData) }
 }
 
-test('TemporalEntity', async (t) => {
+test('TemporalEntity PUT and PATCH', async (t) => {
   const state = getNewState()
   const env = {}
   const te = new TemporalEntity(state, env)
@@ -58,13 +58,17 @@ test('TemporalEntity', async (t) => {
 
     t.end()
   })
+})
 
+test('TemporalEntity END_OF_TIME', async (t) => {
   t.test('END_OF_TIME', (t) => {
     t.equal(TemporalEntity.END_OF_TIME, '9999-01-01T00:00:00.000Z', 'should be equal to 9999-01-01T00:00:00.000Z')
 
     t.end()
   })
+})
 
+test('TemporalEntity validation', async (t) => {
   t.test('validation', async (t) => {
     const state2 = getNewState()
     const env2 = {}
@@ -109,8 +113,10 @@ test('TemporalEntity', async (t) => {
 
     t.end()
   })
+})
 
-  t.test('idempotentency', async (t) => {
+test('TemporalEntity idempotency', async (t) => {
+  t.test('idempotency', async (t) => {
     const state3 = getNewState()
     const env3 = {}
     const te3 = new TemporalEntity(state3, env3)
@@ -129,7 +135,9 @@ test('TemporalEntity', async (t) => {
 
     t.end()
   })
+})
 
+test('TemporalEntity auto-incremented validFrom', async (t) => {
   t.test('auto-incremented validFrom', async (t) => {
     const state4 = getNewState()
     const env4 = {}
@@ -140,9 +148,44 @@ test('TemporalEntity', async (t) => {
     const newValidFromISOString = newValidFromDate.toISOString()
 
     await te4.put({ a: 1 }, 'userY', validFromISOString)
-    await te4.put({ a: 2 }, 'userY')
+    await te4.put({ a: 2 }, 'userZ')
     const result = await te4.get()
     t.equal(result.meta.validFrom, newValidFromISOString, 'should be 1ms later')
+
+    t.end()
+  })
+})
+
+test('TemporalEntity debouncing', async (t) => {
+  t.test('debouncing', async (t) => {
+    const state3 = getNewState()
+    const env3 = {}
+    const te3 = new TemporalEntity(state3, env3)
+
+    const firstCurrent = await te3.put({ a: 1 }, 'userY')
+    await te3.put({ a: 2 }, 'userY')
+    t.equal(
+      state3.storage.data.entityMeta.timeline.length,
+      1,
+      'should still have 1 entry in timeline after 2th put with different value and same userID',
+    )
+    const { meta, value } = await te3.get()
+    t.deepEqual(value, { a: 2 }, 'should get back last value')
+    t.equal(meta.validFrom, firstCurrent.meta.validFrom, 'should get back first validFrom')
+    const pv = Object.create(null)
+    pv.a = undefined
+    t.deepEqual(meta.previousValues, pv, 'should get back previousValues like it was the first put')
+
+    const secondCurrent = await te3.put({ a: 3 }, 'userZ')
+    await te3.put({ a: 4 }, 'userZ')
+    t.equal(
+      state3.storage.data.entityMeta.timeline.length,
+      2,
+      'should still have 2 entries in timeline after 3th put with different value and same userID',
+    )
+    const newCurrent = await te3.get()
+    t.deepEqual(newCurrent.value, { a: 4 }, 'should get back last value')
+    t.equal(newCurrent.meta.validFrom, secondCurrent.meta.validFrom, 'should get back second validFrom')
 
     t.end()
   })
