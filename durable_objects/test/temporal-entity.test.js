@@ -188,11 +188,11 @@ test('TemporalEntity debouncing', async (t) => {
     t.equal(newCurrent.meta.validFrom, secondCurrent.meta.validFrom, 'should get back second validFrom')
 
     const newValidFromDate = new Date(new Date(newCurrent.meta.validFrom).getTime() + 61 * 60 * 1000) // 61 minutes later
-    const thirdCurrent = await te3.put({ a: 5 }, 'userZ', newValidFromDate.toISOString())
+    await te3.put({ a: 5 }, 'userZ', newValidFromDate.toISOString())
     t.equal(
       state3.storage.data.entityMeta.timeline.length,
       3,
-      'should have 3 entries after put with same userID but way in the future',
+      'should have 3 entries after put with same userID but 61 minutes in the future',
     )
     const newCurrent3 = await te3.get()
     t.deepEqual(newCurrent3.value, { a: 5 }, 'should get back last value')

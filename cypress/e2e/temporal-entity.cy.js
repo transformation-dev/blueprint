@@ -58,7 +58,7 @@ context('Temporal Entity', () => {
 
   // Using fetch() instead of cy.request() because I couldn't get cy.request() to work for binary data
   // Had to merge four tests into one so this test would be independent of the others
-  it('should allow PUT, PATH, GET, and GET entity-meta', () => {
+  it('should allow PUT, PATCH, GET, and GET entity-meta', () => {
     let id
     let t1
     let t2
@@ -106,7 +106,7 @@ context('Temporal Entity', () => {
 
       const o2 = { 
         delta: { a: 10, b: undefined }, 
-        userID: '1', 
+        userID: '2', 
         validFrom: newValidFromISOString,
         impersonatorID: 'impersonator1',
       }
@@ -134,7 +134,7 @@ context('Temporal Entity', () => {
         expect(o).to.deep.eq({
           "meta": {
             "previousValues": { a: 1, b: 2 },
-            "userID": "1",
+            "userID": "2",
             "validFrom": newValidFromISOString,
             "impersonatorID": "impersonator1",
             "validTo": "9999-01-01T00:00:00.000Z",
@@ -210,7 +210,7 @@ context('Temporal Entity', () => {
 
       const o4 = {
         value: { c: 200 },
-        userID: '1',
+        userID: '2',
       }
       const u8a4 = cborSC.encode(o4)
       const options4 = {
