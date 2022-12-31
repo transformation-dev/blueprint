@@ -78,6 +78,7 @@ context('Temporal Entity', () => {
     cy.wrap(null).then(async () => {
       const response = await fetch('/api/temporal-entity', options)
       expect(response.status).to.eq(200)
+      expect(response.headers.get('Content-Type')).to.eq('application/cbor-sc')
 
       const ab = await response.arrayBuffer()
       const u8a = new Uint8Array(ab)
@@ -117,6 +118,7 @@ context('Temporal Entity', () => {
         headers: {
           'Content-Type': 'application/cbor-sc',
           'Accept': 'application/cbor-sc',
+          'If-Match': o.meta.validFrom,
         },
       }
 
@@ -183,6 +185,49 @@ context('Temporal Entity', () => {
     })
   })
 
+  // TODO: test that a second PUT without an If-Match header fails with 412
+  it('should fail with 412 on a second PUT without an If-Match header (the second fetch() below)', () => {
+    const o = {
+      value: { c: 100 },
+      userID: '1',
+    }
+    const u8a = cborSC.encode(o)
+    const options = {
+      method: 'PUT',
+      body: u8a,
+      headers: {
+        'Content-Type': 'application/cbor-sc',
+        'Accept': 'application/cbor-sc',
+      },
+    }
+
+    cy.wrap(null).then(async () => {
+      const response = await fetch(`/api/temporal-entity`, options)
+      expect(response.status, '1st PUT').to.eq(200)
+      const ab = await response.arrayBuffer()
+      const u8a = new Uint8Array(ab)
+      const o5 = cborSC.decode(u8a)
+      const id = o5.meta.id
+
+      const o4 = {
+        value: { c: 200 },
+        userID: '2',
+      }
+      const u8a4 = cborSC.encode(o4)
+      const options4 = {
+        method: 'PUT',
+        body: u8a4,
+        headers: {
+          'Content-Type': 'application/cbor-sc',
+          'Accept': 'application/cbor-sc',
+        },
+      }
+      
+      const response2 = await fetch(`/api/temporal-entity/${id}`, options4)
+      expect(response2.status, '2nd PUT with missing If-Match').to.eq(412)
+    })
+  })
+
   it('should auto-increment validFrom when not specified (the second fetch() below)', () => {
     const lastValidFromISOString = '9900-01-01T00:00:00.000Z'
     const lastValidFromDate = new Date(lastValidFromISOString)
@@ -219,6 +264,7 @@ context('Temporal Entity', () => {
         headers: {
           'Content-Type': 'application/cbor-sc',
           'Accept': 'application/cbor-sc',
+          'If-Match': lastValidFromISOString,
         },
       }
       const ab = await response.arrayBuffer()
@@ -227,7 +273,7 @@ context('Temporal Entity', () => {
       const id = o5.meta.id
 
       const response2 = await fetch(`/api/temporal-entity/${id}`, options4)
-      expect(response.status, '2nd call to fetch() to confirm validFrom is 1ms later').to.eq(200)
+      expect(response2.status, '2nd call to fetch() to confirm validFrom is 1ms later').to.eq(200)
 
       const ab2 = await response2.arrayBuffer()
       const u8a2 = new Uint8Array(ab2)

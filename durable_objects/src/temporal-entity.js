@@ -15,16 +15,39 @@ const cborSC = new Encoder({ structuredClone: true })
 
 // TODO: Don't forget to always soft delete to support ETL from last update
 
-// TODO: Add debounce functionality. Use default of say 1 hour unless overridden by schema
-
 // TODO: Get Debug() working
 
 // TODO: Implement optimistic concurrency control by setting the ETag to validFrom.
-//       On PUT or PATCH if If-Match doesn't match this.#current.meta.validFrom, then check to see if the fields changed are different.
+//       On PUT or PATCH if If-Match doesn't match this.#current.meta.validFrom, then check to see if the updates conflict (see below).
 //       If the changes are for different fields, then go ahead with the update. Otherwise send error 412.
-//       Don't worry about implementing If-None-Match for get() because it caching won't save all that much.
+//       If a GET includes an If-None-Match header and it matches this.#current.meta.validFrom, then return 304.
+//       Note, a 304 MUST NOT contain a message body which also means it should not have a Content-Type header.
+//       400-599 status codes may include more information in the body although it makes the most sense for 400-499
+//
+// To determine if the updates conflict:
+//   1. Apply the update to the current value
+//   2. Apply the update to the snapshot specified by the If-Match header
+//   3. If the two results are the same, then the updates don't conflict
 
-// TODO: Move all of these to utils
+// TODO: Implement ticks
+
+const CBOR_HEADERS = new Headers({ 'Content-Type': 'application/cbor-sc' })
+
+function apply(obj, d) {
+  for (const key of Object.keys(d)) {
+    if (d[key] instanceof Object) {
+      // eslint-disable-next-line no-param-reassign
+      obj[key] = apply(obj[key] || {}, d[key])
+    } else if (d[key] === undefined) {
+      // eslint-disable-next-line no-param-reassign
+      delete obj[key]
+    } else {
+      // eslint-disable-next-line no-param-reassign
+      obj[key] = d[key]
+    }
+  }
+  return obj
+}
 
 export class TemporalEntity {
   static #END_OF_TIME = '9999-01-01T00:00:00.000Z'
@@ -85,12 +108,27 @@ export class TemporalEntity {
 
   // TODO: Create a schema registry and passing in schemas which will use semantic versioning (e.g. OrgNode@1.7.12)
   //       put() and patch() to allow for the specification of schemas { value, schemas} in the body
-  async put(value, userID, validFrom, impersonatorID) {
+  async put(value, userID, validFrom, impersonatorID, eTag) {
     utils.throwUnless(value, 'value required by TemporalEntity PUT is missing')
     utils.throwUnless(userID, 'userID required by TemporalEntity operation is missing')
 
     await this.#hydrate()
 
+    // Process eTag header
+    console.log('*** eTag', eTag)
+    utils.throwIf(this.#entityMeta.timeline.length > 0 && !eTag, 'ETag required for TemporalEntity PUT or PATCH', 412)
+    if (this.#entityMeta.timeline.length === 0 && !eTag) {
+      // continue because this is the first PUT or PATCH
+    } else if (eTag === this.#current?.meta?.validFrom) {
+      console.log('*** ETag matches')
+      // continue because the eTag matches
+    } else { // Check if there is a conflict
+    //   1. Apply the update to the current value
+    //   2. Apply the update to the snapshot specified by the If-Match header
+    //   3. If the two results are the same, then the updates don't conflict so continue, otherwise return 412
+    }
+
+    // Set validFrom and validFromDate
     let validFromDate
     if (validFrom) {
       if (this.#entityMeta?.timeline?.length > 0) {
@@ -111,6 +149,7 @@ export class TemporalEntity {
       }
     }
 
+    // Determine if this update should be debounced
     let debounce = false
     let oldCurrent = { value: {} }
     if (this.#current) {
@@ -123,14 +162,17 @@ export class TemporalEntity {
       }
     }
 
+    // Calculate the previousValues diff and check for idempotency
     const previousValues = diff(value, oldCurrent.value)
     if (Object.keys(previousValues).length === 0) return this.#current  // Idempotent
 
+    // Update the old current and save it
     if (!debounce && this.#current) {
       oldCurrent.meta.validTo = validFrom
       this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
     }
 
+    // Create the new current and save it
     this.#current = {}
     this.#current.meta = {
       userID,
@@ -147,6 +189,7 @@ export class TemporalEntity {
     }
     this.state.storage.put(`snapshot-${validFrom}`, this.#current)
 
+    // return the new current
     return this.#current
   }
 
@@ -161,8 +204,9 @@ export class TemporalEntity {
       return response
     }
     try {
-      const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID)
-      return new Response(cborSC.encode(current))  // TODO: Add Content-Type: application/cbor-sc
+      const eTag = request.headers.get('If-Match')
+      const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
+      return new Response(cborSC.encode(current), { headers: CBOR_HEADERS })
     } catch (e) {
       const status = e.status || 500
       return new Response(e.message, { status })
@@ -173,23 +217,7 @@ export class TemporalEntity {
   // If you want to delete a key send in a delta with that key set to undefined
   // To add a key, just include it in delta
   // To change a value for one key, just set it to the new value in the delta
-  async patch(delta, userID, validFrom, impersonatorID) {
-    function apply(obj, d) {
-      for (const key of Object.keys(d)) {
-        if (d[key] instanceof Object) {
-          // eslint-disable-next-line no-param-reassign
-          obj[key] = apply(obj[key] || {}, d[key])
-        } else if (d[key] === undefined) {
-          // eslint-disable-next-line no-param-reassign
-          delete obj[key]
-        } else {
-          // eslint-disable-next-line no-param-reassign
-          obj[key] = d[key]
-        }
-      }
-      return obj
-    }
-
+  async patch(delta, userID, validFrom, impersonatorID, eTag) {
     utils.throwUnless(delta, 'delta required by TemporalEntity PATCH is missing')
 
     await this.#hydrate()
@@ -199,7 +227,7 @@ export class TemporalEntity {
     const newValue = structuredClone(this.#current.value)
     apply(newValue, delta)
 
-    return this.put(newValue, userID, validFrom, impersonatorID)
+    return this.put(newValue, userID, validFrom, impersonatorID, eTag)
   }
 
   async PATCH(request) {
@@ -212,8 +240,9 @@ export class TemporalEntity {
       return new Response('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', { status: 400 })
     }
     try {
-      const current = await this.patch(options.delta, options.userID, options.validFrom, options.impersonatorID)
-      return new Response(cborSC.encode(current))
+      const eTag = request.headers.get('If-Match')
+      const current = await this.patch(options.delta, options.userID, options.validFrom, options.impersonatorID, eTag)
+      return new Response(cborSC.encode(current), { headers: CBOR_HEADERS })
     } catch (e) {
       const status = e.status || 500
       return new Response(e.message, { status })
@@ -230,7 +259,7 @@ export class TemporalEntity {
     if (acceptHeaderInvalid) return acceptHeaderInvalid
     try {
       const current = await this.get()
-      return new Response(cborSC.encode(current))
+      return new Response(cborSC.encode(current), { headers: CBOR_HEADERS })
     } catch (e) {
       const status = e.status || 500
       return new Response(e.message, { status })
@@ -247,7 +276,7 @@ export class TemporalEntity {
     if (acceptHeaderInvalid) return acceptHeaderInvalid
     try {
       const entityMeta = await this.getEntityMeta()
-      return new Response(cborSC.encode(entityMeta))
+      return new Response(cborSC.encode(entityMeta), { headers: CBOR_HEADERS })
     } catch (e) {
       const status = e.status || 500
       return new Response(e.message, { status })

@@ -28,9 +28,7 @@ export function throwUnless(condition, message, status = 400) {
 
 export function contentTypeHeaderInvalid(request) {
   const contentType = request.headers.get('Content-Type')
-  console.log('contentType', contentType)
   const mediaType = Accept.mediaType(contentType, MEDIA_TYPES_SUPPORTED)
-  console.log('mediaType', mediaType)
   if (!mediaType) {
     return new Response(`The Content-Type for the incoming body, ${JSON.stringify(contentType)}, is unsupported`, { status: 415 })
   }
