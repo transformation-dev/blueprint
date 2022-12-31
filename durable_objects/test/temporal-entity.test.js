@@ -47,7 +47,7 @@ test('TemporalEntity PUT and PATCH', async (t) => {
     const lastValidFromDate = new Date(lastValidFromISOString)
     const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
     const newValidFromISOString = newValidFromDate.toISOString()
-    await te.patch({ a: undefined, b: 3, c: 4 }, 'user2', newValidFromISOString, 'impersonator1')
+    await te.patch({ a: undefined, b: 3, c: 4 }, 'user2', newValidFromISOString, 'impersonator1', lastValidFromISOString)
 
     const { meta, value } = await te.get()
     t.deepEqual(value, { b: 3, c: 4 }, 'should get back patched value (note, a was deleted)')
@@ -99,8 +99,8 @@ test('TemporalEntity validation', async (t) => {
     }
 
     try {
-      await te2.put({ a: 100 }, 'userX')
-      await te2.put({ a: 1000 }, 'userX', '1999-01-01T00:00:00.000Z')
+      const response = await te2.put({ a: 100 }, 'userX')
+      await te2.put({ a: 1000 }, 'userX', '1999-01-01T00:00:00.000Z', undefined, response.meta.validFrom)
       t.fail('async thrower did not throw')
     } catch (e) {
       t.equal(
@@ -121,13 +121,13 @@ test('TemporalEntity idempotency', async (t) => {
     const env3 = {}
     const te3 = new TemporalEntity(state3, env3)
 
-    await te3.put({ a: 1 }, 'userY')
+    const response3 = await te3.put({ a: 1 }, 'userY')
     t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
 
     await te3.put({ a: 1 }, 'userZ')
     t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should still have 1 entry in timeline after 2nd put with same value but different userID')
 
-    await te3.put({ a: 2 }, 'userZ')
+    await te3.put({ a: 2 }, 'userZ', undefined, undefined, response3.meta.validFrom)
     t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 3rd put with different value')
 
     await te3.put({ a: 2 }, 'userZ')
@@ -147,8 +147,8 @@ test('TemporalEntity auto-incremented validFrom', async (t) => {
     const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
     const newValidFromISOString = newValidFromDate.toISOString()
 
-    await te4.put({ a: 1 }, 'userY', validFromISOString)
-    await te4.put({ a: 2 }, 'userZ')
+    const response = await te4.put({ a: 1 }, 'userY', validFromISOString)
+    await te4.put({ a: 2 }, 'userZ', undefined, undefined, response.meta.validFrom)
     const result = await te4.get()
     t.equal(result.meta.validFrom, newValidFromISOString, 'should be 1ms later')
 
@@ -163,7 +163,7 @@ test('TemporalEntity debouncing', async (t) => {
     const te3 = new TemporalEntity(state3, env3)
 
     const firstCurrent = await te3.put({ a: 1 }, 'userY')
-    await te3.put({ a: 2 }, 'userY')
+    const middleCurrent = await te3.put({ a: 2 }, 'userY')
     t.equal(
       state3.storage.data.entityMeta.timeline.length,
       1,
@@ -176,7 +176,7 @@ test('TemporalEntity debouncing', async (t) => {
     pv.a = undefined
     t.deepEqual(meta.previousValues, pv, 'should get back previousValues like it was the first put')
 
-    const secondCurrent = await te3.put({ a: 3 }, 'userZ')
+    const secondCurrent = await te3.put({ a: 3 }, 'userZ', undefined, undefined, middleCurrent.meta.validFrom)
     await te3.put({ a: 4 }, 'userZ')
     t.equal(
       state3.storage.data.entityMeta.timeline.length,
@@ -188,7 +188,7 @@ test('TemporalEntity debouncing', async (t) => {
     t.equal(newCurrent.meta.validFrom, secondCurrent.meta.validFrom, 'should get back second validFrom')
 
     const newValidFromDate = new Date(new Date(newCurrent.meta.validFrom).getTime() + 61 * 60 * 1000) // 61 minutes later
-    await te3.put({ a: 5 }, 'userZ', newValidFromDate.toISOString())
+    await te3.put({ a: 5 }, 'userZ', newValidFromDate.toISOString(), undefined, newCurrent.meta.validFrom)
     t.equal(
       state3.storage.data.entityMeta.timeline.length,
       3,

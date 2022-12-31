@@ -5,6 +5,7 @@
 import { diff } from 'deep-object-diff'
 import { Encoder } from 'cbor-x'
 
+import { debug } from 'svelte/internal'
 import * as utils from './utils.js'
 
 const cborSC = new Encoder({ structuredClone: true })
@@ -13,9 +14,11 @@ const cborSC = new Encoder({ structuredClone: true })
 // validFrom dates manually and store them under a key entityMeta.timeline
 // For now, timeline will just be an array of ISO date strings.
 
-// TODO: Don't forget to always soft delete to support ETL from last update
+// TODO: Don't forget to always soft delete to support ETL from last update. Don't forget to include ETag header in response
 
 // TODO: Get Debug() working
+
+// TODO: Set ETag header on GET, PUT, PATCH
 
 // TODO: Implement optimistic concurrency control by setting the ETag to validFrom.
 //       On PUT or PATCH if If-Match doesn't match this.#current.meta.validFrom, then check to see if the updates conflict (see below).
@@ -31,7 +34,12 @@ const cborSC = new Encoder({ structuredClone: true })
 
 // TODO: Implement ticks
 
-const CBOR_HEADERS = new Headers({ 'Content-Type': 'application/cbor-sc' })
+let CBOR_HEADERS
+try {
+  CBOR_HEADERS = new Headers({ 'Content-Type': 'application/cbor-sc' })
+} catch (e) {
+  CBOR_HEADERS = undefined  // should only be used in unit testing
+}
 
 function apply(obj, d) {
   for (const key of Object.keys(d)) {
@@ -49,6 +57,45 @@ function apply(obj, d) {
   return obj
 }
 
+function extractETag(request) {
+  let eTag = request.headers.get('If-Match')
+  if (!eTag) eTag = request.headers.get('If-None-Match')
+  if (eTag === 'undefined' || eTag === 'null') return undefined
+  return eTag
+}
+
+function throwIfUpdatesConflictElseReturnNewCurrent(current, updates) {
+
+}
+
+/**
+ * # TemporalEntity
+ *
+ * TemporalEntity retains its history in a timeline of snapshots. Each snapshot is a copy of the entity's value.
+ * validFrom and validTo define the time range for which the snapshot is valid. This approach was invented by
+ * Richard Snodgrass (see https://en.wikipedia.org/wiki/Valid_time). The validTo for the current
+ * snapshot is set to a date ~8000 years in the future, 9999-01-01T00:00:00.000Z. This makes queries for a particular
+ * moment in time or to retrieve all snapshots in a range will include the current snapshot.
+ *
+ * The default behavior might deviate from your expectations for a REST-ful API in these ways:
+ *  1. PUT behaves like an UPSERT. If there is no prior value, it will create the entity.
+ *  2. As such, there is no need for a POST method. A PUT without a prior ID will behave like a POST.
+ *  3. PATCH or PUT may still work even if the ETag (see Optimistic Concurrency below) doesn't match
+ *     so long as the updates don't conflict with prior updates.
+ *  4. The ETag is just the validFrom time so it is only unique to this entity so it probably should be marked as "weak"
+ *     but we don't use the "/W" prefix to indicate this.
+ *
+ * ## Optimistic Concurrency
+ *
+ * TemporalEntity uses optimistic concurrancy using ETags, If-Match, and If-None-Match headers
+ * (see: https://en.wikipedia.org/wiki/HTTP_ETag). The ETag header is provided but it will always match the
+ * validFrom so feel free to use that if it's more convenient.
+ *
+ * @constructor
+ * @param {DurableObjectState} state
+ * @param {DurableObjectEnv} env
+ *
+ * */
 export class TemporalEntity {
   static #END_OF_TIME = '9999-01-01T00:00:00.000Z'
 
@@ -114,20 +161,6 @@ export class TemporalEntity {
 
     await this.#hydrate()
 
-    // Process eTag header
-    console.log('*** eTag', eTag)
-    utils.throwIf(this.#entityMeta.timeline.length > 0 && !eTag, 'ETag required for TemporalEntity PUT or PATCH', 412)
-    if (this.#entityMeta.timeline.length === 0 && !eTag) {
-      // continue because this is the first PUT or PATCH
-    } else if (eTag === this.#current?.meta?.validFrom) {
-      console.log('*** ETag matches')
-      // continue because the eTag matches
-    } else { // Check if there is a conflict
-    //   1. Apply the update to the current value
-    //   2. Apply the update to the snapshot specified by the If-Match header
-    //   3. If the two results are the same, then the updates don't conflict so continue, otherwise return 412
-    }
-
     // Set validFrom and validFromDate
     let validFromDate
     if (validFrom) {
@@ -149,13 +182,14 @@ export class TemporalEntity {
       }
     }
 
-    // Determine if this update should be debounced
+    // Determine if this update should be debounced and set oldCurrent
     let debounce = false
     let oldCurrent = { value: {} }
     if (this.#current) {
       oldCurrent = structuredClone(this.#current)
       if (userID === this.#current?.meta?.userID && validFromDate - new Date(this.#current.meta.validFrom) < 60 * 60 * 1000) {
         debounce = true
+        console.log('*** debounce', debounce)
         // Make oldCurrent and validFrom be from -2
         oldCurrent = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-2)}`) ?? { value: {} }
         validFrom = this.#current.meta.validFrom
@@ -164,7 +198,27 @@ export class TemporalEntity {
 
     // Calculate the previousValues diff and check for idempotency
     const previousValues = diff(value, oldCurrent.value)
-    if (Object.keys(previousValues).length === 0) return this.#current  // Idempotent
+    console.log('*** oldCurrent', oldCurrent)
+    console.log('*** value', value)
+    console.log('*** previousValues', previousValues)
+    if (Object.keys(previousValues).length === 0) {  // idempotent
+      console.log('*** idempotent')
+      return this.#current
+    }
+
+    // Process eTag header
+    console.log('*** eTag', eTag)
+    utils.throwIf(!debounce && this.#entityMeta.timeline.length > 0 && !eTag, 'ETag header required for TemporalEntity PUT', 412)
+    if (debounce) {
+      // continue because this is a debounced PUT
+    } else if (this.#entityMeta.timeline.length === 0 && !eTag) {
+      // continue because this is the first PUT or PATCH
+    } else if (eTag === this.#current?.meta?.validFrom) {
+      console.log('*** ETag matches')
+      // continue because the eTag matches
+    } else { // Check if there is a conflict
+
+    }
 
     // Update the old current and save it
     if (!debounce && this.#current) {
@@ -204,7 +258,7 @@ export class TemporalEntity {
       return response
     }
     try {
-      const eTag = request.headers.get('If-Match')
+      const eTag = extractETag(request)
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
       return new Response(cborSC.encode(current), { headers: CBOR_HEADERS })
     } catch (e) {
@@ -223,8 +277,15 @@ export class TemporalEntity {
     await this.#hydrate()
 
     utils.throwUnless(this.#entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity PATCH when there is no prior value')
+    utils.throwUnless(eTag, 'ETag header required for TemporalEntity PATCH', 412)
 
-    const newValue = structuredClone(this.#current.value)
+    let newValue
+    if (eTag === this.#current?.meta?.validFrom) {
+      newValue = structuredClone(this.#current.value)
+    } else {
+      newValue = await this.state.storage.get(`snapshot-${eTag}`)
+      utils.throwUnless(newValue, 'the eTag you supplied for a TemporalEntity PATCH does not match any prior validFrom', 412)
+    }
     apply(newValue, delta)
 
     return this.put(newValue, userID, validFrom, impersonatorID, eTag)
@@ -240,7 +301,7 @@ export class TemporalEntity {
       return new Response('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', { status: 400 })
     }
     try {
-      const eTag = request.headers.get('If-Match')
+      const eTag = extractETag(request)
       const current = await this.patch(options.delta, options.userID, options.validFrom, options.impersonatorID, eTag)
       return new Response(cborSC.encode(current), { headers: CBOR_HEADERS })
     } catch (e) {

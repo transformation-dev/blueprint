@@ -118,7 +118,7 @@ context('Temporal Entity', () => {
         headers: {
           'Content-Type': 'application/cbor-sc',
           'Accept': 'application/cbor-sc',
-          'If-Match': o.meta.validFrom,
+          'If-Match': lastValidFromISOString,
         },
       }
 
