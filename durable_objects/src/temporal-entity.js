@@ -20,12 +20,18 @@ const cborSC = new Encoder({ structuredClone: true })
 
 // TODO: Set ETag header on GET, PUT, PATCH
 
-// TODO: Implement optimistic concurrency control by setting the ETag to validFrom.
-//       On PUT or PATCH if If-Match doesn't match this.#current.meta.validFrom, then check to see if the updates conflict (see below).
-//       If the changes are for different fields, then go ahead with the update. Otherwise send error 412.
+// TODO: Stop sending back the error text in the body but rather use the Response statusText option and CBOR-SC encode the body
+
+// TODO: Fix tests that break once I stop sending back the error text in the body
+
+// TODO: Tests at HTTP level for optimistic concurrency:
+//   1. Is there an ETag header on GET, PUT, and PATCH?
+//   2. Does the ETag header match the validFrom date?
+//   3. When you get a 412, do you also get a body with meta, value, and error?
+
+// TODO: Implement optimistic concurrency control with ETag header for GET.
 //       If a GET includes an If-None-Match header and it matches this.#current.meta.validFrom, then return 304.
 //       Note, a 304 MUST NOT contain a message body which also means it should not have a Content-Type header.
-//       400-599 status codes may include more information in the body although it makes the most sense for 400-499
 //
 // To determine if the updates conflict:
 //   1. Apply the update to the current value

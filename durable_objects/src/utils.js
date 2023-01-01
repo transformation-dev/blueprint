@@ -9,9 +9,11 @@ export class HTTPError extends Error {
   constructor(message, status, body) {
     super(message)
     this.status = status
-    this.body = body
     if (body) {
-      this.body.error = { message, status }
+      this.body = body
+      if (typeof body === 'object') {
+        this.body.error = { message, status }
+      }
     } else {
       this.body = { error: { message, status } }
     }
