@@ -57,15 +57,25 @@ function apply(obj, d) {
   return obj
 }
 
+function throwIfConflict(delta1, delta2) {  // Throw if the keys are the same and the values are different
+  for (const key of Object.keys(delta1)) {
+    if (delta1[key] instanceof Object) {
+      throwIfConflict(delta1[key], delta2[key])
+    } else {
+      utils.throwIf(
+        Object.hasOwn(delta2, key) && delta1[key] !== delta2[key],
+        'If-Match failed and new changes conflict with prior changes',
+        412,
+      )
+    }
+  }
+}
+
 function extractETag(request) {
   let eTag = request.headers.get('If-Match')
   if (!eTag) eTag = request.headers.get('If-None-Match')
   if (eTag === 'undefined' || eTag === 'null') return undefined
   return eTag
-}
-
-function throwIfUpdatesConflictElseReturnNewCurrent(current, updates) {
-
 }
 
 /**
@@ -81,7 +91,10 @@ function throwIfUpdatesConflictElseReturnNewCurrent(current, updates) {
  *  1. PUT behaves like an UPSERT. If there is no prior value, it will create the entity.
  *  2. As such, there is no need for a POST method. A PUT without a prior ID will behave like a POST.
  *  3. PATCH or PUT may still work even if the ETag (see Optimistic Concurrency below) doesn't match
- *     so long as the updates don't conflict with prior updates.
+ *     so long as all the updates are to different fields. It will merge all the updates that occured
+ *     after the If-Match timestamp so long as they don't conflict. This means you should always replace
+ *     your local copy with the value that's returned and never assume that what you sent is what was
+ *     stored.
  *  4. The ETag is just the validFrom time so it is only unique to this entity so it probably should be marked as "weak"
  *     but we don't use the "/W" prefix to indicate this.
  *
@@ -117,6 +130,30 @@ export class TemporalEntity {
       this.#current = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-1)}`)
     }
     this.#hydrated = true
+  }
+
+  async #throwIfUpdatesConflictElseReturnNewValue(eTag, value) {
+    const eTagVersion = await this.state.storage.get(`snapshot-${eTag}`)
+    utils.throwIf(!eTagVersion, 'The provided eTag is nowhere in the history for this TemporalEntity', 400)
+    // Calculate delta1
+    let delta1
+    // If the tag is at -2 in the timeline, then use the previousValues as the Delta for this comparison
+    if (this.#entityMeta.timeline.length >= 2 && this.#entityMeta.timeline.at(-2) === eTag) {
+      delta1 = this.#current.meta.previousValues
+    } else { // Otherwise delta1 is the delta from the ETag version to the current version
+      delta1 = diff(eTagVersion.value, this.#current.value)
+    }
+
+    // Calculate delta2 which is the delta from the ETag version to the proposed new value
+    const delta2 = diff(eTagVersion.value, value)
+
+    // Throw if the keys are the same and the values are different
+    throwIfConflict(delta1, delta2)
+
+    // If it doesn’t throw, then the new value comes from applying delta2 to the current value
+    const newValue = structuredClone(this.#current.value)
+    apply(newValue, delta2)
+    return newValue
   }
 
   constructor(state, env) {
@@ -161,6 +198,13 @@ export class TemporalEntity {
 
     await this.#hydrate()
 
+    // Process eTag header
+    console.log('*** eTag', eTag)
+    utils.throwIf(this.#entityMeta.timeline.length > 0 && !eTag, 'ETag header required for TemporalEntity PUT', 412)
+    if (eTag && eTag !== this.#current?.meta?.validFrom) {
+      value = this.#throwIfUpdatesConflictElseReturnNewValue(eTag, value)
+    }
+
     // Set validFrom and validFromDate
     let validFromDate
     if (validFrom) {
@@ -204,20 +248,6 @@ export class TemporalEntity {
     if (Object.keys(previousValues).length === 0) {  // idempotent
       console.log('*** idempotent')
       return this.#current
-    }
-
-    // Process eTag header
-    console.log('*** eTag', eTag)
-    utils.throwIf(!debounce && this.#entityMeta.timeline.length > 0 && !eTag, 'ETag header required for TemporalEntity PUT', 412)
-    if (debounce) {
-      // continue because this is a debounced PUT
-    } else if (this.#entityMeta.timeline.length === 0 && !eTag) {
-      // continue because this is the first PUT or PATCH
-    } else if (eTag === this.#current?.meta?.validFrom) {
-      console.log('*** ETag matches')
-      // continue because the eTag matches
-    } else { // Check if there is a conflict
-
     }
 
     // Update the old current and save it

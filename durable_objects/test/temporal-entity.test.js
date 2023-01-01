@@ -124,13 +124,13 @@ test('TemporalEntity idempotency', async (t) => {
     const response3 = await te3.put({ a: 1 }, 'userY')
     t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
 
-    await te3.put({ a: 1 }, 'userZ')
+    const response4 = await te3.put({ a: 1 }, 'userZ', undefined, undefined, response3.meta.validFrom)
     t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should still have 1 entry in timeline after 2nd put with same value but different userID')
 
-    await te3.put({ a: 2 }, 'userZ', undefined, undefined, response3.meta.validFrom)
+    const response5 = await te3.put({ a: 2 }, 'userZ', undefined, undefined, response4.meta.validFrom)
     t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 3rd put with different value')
 
-    await te3.put({ a: 2 }, 'userZ')
+    await te3.put({ a: 2 }, 'userZ', undefined, undefined, response5.meta.validFrom)
     t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should still have 2 entries in timeline after 4th put')
 
     t.end()
