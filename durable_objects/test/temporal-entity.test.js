@@ -163,7 +163,7 @@ test('TemporalEntity debouncing', async (t) => {
     const te3 = new TemporalEntity(state3, env3)
 
     const firstCurrent = await te3.put({ a: 1 }, 'userY')
-    const middleCurrent = await te3.put({ a: 2 }, 'userY')
+    const middleCurrent = await te3.put({ a: 2 }, 'userY', undefined, undefined, firstCurrent.meta.validFrom)
     t.equal(
       state3.storage.data.entityMeta.timeline.length,
       1,
@@ -177,7 +177,7 @@ test('TemporalEntity debouncing', async (t) => {
     t.deepEqual(meta.previousValues, pv, 'should get back previousValues like it was the first put')
 
     const secondCurrent = await te3.put({ a: 3 }, 'userZ', undefined, undefined, middleCurrent.meta.validFrom)
-    await te3.put({ a: 4 }, 'userZ')
+    await te3.put({ a: 4 }, 'userZ', undefined, undefined, secondCurrent.meta.validFrom)
     t.equal(
       state3.storage.data.entityMeta.timeline.length,
       2,
