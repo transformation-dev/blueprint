@@ -57,15 +57,16 @@ function apply(obj, d) {
   return obj
 }
 
-function throwIfConflict(delta1, delta2) {  // Throw if the keys are the same and the values are different
+function throwIfConflict(delta1, delta2, body) {  // Throw if the keys are the same and the values are different
   for (const key of Object.keys(delta1)) {
     if (delta1[key] instanceof Object) {
-      throwIfConflict(delta1[key], delta2[key])
+      throwIfConflict(delta1[key], delta2[key], body)
     } else {
       utils.throwIf(
         Object.hasOwn(delta2, key) && delta1[key] !== delta2[key],
         'If-Match failed and new changes conflict with prior changes',
         412,
+        body,  // TODO: CBOR-SC encode the body
       )
     }
   }
@@ -148,7 +149,7 @@ export class TemporalEntity {
     const delta2 = diff(eTagVersion.value, value)
 
     // Throw if the keys are the same and the values are different
-    throwIfConflict(delta1, delta2)
+    throwIfConflict(delta1, delta2, this.#current)
 
     // If it doesn’t throw, then the new value comes from applying delta2 to the current value
     const newValue = structuredClone(this.#current.value)
@@ -202,7 +203,7 @@ export class TemporalEntity {
     console.log('*** eTag', eTag)
     utils.throwIf(this.#entityMeta.timeline.length > 0 && !eTag, 'ETag header required for TemporalEntity PUT', 412)
     if (eTag && eTag !== this.#current?.meta?.validFrom) {
-      value = this.#throwIfUpdatesConflictElseReturnNewValue(eTag, value)
+      value = await this.#throwIfUpdatesConflictElseReturnNewValue(eTag, value)
     }
 
     // Set validFrom and validFromDate
@@ -271,6 +272,7 @@ export class TemporalEntity {
       this.#entityMeta.timeline.push(validFrom)
       this.state.storage.put('entityMeta', this.#entityMeta)
     }
+    console.log('*** this.#current', this.#current)
     this.state.storage.put(`snapshot-${validFrom}`, this.#current)
 
     // return the new current

@@ -6,24 +6,26 @@ const cborSC = new Encoder({ structuredClone: true })
 const MEDIA_TYPES_SUPPORTED = ['application/cbor-sc']  // cbor-sc is my name for cbor with structuredClone extension
 
 export class HTTPError extends Error {
-  constructor(message, status) {
+  constructor(message, status, body) {
     super(message)
     this.status = status
-  }
-
-  toJSON() {
-    return { type: 'HTTPError', message: this.message, status: this.status }
+    this.body = body
+    if (body) {
+      this.body.error = { message, status }
+    } else {
+      this.body = { error: { message, status } }
+    }
   }
 }
 
-export function throwIf(condition, message, status = 400) {
+export function throwIf(condition, message, status = 400, body = null) {
   if (condition) {
-    throw new HTTPError(message, status)  // TODO: Change to HTTPError from utils
+    throw new HTTPError(message, status, body)  // TODO: Change to HTTPError from utils
   }
 }
 
-export function throwUnless(condition, message, status = 400) {
-  throwIf(!condition, message, status)
+export function throwUnless(condition, message, status = 400, body = null) {
+  throwIf(!condition, message, status, body)
 }
 
 export function contentTypeHeaderInvalid(request) {

@@ -1,3 +1,4 @@
+/* eslint-disable object-curly-newline */
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-shadow */
 import test from 'tape'
@@ -8,11 +9,11 @@ class Storage {
     this.data = structuredClone(initialData)
   }
 
-  put(key, value) {
+  async put(key, value) {
     this.data[key] = structuredClone(value)
   }
 
-  get(key) {
+  async get(key) {
     return this.data[key]
   }
 }
@@ -111,6 +112,18 @@ test('TemporalEntity validation', async (t) => {
       t.equal(e.status, 400, 'should have status 400')
     }
 
+    try {  // should fail if no ETag
+      const response = await te2.put({ a: 1000 }, 'userX')
+      t.fail('async thrower did not throw')
+    } catch (e) {
+      t.equal(
+        e.message,
+        'ETag header required for TemporalEntity PUT',
+        'should throw 412 if ETag is not passed in',
+      )
+      t.equal(e.status, 412, 'should have status 412')
+    }
+
     t.end()
   })
 })
@@ -198,5 +211,54 @@ test('TemporalEntity debouncing', async (t) => {
     t.deepEqual(newCurrent3.value, { a: 5 }, 'should get back last value')
 
     t.end()
+  })
+
+  test('TemporalEntity PUT still works even with old ETag if the fields are different', async (t) => {
+    t.test('smart optimistic concurrency', async (t) => {
+      const state3 = getNewState()
+      const env3 = {}
+      const te3 = new TemporalEntity(state3, env3)
+
+      const response3 = await te3.put({ a: 1, b: 2, c: 3, d: 4 }, 'userY', '2200-01-01T00:00:00.000Z')
+      t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+
+      const response4 = await te3.put({ a: 10, b: 2, c: 3, d: 4 }, 'userY', '2200-01-02T00:00:00.000Z', undefined, response3.meta.validFrom)
+      t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 2nd put')
+
+      const response5 = await te3.put({ a: 1, b: 20, c: 3, d: 4 }, 'userY', '2200-01-03T00:00:00.000Z', undefined, response3.meta.validFrom)
+      t.deepEqual(
+        response5.value,
+        { a: 10, b: 20, c: 3, d: 4 },
+        'should get back a merged value from one back in time',
+      )
+
+      const response6 = await te3.put({ a: 1, b: 2, c: 30, d: 4 }, 'userY', '2200-01-04T00:00:00.000Z', undefined, response3.meta.validFrom)
+      t.deepEqual(
+        response6.value,
+        { a: 10, b: 20, c: 30, d: 4 },
+        'should get back a merged value from two back in time',
+      )
+
+      try {
+        await te3.put({ a: 1, b: 2, c: 25, d: 40 }, 'userY', '2200-01-05T00:00:00.000Z', undefined, response3.meta.validFrom)
+        t.fail('async thrower did not throw')
+      } catch (e) {
+        t.equal(
+          e.message,
+          'If-Match failed and new changes conflict with prior changes',
+          'should throw if new value has conflict with intervening changes',
+        )
+        t.equal(e.status, 412, 'should have status 412')
+        t.deepEqual(
+          e.body.value,
+          { a: 10, b: 20, c: 30, d: 4 },
+          'should get back the current value of the entity if the fields are the same',
+        )
+        t.equal(e.body.meta.validFrom, '2200-01-04T00:00:00.000Z', 'should get back the validFrom of the last successful update')
+        t.equal(e.body.error.status, 412, 'should have status 412')
+      }
+
+      t.end()
+    })
   })
 })
