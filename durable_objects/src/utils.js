@@ -10,9 +10,11 @@ export class HTTPError extends Error {
     super(message)
     this.status = status
     if (body) {
-      this.body = body
       if (typeof body === 'object') {
+        this.body = structuredClone(body)
         this.body.error = { message, status }
+      } else {
+        this.body = body
       }
     } else {
       this.body = { error: { message, status } }

@@ -86,6 +86,7 @@ context('Temporal Entity', () => {
 
       expect(o.meta.id).to.be.a('string')
       expect(o.meta.validFrom).to.be.a('string')
+      expect(response.headers.get('ETag')).to.eq(o.meta.validFrom)
 
       id = o.meta.id
       t1 = o.meta.validFrom
@@ -130,6 +131,8 @@ context('Temporal Entity', () => {
         const u8a = new Uint8Array(ab)
         const o = cborSC.decode(u8a)
 
+        expect(response.headers.get('ETag')).to.eq(o.meta.validFrom)
+
         oAfterPatch = structuredClone(o)
 
         t2 = o.meta.validFrom
@@ -160,7 +163,8 @@ context('Temporal Entity', () => {
           const ab = await response.arrayBuffer()
           const u8a = new Uint8Array(ab)
           const o = cborSC.decode(u8a)
-
+          
+          expect(response.headers.get('ETag')).to.eq(o.meta.validFrom)
           expect(o).to.deep.eq(oAfterPatch)
 
           const options = {
@@ -178,6 +182,8 @@ context('Temporal Entity', () => {
             const ab = await response.arrayBuffer()
             const u8a = new Uint8Array(ab)
             const o = cborSC.decode(u8a)
+
+            expect(response.headers.get('ETag')).to.eq(t2)
             expect(o.timeline).to.deep.eq([t1, t2])
           })
         })

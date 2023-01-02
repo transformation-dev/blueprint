@@ -1,3 +1,4 @@
+/* eslint-disable quote-props */
 /* eslint-disable no-param-reassign */
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-restricted-syntax */
@@ -32,11 +33,6 @@ const cborSC = new Encoder({ structuredClone: true })
 // TODO: Implement optimistic concurrency control with ETag header for GET.
 //       If a GET includes an If-None-Match header and it matches this.#current.meta.validFrom, then return 304.
 //       Note, a 304 MUST NOT contain a message body which also means it should not have a Content-Type header.
-//
-// To determine if the updates conflict:
-//   1. Apply the update to the current value
-//   2. Apply the update to the snapshot specified by the If-Match header
-//   3. If the two results are the same, then the updates don't conflict
 
 // TODO: Implement ticks
 
@@ -45,6 +41,16 @@ try {
   CBOR_HEADERS = new Headers({ 'Content-Type': 'application/cbor-sc' })
 } catch (e) {
   CBOR_HEADERS = undefined  // should only be used in unit testing
+}
+
+function getResponse(body, eTag, status = 200) {
+  const headers = new Headers({ 'Content-Type': 'application/cbor-sc' })
+  if (eTag) {
+    headers.set('ETag', eTag)
+  } else if (body?.meta?.validFrom) {
+    headers.set('ETag', body.meta.validFrom)
+  }
+  return new Response(cborSC.encode(body), { status, headers })
 }
 
 function apply(obj, d) {
@@ -298,7 +304,7 @@ export class TemporalEntity {
     try {
       const eTag = extractETag(request)
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
-      return new Response(cborSC.encode(current), { headers: CBOR_HEADERS })
+      return getResponse(current)
     } catch (e) {
       const status = e.status || 500
       return new Response(e.message, { status })
@@ -341,7 +347,7 @@ export class TemporalEntity {
     try {
       const eTag = extractETag(request)
       const current = await this.patch(options.delta, options.userID, options.validFrom, options.impersonatorID, eTag)
-      return new Response(cborSC.encode(current), { headers: CBOR_HEADERS })
+      return getResponse(current)
     } catch (e) {
       const status = e.status || 500
       return new Response(e.message, { status })
@@ -358,7 +364,7 @@ export class TemporalEntity {
     if (acceptHeaderInvalid) return acceptHeaderInvalid
     try {
       const current = await this.get()
-      return new Response(cborSC.encode(current), { headers: CBOR_HEADERS })
+      return getResponse(current)
     } catch (e) {
       const status = e.status || 500
       return new Response(e.message, { status })
@@ -375,7 +381,7 @@ export class TemporalEntity {
     if (acceptHeaderInvalid) return acceptHeaderInvalid
     try {
       const entityMeta = await this.getEntityMeta()
-      return new Response(cborSC.encode(entityMeta), { headers: CBOR_HEADERS })
+      return getResponse(entityMeta, entityMeta?.timeline?.at(-1))
     } catch (e) {
       const status = e.status || 500
       return new Response(e.message, { status })
