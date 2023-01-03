@@ -231,6 +231,10 @@ context('Temporal Entity', () => {
       
       const response2 = await fetch(`/api/temporal-entity/${id}`, options4)
       expect(response2.status, '2nd PUT with missing If-Match').to.eq(412)
+      const ab2 = await response2.arrayBuffer()
+      const u8a2 = new Uint8Array(ab2)
+      const o2 = cborSC.decode(u8a2)
+      expect(response2.headers.get('Status-Text')).to.eq(o2.error.message)
     })
   })
 

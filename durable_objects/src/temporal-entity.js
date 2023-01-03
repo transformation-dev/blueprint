@@ -6,51 +6,48 @@
 import { diff } from 'deep-object-diff'
 import { Encoder } from 'cbor-x'
 
-import { debug } from 'svelte/internal'
 import * as utils from './utils.js'
 
 const cborSC = new Encoder({ structuredClone: true })
 
 // The DurableObject storage API has no way to list just the keys so we have to keep track of all the
 // validFrom dates manually and store them under a key entityMeta.timeline
-// For now, timeline will just be an array of ISO date strings.
+// For now, timeline is just be an array of ISO date strings, but later it could be a range-query b-tree
+// if that will help performance.
+
+// To make the code unit testable, I separate the upper-case PUT, GET, etc. from the lower-case put, get, etc.
+// The lower-case functions have all the tricky business logic that I test with unit tests.
+// The upper-case functions are wrappers and deal with Request and Response objects.
+// Lower-case functions will throw errors that are caught by the upper-case functions and turned into
+// HTTP responses in a consistent way with a single `getErrorReponse()` function.
 
 // TODO: Don't forget to always soft delete to support ETL from last update. Don't forget to include ETag header in response
 
 // TODO: Get Debug() working
 
-// TODO: Set ETag header on GET, PUT, PATCH
-
-// TODO: Stop sending back the error text in the body but rather use the Response statusText option and CBOR-SC encode the body
-
-// TODO: Fix tests that break once I stop sending back the error text in the body
-
-// TODO: Tests at HTTP level for optimistic concurrency:
-//   1. Is there an ETag header on GET, PUT, and PATCH?
-//   2. Does the ETag header match the validFrom date?
-//   3. When you get a 412, do you also get a body with meta, value, and error?
-
-// TODO: Implement optimistic concurrency control with ETag header for GET.
-//       If a GET includes an If-None-Match header and it matches this.#current.meta.validFrom, then return 304.
-//       Note, a 304 MUST NOT contain a message body which also means it should not have a Content-Type header.
-
 // TODO: Implement ticks
 
-let CBOR_HEADERS
-try {
-  CBOR_HEADERS = new Headers({ 'Content-Type': 'application/cbor-sc' })
-} catch (e) {
-  CBOR_HEADERS = undefined  // should only be used in unit testing
-}
-
-function getResponse(body, eTag, status = 200) {
+function getResponse(body, eTag, status = 200, statusText = undefined) {
   const headers = new Headers({ 'Content-Type': 'application/cbor-sc' })
   if (eTag) {
     headers.set('ETag', eTag)
   } else if (body?.meta?.validFrom) {
     headers.set('ETag', body.meta.validFrom)
   }
+  if (statusText) {
+    headers.set('Status-Text', statusText)
+  }
   return new Response(cborSC.encode(body), { status, headers })
+}
+
+function getErrorResponse(e) {
+  if (!e.body) e.body = {}
+  e.body.error = { message: e.message, status: e.status }
+  return getResponse(e.body, undefined, e.status || 500, e.message)
+}
+
+function get304Response() {
+  return new Response(undefined, { status: 304 })
 }
 
 function apply(obj, d) {
@@ -98,24 +95,46 @@ function extractETag(request) {
  * validFrom and validTo define the time range for which the snapshot is valid. This approach was invented by
  * Richard Snodgrass (see https://en.wikipedia.org/wiki/Valid_time). The validTo for the current
  * snapshot is set to a date ~8000 years in the future, 9999-01-01T00:00:00.000Z. This makes queries for a particular
- * moment in time or to retrieve all snapshots in a range will include the current snapshot.
+ * moment in time or a range include the current snapshot.
+ * 
+ * ## CBOR with structured clone extension encoding
  *
- * The default behavior might deviate from your expectations for a REST-ful API in these ways:
- *  1. PUT behaves like an UPSERT. If there is no prior value, it will create the entity.
- *  2. As such, there is no need for a POST method. A PUT without a prior ID will behave like a POST.
- *  3. PATCH or PUT may still work even if the ETag (see Optimistic Concurrency below) doesn't match
- *     so long as all the updates are to different fields. It will merge all the updates that occured
- *     after the If-Match timestamp so long as they don't conflict. This means you should always replace
- *     your local copy with the value that's returned and never assume that what you sent is what was
- *     stored.
- *  4. The ETag is just the validFrom time so it is only unique to this entity so it probably should be marked as "weak"
- *     but we don't use the "/W" prefix to indicate this.
+ * The entity value is encoded as CBOR with the structured clone extension using the npm package cbor-x. CBOR is the
+ * IEC standardized form of MessagePack. I have chosen 'application/cbor-sc' as the media type rather than 'application/cbor'
+ * because it seems to error unless the structured clone extension is specified. I use cbor-sc encoding for the following reasons:
+ *   1. With the structured clone extension, it allows you to encode JavaScript objects with directed acyclic graphs (DAGs)
+ *      and circular references. The org tree for Transformation.dev Blueprint is a DAG and I needed a way to send
+ *      that over the wire so I had to use something like this for at least the transmission of the org tree. I chose
+ *      to use it for all transmission for the remainder of these reasons.
+ *   2. It supports essentially all JavaScript types including Dates, Maps, Sets, etc.
+ *   3. It's an official standard unlike MessagePack, which is just a defacto standard, although switching to MessagePack
+ *      would be trivial since cbor-x package is derived from the msgpackr package which is the fastest MessagePack encoder/decoder
+ *   4. It's faster (at least with cbor-x) for encoding and decoding than native JSON
+ *   5. Since it's a binary format, it's more compact than JSON which makes transmission faster and cheaper.
+ *      Also, if you have an array with rows in the same object format, it can be an order of magnitude more compact than JSON.
+ *
+ * ## Deviations from pure REST APIs
+ *
+ * The default behavior of TemporalEntity might deviate from your expectations for a REST-ful API in these ways:
+ *   1. PUT behaves like an UPSERT. If there is no prior value, it will create the entity.
+ *   2. As such, there is no need for a POST method. A PUT without a prior ID will behave like you would expect a POST to behave
+ *   3. PATCH or PUT may still work even if the ETag (see Optimistic Concurrency below) doesn't match
+ *      so long as all the updates are to different fields. It will merge all the updates that occured
+ *      after the If-Match timestamp so long as they don't conflict. This means you should always replace
+ *      your local copy with the value that's returned and never assume that what you sent is the current value.
+ *   4. The ETag is not a hash of the value but rather it is the current validFrom. This means it's not globally unique.
+ *      It is only unique to this entity so it probably should be marked as "weak" but we don't use the "/W" prefix to indicate this.
+ *   5. Response.statusText is hard-coded to the HTTP status code message. I believe this is a new requirement with HTTP/2. So,
+ *      we return details about the nature of the error in two other ways:
+ *      a. using a custom header, Status-Text, which is a human readable message. I'm unaware if this breaks any HTTP rules and
+ *         would be willing to revert this if someone can point me to a reference that says it's a bad idea.
+ *      b. using the body.error.message field encoded with cbor-sc. This is the same human readable message as the Status-Text header.
  *
  * ## Optimistic Concurrency
  *
  * TemporalEntity uses optimistic concurrancy using ETags, If-Match, and If-None-Match headers
- * (see: https://en.wikipedia.org/wiki/HTTP_ETag). The ETag header is provided but it will always match the
- * validFrom so feel free to use that if it's more convenient.
+ * (see: https://en.wikipedia.org/wiki/HTTP_ETag). The ETag header is sent back for all requests and it will always match the
+ * validFrom so feel free to that latter that if it's more convenient.
  *
  * @constructor
  * @param {DurableObjectState} state
@@ -212,7 +231,6 @@ export class TemporalEntity {
     await this.#hydrate()
 
     // Process eTag header
-    console.log('*** eTag', eTag)
     utils.throwIf(this.#entityMeta.timeline.length > 0 && !eTag, 'ETag header required for TemporalEntity PUT', 412)
     if (eTag && eTag !== this.#current?.meta?.validFrom) {
       value = await this.#throwIfUpdatesConflictElseReturnNewValue(eTag, value)
@@ -246,7 +264,6 @@ export class TemporalEntity {
       oldCurrent = structuredClone(this.#current)
       if (userID === this.#current?.meta?.userID && validFromDate - new Date(this.#current.meta.validFrom) < 60 * 60 * 1000) {
         debounce = true
-        console.log('*** debounce', debounce)
         // Make oldCurrent and validFrom be from -2
         oldCurrent = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-2)}`) ?? { value: {} }
         validFrom = this.#current.meta.validFrom
@@ -255,11 +272,7 @@ export class TemporalEntity {
 
     // Calculate the previousValues diff and check for idempotency
     const previousValues = diff(value, oldCurrent.value)
-    console.log('*** oldCurrent', oldCurrent)
-    console.log('*** value', value)
-    console.log('*** previousValues', previousValues)
     if (Object.keys(previousValues).length === 0) {  // idempotent
-      console.log('*** idempotent')
       return this.#current
     }
 
@@ -284,7 +297,6 @@ export class TemporalEntity {
       this.#entityMeta.timeline.push(validFrom)
       this.state.storage.put('entityMeta', this.#entityMeta)
     }
-    console.log('*** this.#current', this.#current)
     this.state.storage.put(`snapshot-${validFrom}`, this.#current)
 
     // return the new current
@@ -292,22 +304,14 @@ export class TemporalEntity {
   }
 
   async PUT(request) {
-    const mediaTypeHeaderInvalid = utils.mediaTypeHeaderInvalid(request)
-    if (mediaTypeHeaderInvalid) return mediaTypeHeaderInvalid
-    let options
     try {
-      options = await utils.decodeCBORSC(request)
-    } catch (e) {
-      const response = new Response('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', { status: 400 })
-      return response
-    }
-    try {
+      utils.throwIfMediaTypeHeaderInvalid(request)
+      const options = await utils.decodeCBORSC(request)
       const eTag = extractETag(request)
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
       return getResponse(current)
     } catch (e) {
-      const status = e.status || 500
-      return new Response(e.message, { status })
+      return getErrorResponse(e)  // TODO: add e2e test for the body of the response
     }
   }
 
@@ -336,55 +340,48 @@ export class TemporalEntity {
   }
 
   async PATCH(request) {
-    const mediaTypeHeaderInvalid = utils.mediaTypeHeaderInvalid(request)
-    if (mediaTypeHeaderInvalid) return mediaTypeHeaderInvalid
-    let options
     try {
-      options = await utils.decodeCBORSC(request)
-    } catch (e) {
-      return new Response('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', { status: 400 })
-    }
-    try {
+      utils.throwIfMediaTypeHeaderInvalid(request)
+      const options = await utils.decodeCBORSC(request)
       const eTag = extractETag(request)
       const current = await this.patch(options.delta, options.userID, options.validFrom, options.impersonatorID, eTag)
       return getResponse(current)
     } catch (e) {
-      const status = e.status || 500
-      return new Response(e.message, { status })
+      return getErrorResponse(e)  // TODO: add e2e test for the body of the response
     }
   }
 
-  async get() {
+  async get(eTag) {
     await this.#hydrate()
+    if (eTag && eTag === this.#current?.meta?.validFrom) return get304Response()  // TODO: add unit test for this
     return this.#current
   }
 
   async GET(request) {
-    const acceptHeaderInvalid = utils.acceptHeaderInvalid(request)
-    if (acceptHeaderInvalid) return acceptHeaderInvalid
     try {
-      const current = await this.get()
+      utils.throwIfAcceptHeaderInvalid(request)
+      const eTag = extractETag(request)
+      const current = await this.get(eTag)
       return getResponse(current)
     } catch (e) {
-      const status = e.status || 500
-      return new Response(e.message, { status })
+      return getErrorResponse(e)
     }
   }
 
-  async getEntityMeta() {
+  async getEntityMeta(eTag) {
     await this.#hydrate()
+    if (eTag && eTag === this.#current?.meta?.validFrom) return get304Response()  // TODO: add unit test for this
     return this.#entityMeta
   }
 
   async GETEntityMeta(request) {
-    const acceptHeaderInvalid = utils.acceptHeaderInvalid(request)
-    if (acceptHeaderInvalid) return acceptHeaderInvalid
     try {
-      const entityMeta = await this.getEntityMeta()
+      utils.throwIfAcceptHeaderInvalid(request)
+      const eTag = extractETag(request)
+      const entityMeta = await this.getEntityMeta(eTag)
       return getResponse(entityMeta, entityMeta?.timeline?.at(-1))
     } catch (e) {
-      const status = e.status || 500
-      return new Response(e.message, { status })
+      return getErrorResponse(e)
     }
   }
 }

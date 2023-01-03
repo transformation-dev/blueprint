@@ -32,31 +32,52 @@ export function throwUnless(condition, message, status = 400, body = null) {
   throwIf(!condition, message, status, body)
 }
 
-export function contentTypeHeaderInvalid(request) {
+// export function contentTypeHeaderInvalid(request) {
+//   const contentType = request.headers.get('Content-Type')
+//   const mediaType = Accept.mediaType(contentType, MEDIA_TYPES_SUPPORTED)
+//   if (!mediaType) {
+//     return new Response(`The Content-Type for the incoming body, ${JSON.stringify(contentType)}, is unsupported`, { status: 415 })
+//   }
+//   return false
+// }
+
+// export function acceptHeaderInvalid(request) {
+//   const accept = request.headers.get('Accept')
+//   const mediaType = Accept.mediaType(accept, MEDIA_TYPES_SUPPORTED)
+//   if (!mediaType) {
+//     return new Response(`None of your supplied Accept media types, ${JSON.stringify(accept)}, are supported`, { status: 406 })
+//   }
+//   return false
+// }
+
+// export function mediaTypeHeaderInvalid(request) {
+//   return contentTypeHeaderInvalid(request) || acceptHeaderInvalid(request)
+// }
+
+export function throwIfContentTypeHeaderInvalid(request) {
   const contentType = request.headers.get('Content-Type')
   const mediaType = Accept.mediaType(contentType, MEDIA_TYPES_SUPPORTED)
-  if (!mediaType) {
-    return new Response(`The Content-Type for the incoming body, ${JSON.stringify(contentType)}, is unsupported`, { status: 415 })
-  }
-  return false
+  throwUnless(mediaType, `The Content-Type for the incoming body, ${JSON.stringify(contentType)}, is unsupported`, 415)
 }
 
-export function acceptHeaderInvalid(request) {
+export function throwIfAcceptHeaderInvalid(request) {
   const accept = request.headers.get('Accept')
   const mediaType = Accept.mediaType(accept, MEDIA_TYPES_SUPPORTED)
-  if (!mediaType) {
-    return new Response(`None of your supplied Accept media types, ${JSON.stringify(accept)}, are supported`, { status: 406 })
-  }
-  return false
+  throwUnless(mediaType, `None of your supplied Accept media types, ${JSON.stringify(accept)}, are supported`, 406)
 }
 
-export function mediaTypeHeaderInvalid(request) {
-  return contentTypeHeaderInvalid(request) || acceptHeaderInvalid(request)
+export function throwIfMediaTypeHeaderInvalid(request) {
+  throwIfContentTypeHeaderInvalid(request)
+  throwIfAcceptHeaderInvalid(request)
 }
 
 export async function decodeCBORSC(request) {
-  const ab = await request.arrayBuffer()
-  const u8a = new Uint8Array(ab)
-  const o = cborSC.decode(u8a)
-  return o
+  try {
+    const ab = await request.arrayBuffer()
+    const u8a = new Uint8Array(ab)
+    const o = cborSC.decode(u8a)
+    return o
+  } catch (e) {
+    throw new HTTPError('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', 400)
+  }
 }
