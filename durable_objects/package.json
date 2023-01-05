@@ -12,13 +12,15 @@
     "build": "npm run test && npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm --target=esnext --bundle",
     "dev": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm  --bundle --watch",
     "test": "tape test/* | tap-spec",
-    "coverage": "c8 npm run test"
+    "coverage": "c8 npm run test",
+    "coverage-report": "c8 report --reporter=html"
   },
   "dependencies": {
     "@transformation-dev/accept": "file:packages/accept",
     "cbor-x": "^1.4.1",
     "debug": "^4.3.3",
-    "deep-object-diff": "^1.1.9"
+    "deep-object-diff": "^1.1.9",
+    "nanoid": "^4.0.0"
   },
   "devDependencies": {
     "tap-spec": "^5.0.0",

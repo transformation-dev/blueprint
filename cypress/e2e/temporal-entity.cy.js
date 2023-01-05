@@ -3,6 +3,8 @@
 import { Encoder } from 'cbor-x'
 const cborSC = new Encoder({ structuredClone: true })
 
+// TODO: Refactor to DRY up code. Create a function to always decode the response body.
+
 context('Temporal Entity', () => {
   
   it('should respond with 415 on PUT with Content-Type header application/json', () => {
@@ -86,12 +88,14 @@ context('Temporal Entity', () => {
 
       expect(o.meta.id).to.be.a('string')
       expect(o.meta.validFrom).to.be.a('string')
-      expect(response.headers.get('ETag')).to.eq(o.meta.validFrom)
+      expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
 
       id = o.meta.id
       t1 = o.meta.validFrom
+      const eTag1 = o.meta.eTag
       delete o.meta.id
       delete o.meta.validFrom
+      delete o.meta.eTag
       expect(o).to.deep.eq({
         "meta": {
           "previousValues": { a: undefined, b: undefined },
@@ -119,7 +123,7 @@ context('Temporal Entity', () => {
         headers: {
           'Content-Type': 'application/cbor-sc',
           'Accept': 'application/cbor-sc',
-          'If-Match': lastValidFromISOString,
+          'If-Match': eTag1,
         },
       }
 
@@ -131,11 +135,13 @@ context('Temporal Entity', () => {
         const u8a = new Uint8Array(ab)
         const o = cborSC.decode(u8a)
 
-        expect(response.headers.get('ETag')).to.eq(o.meta.validFrom)
+        expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
 
         oAfterPatch = structuredClone(o)
 
         t2 = o.meta.validFrom
+        const eTag2 = o.meta.eTag
+        delete o.meta.eTag
         expect(o).to.deep.eq({
           "meta": {
             "previousValues": { a: 1, b: 2 },
@@ -164,7 +170,7 @@ context('Temporal Entity', () => {
           const u8a = new Uint8Array(ab)
           const o = cborSC.decode(u8a)
           
-          expect(response.headers.get('ETag')).to.eq(o.meta.validFrom)
+          expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
           expect(o).to.deep.eq(oAfterPatch)
 
           const options = {
@@ -191,8 +197,7 @@ context('Temporal Entity', () => {
     })
   })
 
-  // TODO: test that a second PUT without an If-Match header fails with 412
-  it('should fail with 412 on a second PUT without an If-Match header (the second fetch() below)', () => {
+  it('should fail with 428 on a second PUT without an If-Match header (the second fetch() below)', () => {
     const o = {
       value: { c: 100 },
       userID: '1',
@@ -230,7 +235,7 @@ context('Temporal Entity', () => {
       }
       
       const response2 = await fetch(`/api/temporal-entity/${id}`, options4)
-      expect(response2.status, '2nd PUT with missing If-Match').to.eq(412)
+      expect(response2.status, '2nd PUT with missing If-Match').to.eq(428)
       const ab2 = await response2.arrayBuffer()
       const u8a2 = new Uint8Array(ab2)
       const o2 = cborSC.decode(u8a2)
@@ -262,6 +267,7 @@ context('Temporal Entity', () => {
     cy.wrap(null).then(async () => {
       const response = await fetch(`/api/temporal-entity`, options)
       expect(response.status, '1st call to fetch() to set date far into future').to.eq(200)
+      const eTagFromHeaders = response.headers.get('ETag')
 
       const o4 = {
         value: { c: 200 },
@@ -274,13 +280,15 @@ context('Temporal Entity', () => {
         headers: {
           'Content-Type': 'application/cbor-sc',
           'Accept': 'application/cbor-sc',
-          'If-Match': lastValidFromISOString,
+          'If-Match': eTagFromHeaders,
         },
       }
       const ab = await response.arrayBuffer()
       const u8a = new Uint8Array(ab)
       const o5 = cborSC.decode(u8a)
       const id = o5.meta.id
+      const eTagFromMeta = o5.meta.eTag
+      expect(eTagFromHeaders).to.eq(eTagFromMeta)
 
       const response2 = await fetch(`/api/temporal-entity/${id}`, options4)
       expect(response2.status, '2nd call to fetch() to confirm validFrom is 1ms later').to.eq(200)

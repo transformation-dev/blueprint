@@ -5,6 +5,8 @@
 
 import { diff } from 'deep-object-diff'
 import { Encoder } from 'cbor-x'
+import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'  // should be fine to use the non-secure version since we are only using this for eTags
+// import { nanoid } from 'nanoid'
 
 import * as utils from './utils.js'
 
@@ -31,8 +33,8 @@ function getResponse(body, eTag, status = 200, statusText = undefined) {
   const headers = new Headers({ 'Content-Type': 'application/cbor-sc' })
   if (eTag) {
     headers.set('ETag', eTag)
-  } else if (body?.meta?.validFrom) {
-    headers.set('ETag', body.meta.validFrom)
+  } else if (body?.meta?.eTag) {
+    headers.set('ETag', body.meta.eTag)
   }
   if (statusText) {
     headers.set('Status-Text', statusText)
@@ -66,21 +68,6 @@ function apply(obj, d) {
   return obj
 }
 
-function throwIfConflict(delta1, delta2, body) {  // Throw if the keys are the same and the values are different
-  for (const key of Object.keys(delta1)) {
-    if (delta1[key] instanceof Object) {
-      throwIfConflict(delta1[key], delta2[key], body)
-    } else {
-      utils.throwIf(
-        Object.hasOwn(delta2, key) && delta1[key] !== delta2[key],
-        'If-Match failed and new changes conflict with prior changes',
-        412,
-        body,  // TODO: CBOR-SC encode the body
-      )
-    }
-  }
-}
-
 function extractETag(request) {
   let eTag = request.headers.get('If-Match')
   if (!eTag) eTag = request.headers.get('If-None-Match')
@@ -96,7 +83,14 @@ function extractETag(request) {
  * Richard Snodgrass (see https://en.wikipedia.org/wiki/Valid_time). The validTo for the current
  * snapshot is set to a date ~8000 years in the future, 9999-01-01T00:00:00.000Z. This makes queries for a particular
  * moment in time or a range include the current snapshot.
- * 
+ *
+ * ## Debouncing
+ *
+ * If the same user makes multiple updates to the same entity within the time period specified by the granularity
+ * (default: 1 hour), the updates are merged into a single snapshot. This prevents the history from growing too
+ * rapidly in the now common pattern of saving changes as they are made rather than waiting until the user clicks on
+ * a save button.
+ *
  * ## CBOR with structured clone extension encoding
  *
  * The entity value is encoded as CBOR with the structured clone extension using the npm package cbor-x. CBOR is the
@@ -108,23 +102,18 @@ function extractETag(request) {
  *      to use it for all transmission for the remainder of these reasons.
  *   2. It supports essentially all JavaScript types including Dates, Maps, Sets, etc.
  *   3. It's an official standard unlike MessagePack, which is just a defacto standard, although switching to MessagePack
- *      would be trivial since cbor-x package is derived from the msgpackr package which is the fastest MessagePack encoder/decoder
- *   4. It's faster (at least with cbor-x) for encoding and decoding than native JSON
+ *      would be trivial since cbor-x package is derived from the msgpackr package by the same author which is likewise
+ *      the fastest MessagePack encoder/decoder.
+ *   4. It's faster (at least with cbor-x) for encoding and decoding than native JSON.
  *   5. Since it's a binary format, it's more compact than JSON which makes transmission faster and cheaper.
  *      Also, if you have an array with rows in the same object format, it can be an order of magnitude more compact than JSON.
  *
  * ## Deviations from pure REST APIs
  *
- * The default behavior of TemporalEntity might deviate from your expectations for a REST-ful API in these ways:
+ * The default behavior of TemporalEntity might deviate from your expectations for a pure REST API in these ways:
  *   1. PUT behaves like an UPSERT. If there is no prior value, it will create the entity.
  *   2. As such, there is no need for a POST method. A PUT without a prior ID will behave like you would expect a POST to behave
- *   3. PATCH or PUT may still work even if the ETag (see Optimistic Concurrency below) doesn't match
- *      so long as all the updates are to different fields. It will merge all the updates that occured
- *      after the If-Match timestamp so long as they don't conflict. This means you should always replace
- *      your local copy with the value that's returned and never assume that what you sent is the current value.
- *   4. The ETag is not a hash of the value but rather it is the current validFrom. This means it's not globally unique.
- *      It is only unique to this entity so it probably should be marked as "weak" but we don't use the "/W" prefix to indicate this.
- *   5. Response.statusText is hard-coded to the HTTP status code message. I believe this is a new requirement with HTTP/2. So,
+ *   3. Response.statusText is hard-coded to the HTTP status code message. I believe this is a new requirement with HTTP/2. So,
  *      we return details about the nature of the error in two other ways:
  *      a. using a custom header, Status-Text, which is a human readable message. I'm unaware if this breaks any HTTP rules and
  *         would be willing to revert this if someone can point me to a reference that says it's a bad idea.
@@ -134,7 +123,9 @@ function extractETag(request) {
  *
  * TemporalEntity uses optimistic concurrancy using ETags, If-Match, and If-None-Match headers
  * (see: https://en.wikipedia.org/wiki/HTTP_ETag). The ETag header is sent back for all requests and it will always match the
- * validFrom so feel free to that latter that if it's more convenient.
+ * body.meta.eTag so feel free to that latter that if it's more convenient. Note, the ETag is not a hash of the value but rather
+ * it is a globally unique random value generated using nanoid (non-secure). I did this because it accomplishes the same goal and
+ * I believe that generating a hash of the value would cost more CPU cycles.
  *
  * @constructor
  * @param {DurableObjectState} state
@@ -148,7 +139,7 @@ export class TemporalEntity {
     return TemporalEntity.#END_OF_TIME
   }
 
-  #entityMeta  // Metadata for the entity { timeline }
+  #entityMeta  // Metadata for the entity { timeline, eTags }
 
   #current  // { value, meta }
 
@@ -157,40 +148,17 @@ export class TemporalEntity {
   async #hydrate() {
     if (this.#hydrated) return
     this.#entityMeta = await this.state.storage.get('entityMeta')
-    this.#entityMeta ??= { timeline: [] }
+    this.#entityMeta ??= { timeline: [], eTags: [] }
     if (this.#entityMeta.timeline.length > 0) {
       this.#current = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-1)}`)
     }
     this.#hydrated = true
   }
 
-  async #throwIfUpdatesConflictElseReturnNewValue(eTag, value) {
-    const eTagVersion = await this.state.storage.get(`snapshot-${eTag}`)
-    utils.throwIf(!eTagVersion, 'The provided eTag is nowhere in the history for this TemporalEntity', 400)
-    // Calculate delta1
-    let delta1
-    // If the tag is at -2 in the timeline, then use the previousValues as the Delta for this comparison
-    if (this.#entityMeta.timeline.length >= 2 && this.#entityMeta.timeline.at(-2) === eTag) {
-      delta1 = this.#current.meta.previousValues
-    } else { // Otherwise delta1 is the delta from the ETag version to the current version
-      delta1 = diff(eTagVersion.value, this.#current.value)
-    }
-
-    // Calculate delta2 which is the delta from the ETag version to the proposed new value
-    const delta2 = diff(eTagVersion.value, value)
-
-    // Throw if the keys are the same and the values are different
-    throwIfConflict(delta1, delta2, this.#current)
-
-    // If it doesn’t throw, then the new value comes from applying delta2 to the current value
-    const newValue = structuredClone(this.#current.value)
-    apply(newValue, delta2)
-    return newValue
-  }
-
-  constructor(state, env) {
+  constructor(state, env, ctx) {
     this.state = state
     this.env = env
+    this.ctx = ctx
     this.#hydrated = false
     // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
   }
@@ -231,10 +199,8 @@ export class TemporalEntity {
     await this.#hydrate()
 
     // Process eTag header
-    utils.throwIf(this.#entityMeta.timeline.length > 0 && !eTag, 'ETag header required for TemporalEntity PUT', 412)
-    if (eTag && eTag !== this.#current?.meta?.validFrom) {
-      value = await this.#throwIfUpdatesConflictElseReturnNewValue(eTag, value)
-    }
+    utils.throwIf(this.#entityMeta.eTags.length > 0 && !eTag, 'ETag header required for TemporalEntity PUT', 428, this.#current)
+    utils.throwIf(eTag && eTag !== this.#current?.meta?.eTag, 'If-Match does not match current ETag', 412, this.#current)
 
     // Set validFrom and validFromDate
     let validFromDate
@@ -289,14 +255,19 @@ export class TemporalEntity {
       previousValues,
       validFrom,
       validTo: TemporalEntity.END_OF_TIME,
+      eTag: nanoidNonSecure(),
       id: this.state?.id?.toString(),
     }
     if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
     this.#current.value = value
-    if (!debounce) {
+    if (debounce) {
+      // this.#entityMeta.timeline doesn't change
+      this.#entityMeta.eTags[this.#entityMeta.eTags.length - 1] = this.#current.meta.eTag
+    } else {
       this.#entityMeta.timeline.push(validFrom)
-      this.state.storage.put('entityMeta', this.#entityMeta)
+      this.#entityMeta.eTags.push(this.#current.meta.eTag)
     }
+    this.state.storage.put('entityMeta', this.#entityMeta)
     this.state.storage.put(`snapshot-${validFrom}`, this.#current)
 
     // return the new current
@@ -325,14 +296,17 @@ export class TemporalEntity {
     await this.#hydrate()
 
     utils.throwUnless(this.#entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity PATCH when there is no prior value')
-    utils.throwUnless(eTag, 'ETag header required for TemporalEntity PATCH', 412)
+    utils.throwUnless(eTag, 'ETag header required for TemporalEntity PATCH', 428, this.#current)
 
     let newValue
-    if (eTag === this.#current?.meta?.validFrom) {
+    if (eTag === this.#current?.meta?.eTag) {
       newValue = structuredClone(this.#current.value)
     } else {
-      newValue = await this.state.storage.get(`snapshot-${eTag}`)
-      utils.throwUnless(newValue, 'the eTag you supplied for a TemporalEntity PATCH does not match any prior validFrom', 412)
+      const eTagIndex = this.#entityMeta.eTags.indexOf(eTag)
+      const validFromForETag = this.#entityMeta.timeline.at(eTagIndex)
+      const newCurrent = await this.state.storage.get(`snapshot-${validFromForETag}`)
+      newValue = newCurrent.value
+      utils.throwUnless(newValue, 'the eTag you supplied for a TemporalEntity PATCH does not match any prior validFrom', 412, this.#current)
     }
     apply(newValue, delta)
 
@@ -353,15 +327,16 @@ export class TemporalEntity {
 
   async get(eTag) {
     await this.#hydrate()
-    if (eTag && eTag === this.#current?.meta?.validFrom) return get304Response()  // TODO: add unit test for this
-    return this.#current
+    if (eTag && eTag === this.#current?.meta?.eTag) return [undefined, 304]
+    return [this.#current, 200]
   }
 
   async GET(request) {
     try {
       utils.throwIfAcceptHeaderInvalid(request)
       const eTag = extractETag(request)
-      const current = await this.get(eTag)
+      const [current, status] = await this.get(eTag)
+      if (status === 304) return get304Response()
       return getResponse(current)
     } catch (e) {
       return getErrorResponse(e)
@@ -370,15 +345,16 @@ export class TemporalEntity {
 
   async getEntityMeta(eTag) {
     await this.#hydrate()
-    if (eTag && eTag === this.#current?.meta?.validFrom) return get304Response()  // TODO: add unit test for this
-    return this.#entityMeta
+    if (eTag && eTag === this.#current?.meta?.eTag) return [undefined, 304]
+    return [this.#entityMeta, 200]
   }
 
   async GETEntityMeta(request) {
     try {
       utils.throwIfAcceptHeaderInvalid(request)
       const eTag = extractETag(request)
-      const entityMeta = await this.getEntityMeta(eTag)
+      const [entityMeta, status] = await this.getEntityMeta(eTag)
+      if (status === 304) return get304Response()
       return getResponse(entityMeta, entityMeta?.timeline?.at(-1))
     } catch (e) {
       return getErrorResponse(e)

@@ -24,35 +24,13 @@ export class HTTPError extends Error {
 
 export function throwIf(condition, message, status = 400, body = null) {
   if (condition) {
-    throw new HTTPError(message, status, body)  // TODO: Change to HTTPError from utils
+    throw new HTTPError(message, status, body)
   }
 }
 
 export function throwUnless(condition, message, status = 400, body = null) {
   throwIf(!condition, message, status, body)
 }
-
-// export function contentTypeHeaderInvalid(request) {
-//   const contentType = request.headers.get('Content-Type')
-//   const mediaType = Accept.mediaType(contentType, MEDIA_TYPES_SUPPORTED)
-//   if (!mediaType) {
-//     return new Response(`The Content-Type for the incoming body, ${JSON.stringify(contentType)}, is unsupported`, { status: 415 })
-//   }
-//   return false
-// }
-
-// export function acceptHeaderInvalid(request) {
-//   const accept = request.headers.get('Accept')
-//   const mediaType = Accept.mediaType(accept, MEDIA_TYPES_SUPPORTED)
-//   if (!mediaType) {
-//     return new Response(`None of your supplied Accept media types, ${JSON.stringify(accept)}, are supported`, { status: 406 })
-//   }
-//   return false
-// }
-
-// export function mediaTypeHeaderInvalid(request) {
-//   return contentTypeHeaderInvalid(request) || acceptHeaderInvalid(request)
-// }
 
 export function throwIfContentTypeHeaderInvalid(request) {
   const contentType = request.headers.get('Content-Type')
