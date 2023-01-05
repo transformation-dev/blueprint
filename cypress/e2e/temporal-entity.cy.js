@@ -3,28 +3,47 @@
 import { Encoder } from 'cbor-x'
 const cborSC = new Encoder({ structuredClone: true })
 
-// TODO: Refactor to DRY up code. Create a function to always decode the response body.
+async function encodeFetchAndDecode(url, options) {
+  if (options.body) {
+    const u8a = cborSC.encode(options.body)
+    options.body = u8a
+  }
+
+  const headers = new Headers(options.headers)
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/cbor-sc')
+  }
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/cbor-sc')
+  }
+  options.headers = headers
+
+  const response = await fetch(url, options)
+  const ab = await response.arrayBuffer()
+  const u8a = new Uint8Array(ab)
+  const o = cborSC.decode(u8a)
+  response.CBOR_SC = o
+  return response
+}
 
 context('Temporal Entity', () => {
   
   it('should respond with 415 on PUT with Content-Type header application/json', () => {
-    const o = { value: { a: 1, b: 2 }, userID: '1' }
-    const u8a = cborSC.encode(o)
     const options = {
       method: 'PUT',
-      body: u8a,
+      body: { value: { a: 1, b: 2 }, userID: '1' },
       headers: {
         'Content-Type': 'application/json',
       },
     }
 
     cy.wrap(null).then(async () => {
-      const response = await fetch('/api/temporal-entity', options)
+      const response = await encodeFetchAndDecode('/api/temporal-entity', options)
       expect(response.status).to.eq(415)
     })
   })
 
-  it('should respond with 406 on PUT without Accept header "application/cbor-sc"', () => {
+  it('should respond with 406 on PUT with Accept header "application/json"', () => {
     const options = {
       method: 'PUT',
       url: '/api/temporal-entity',
@@ -41,7 +60,7 @@ context('Temporal Entity', () => {
     })
   })
 
-  it('should respond with 400 because the content was not encoded in cbor-sc', () => {
+  it('should respond with 415 because the content was not encoded in cbor-sc', () => {
     const options = {
       method: 'PUT',
       url: '/api/temporal-entity',
@@ -54,7 +73,7 @@ context('Temporal Entity', () => {
     }
     cy.request(options).as('request')
     cy.get('@request').then(response => {
-      expect(response.status).to.eq(400)
+      expect(response.status).to.eq(415)
     })
   })
 
@@ -66,26 +85,17 @@ context('Temporal Entity', () => {
     let t2
     let oAfterPatch
 
-    const o = { value: { a: 1, b: 2 }, userID: '1' }
-    const u8a = cborSC.encode(o)
     const options = {
       method: 'PUT',
-      body: u8a,
-      headers: {
-        'Content-Type': 'application/cbor-sc',
-        'Accept': 'application/cbor-sc',
-      },
+      body: { value: { a: 1, b: 2 }, userID: '1' },
     }
 
     cy.wrap(null).then(async () => {
-      const response = await fetch('/api/temporal-entity', options)
+      const response = await encodeFetchAndDecode('/api/temporal-entity', options)
       expect(response.status).to.eq(200)
       expect(response.headers.get('Content-Type')).to.eq('application/cbor-sc')
 
-      const ab = await response.arrayBuffer()
-      const u8a = new Uint8Array(ab)
-      const o = cborSC.decode(u8a)
-
+      const o = response.CBOR_SC
       expect(o.meta.id).to.be.a('string')
       expect(o.meta.validFrom).to.be.a('string')
       expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
@@ -110,30 +120,24 @@ context('Temporal Entity', () => {
       const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
       const newValidFromISOString = newValidFromDate.toISOString()
 
-      const o2 = { 
-        delta: { a: 10, b: undefined }, 
-        userID: '2', 
-        validFrom: newValidFromISOString,
-        impersonatorID: 'impersonator1',
-      }
-      const u8a2 = cborSC.encode(o2)
       const options2 = {
         method: 'PATCH',
-        body: u8a2,
+        body: {
+          delta: { a: 10, b: undefined },
+          userID: '2',
+          validFrom: newValidFromISOString,
+          impersonatorID: 'impersonator1',
+        },
         headers: {
-          'Content-Type': 'application/cbor-sc',
-          'Accept': 'application/cbor-sc',
           'If-Match': eTag1,
         },
       }
 
       cy.wrap(null).then(async () => {
-        const response = await fetch(`/api/temporal-entity/${id}`, options2)
+        const response = await encodeFetchAndDecode(`/api/temporal-entity/${id}`, options2)
         expect(response.status).to.eq(200)
 
-        const ab = await response.arrayBuffer()
-        const u8a = new Uint8Array(ab)
-        const o = cborSC.decode(u8a)
+        const o = response.CBOR_SC
 
         expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
 
@@ -156,38 +160,26 @@ context('Temporal Entity', () => {
 
         const options3 = {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/cbor-sc',
-            'Accept': 'application/cbor-sc',
-          },
         }
 
         cy.wrap(null).then(async () => {
-          const response = await fetch(`/api/temporal-entity/${id}`, options3)
+          const response = await encodeFetchAndDecode(`/api/temporal-entity/${id}`, options3)
           expect(response.status).to.eq(200)
 
-          const ab = await response.arrayBuffer()
-          const u8a = new Uint8Array(ab)
-          const o = cborSC.decode(u8a)
+          const o = response.CBOR_SC
           
           expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
           expect(o).to.deep.eq(oAfterPatch)
 
           const options = {
             method: 'GET',
-            headers: {
-              'Content-Type': 'application/cbor-sc',
-              'Accept': 'application/cbor-sc',
-            },
           }
 
           cy.wrap(null).then(async () => {
-            const response = await fetch(`/api/temporal-entity/${id}/entity-meta`, options)
+            const response = await encodeFetchAndDecode(`/api/temporal-entity/${id}/entity-meta`, options)
             expect(response.status).to.eq(200)
 
-            const ab = await response.arrayBuffer()
-            const u8a = new Uint8Array(ab)
-            const o = cborSC.decode(u8a)
+            const o = response.CBOR_SC
 
             expect(response.headers.get('ETag')).to.eq(t2)
             expect(o.timeline).to.deep.eq([t1, t2])
@@ -198,48 +190,33 @@ context('Temporal Entity', () => {
   })
 
   it('should fail with 428 on a second PUT without an If-Match header (the second fetch() below)', () => {
-    const o = {
-      value: { c: 100 },
-      userID: '1',
-    }
-    const u8a = cborSC.encode(o)
     const options = {
       method: 'PUT',
-      body: u8a,
-      headers: {
-        'Content-Type': 'application/cbor-sc',
-        'Accept': 'application/cbor-sc',
-      },
+      body: {
+        value: { c: 100 },
+        userID: '1',
+      }
     }
 
     cy.wrap(null).then(async () => {
-      const response = await fetch(`/api/temporal-entity`, options)
+      const response = await encodeFetchAndDecode(`/api/temporal-entity`, options)
       expect(response.status, '1st PUT').to.eq(200)
-      const ab = await response.arrayBuffer()
-      const u8a = new Uint8Array(ab)
-      const o5 = cborSC.decode(u8a)
+      const o5 = response.CBOR_SC
       const id = o5.meta.id
 
-      const o4 = {
-        value: { c: 200 },
-        userID: '2',
-      }
-      const u8a4 = cborSC.encode(o4)
       const options4 = {
         method: 'PUT',
-        body: u8a4,
-        headers: {
-          'Content-Type': 'application/cbor-sc',
-          'Accept': 'application/cbor-sc',
-        },
+        body: {
+          value: { c: 200 },
+          userID: '2',
+        }
       }
       
-      const response2 = await fetch(`/api/temporal-entity/${id}`, options4)
+      const response2 = await encodeFetchAndDecode(`/api/temporal-entity/${id}`, options4)
       expect(response2.status, '2nd PUT with missing If-Match').to.eq(428)
-      const ab2 = await response2.arrayBuffer()
-      const u8a2 = new Uint8Array(ab2)
-      const o2 = cborSC.decode(u8a2)
+      const o2 = response2.CBOR_SC
       expect(response2.headers.get('Status-Text')).to.eq(o2.error.message)
+      expect(o2.value).to.deep.eq({ c: 100 })
     })
   })
 
@@ -249,53 +226,38 @@ context('Temporal Entity', () => {
     const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
     const newValidFromISOString = newValidFromDate.toISOString()
 
-    const o = {
-      value: { c: 100 },
-      userID: '1',
-      validFrom: lastValidFromISOString,
-    }
-    const u8a = cborSC.encode(o)
     const options = {
       method: 'PUT',
-      body: u8a,
-      headers: {
-        'Content-Type': 'application/cbor-sc',
-        'Accept': 'application/cbor-sc',
+      body: {
+        value: { c: 100 },
+        userID: '1',
+        validFrom: lastValidFromISOString,
       },
     }
 
     cy.wrap(null).then(async () => {
-      const response = await fetch(`/api/temporal-entity`, options)
+      const response = await encodeFetchAndDecode(`/api/temporal-entity`, options)
       expect(response.status, '1st call to fetch() to set date far into future').to.eq(200)
       const eTagFromHeaders = response.headers.get('ETag')
-
-      const o4 = {
-        value: { c: 200 },
-        userID: '2',
-      }
-      const u8a4 = cborSC.encode(o4)
-      const options4 = {
-        method: 'PUT',
-        body: u8a4,
-        headers: {
-          'Content-Type': 'application/cbor-sc',
-          'Accept': 'application/cbor-sc',
-          'If-Match': eTagFromHeaders,
-        },
-      }
-      const ab = await response.arrayBuffer()
-      const u8a = new Uint8Array(ab)
-      const o5 = cborSC.decode(u8a)
+      const o5 = response.CBOR_SC
       const id = o5.meta.id
       const eTagFromMeta = o5.meta.eTag
       expect(eTagFromHeaders).to.eq(eTagFromMeta)
 
-      const response2 = await fetch(`/api/temporal-entity/${id}`, options4)
-      expect(response2.status, '2nd call to fetch() to confirm validFrom is 1ms later').to.eq(200)
+      const options4 = {
+        method: 'PUT',
+        body: {
+          value: { c: 200 },
+          userID: '2',
+        },
+        headers: {
+          'If-Match': eTagFromHeaders,
+        },
+      }
 
-      const ab2 = await response2.arrayBuffer()
-      const u8a2 = new Uint8Array(ab2)
-      const o = cborSC.decode(u8a2)
+      const response2 = await encodeFetchAndDecode(`/api/temporal-entity/${id}`, options4)
+      expect(response2.status, '2nd call to fetch() to confirm validFrom is 1ms later').to.eq(200)
+      const o = response2.CBOR_SC
       expect(o.meta.validFrom).to.eq(newValidFromISOString)
     })
   })

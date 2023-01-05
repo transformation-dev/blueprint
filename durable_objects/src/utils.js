@@ -56,6 +56,6 @@ export async function decodeCBORSC(request) {
     const o = cborSC.decode(u8a)
     return o
   } catch (e) {
-    throw new HTTPError('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', 400)
+    throw new HTTPError('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', 415)
   }
 }

@@ -25,6 +25,9 @@ const cborSC = new Encoder({ structuredClone: true })
 
 // TODO: Don't forget to always soft delete to support ETL from last update. Don't forget to include ETag header in response
 
+// TODO: Create a schema registry and passing in schemas which will use semantic versioning (e.g. OrgNode@1.7.12)
+//       put() and patch() to allow for the specification of schemas { value/delta, schemas, userID, etc. } in the body
+
 // TODO: Get Debug() working
 
 // TODO: Implement ticks
@@ -190,8 +193,6 @@ export class TemporalEntity {
     }
   }
 
-  // TODO: Create a schema registry and passing in schemas which will use semantic versioning (e.g. OrgNode@1.7.12)
-  //       put() and patch() to allow for the specification of schemas { value, schemas} in the body
   async put(value, userID, validFrom, impersonatorID, eTag) {
     utils.throwUnless(value, 'value required by TemporalEntity PUT is missing')
     utils.throwUnless(userID, 'userID required by TemporalEntity operation is missing')
@@ -282,7 +283,7 @@ export class TemporalEntity {
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
       return getResponse(current)
     } catch (e) {
-      return getErrorResponse(e)  // TODO: add e2e test for the body of the response
+      return getErrorResponse(e)
     }
   }
 
