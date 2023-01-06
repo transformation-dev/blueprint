@@ -25,6 +25,11 @@ const cborSC = new Encoder({ structuredClone: true })
 
 // TODO: Don't forget to always soft delete to support ETL from last update. Don't forget to include ETag header in response
 
+// TODO: Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
+//       https://github.com/crcn/sift.js
+
+// TODO: Implement query against all snapshots using npm module sift
+
 // TODO: Create a schema registry and passing in schemas which will use semantic versioning (e.g. OrgNode@1.7.12)
 //       put() and patch() to allow for the specification of schemas { value/delta, schemas, userID, etc. } in the body
 
@@ -51,8 +56,8 @@ function getErrorResponse(e) {
   return getResponse(e.body, undefined, e.status || 500, e.message)
 }
 
-function get304Response() {
-  return new Response(undefined, { status: 304 })
+function getStatusOnlyResponse(status) {
+  return new Response(undefined, { status })
 }
 
 function apply(obj, d) {
@@ -148,6 +153,13 @@ export class TemporalEntity {
 
   #hydrated
 
+  constructor(state, env) {
+    this.state = state
+    this.env = env
+    this.#hydrated = false
+    // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
+  }
+
   async #hydrate() {
     if (this.#hydrated) return
     this.#entityMeta = await this.state.storage.get('entityMeta')
@@ -158,52 +170,7 @@ export class TemporalEntity {
     this.#hydrated = true
   }
 
-  constructor(state, env, ctx) {
-    this.state = state
-    this.env = env
-    this.ctx = ctx
-    this.#hydrated = false
-    // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
-  }
-
-  // The body and return is always a CBOR-SC object
-  async fetch(request) {
-    const url = new URL(request.url)
-
-    switch (url.pathname) {
-      case '/':
-        if (request.method === 'GET') return this.GET(request)
-        if (['PUT', 'PATCH'].includes(request.method)) {
-          const response = await this[request.method](request)
-          return response
-        } else {
-          return new Response(`Unrecognized HTTP method ${request.method} for ${url.pathname}`, { status: 405 })
-        }
-
-      case '/ticks':
-        // Not yet implemented
-        return new Response('/ticks not implemented yet', { status: 404 })
-
-      case '/entity-meta':
-        if (request.method === 'GET') return this.GETEntityMeta(request)
-        else return new Response(`Unrecognized HTTP method ${request.method} for ${url.pathname}`, { status: 405 })
-
-      default:
-        return new Response('Not found', { status: 404 })
-    }
-  }
-
-  async put(value, userID, validFrom, impersonatorID, eTag) {
-    utils.throwUnless(value, 'value required by TemporalEntity PUT is missing')
-    utils.throwUnless(userID, 'userID required by TemporalEntity operation is missing')
-
-    await this.#hydrate()
-
-    // Process eTag header
-    utils.throwIf(this.#entityMeta.eTags.length > 0 && !eTag, 'ETag header required for TemporalEntity PUT', 428, this.#current)
-    utils.throwIf(eTag && eTag !== this.#current?.meta?.eTag, 'If-Match does not match current ETag', 412, this.#current)
-
-    // Set validFrom and validFromDate
+  #setValidFrom(validFrom) {
     let validFromDate
     if (validFrom) {
       if (this.#entityMeta?.timeline?.length > 0) {
@@ -223,6 +190,98 @@ export class TemporalEntity {
         validFromDate = new Date(validFrom)
       }
     }
+    return { validFrom, validFromDate }
+  }
+
+  // The body and return is always a CBOR-SC object
+  async fetch(request) {
+    const url = new URL(request.url)
+
+    switch (url.pathname) {
+      case '/':
+        if (['PUT', 'PATCH', 'GET', 'DELETE'].includes(request.method)) {
+          return this[request.method](request)
+        } else {
+          return new Response(`Unrecognized HTTP method ${request.method} for ${url.pathname}`, { status: 405 })  // TODO: Upgrade these consistent error responses to a class
+        }
+
+      case '/ticks':
+        // Not yet implemented
+        return new Response('/ticks not implemented yet', { status: 404 })
+
+      case '/entity-meta':
+        if (request.method === 'GET') return this.GETEntityMeta(request)
+        else return new Response(`Unrecognized HTTP method ${request.method} for ${url.pathname}`, { status: 405 })
+
+      default:
+        return new Response('Not found', { status: 404 })
+    }
+  }
+
+  async delete(userID, validFrom, impersonatorID) {
+    utils.throwUnless(userID, 'userID required by TemporalEntity DELETE is missing')
+
+    await this.#hydrate()
+
+    utils.throwIf(this.#current?.deleted, 'This TemporalEntity is already deleted', 404)  // TODO: unit test this
+    utils.throwUnless(this.#entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity DELETE when there is no prior value')
+
+    let validFromDate
+    ({ validFrom, validFromDate } = this.#setValidFrom(validFrom))
+
+    // Update and save the old current
+    const oldCurrent = structuredClone(this.#current)
+    oldCurrent.meta.validTo = validFrom
+    this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
+
+    // Create the new current and save it
+    this.#current = { value: {} }
+    const previousValues = oldCurrent.value  // I'm pretty sure we don't need to use diff here because the new value is {}
+    this.#current.meta = {
+      userID,
+      previousValues,
+      validFrom,
+      validTo: TemporalEntity.END_OF_TIME,
+      eTag: nanoidNonSecure(),
+      id: this.state?.id?.toString(),
+      deleted: true,
+    }
+    if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
+
+    this.#entityMeta.timeline.push(validFrom)
+    this.#entityMeta.eTags.push(this.#current.meta.eTag)
+    this.state.storage.put('entityMeta', this.#entityMeta)
+    this.state.storage.put(`snapshot-${validFrom}`, this.#current)
+
+    return 204
+  }
+
+  async DELETE(request) {
+    try {
+      utils.throwIfContentTypeHeaderInvalid(request)
+      const options = await utils.decodeCBORSC(request)
+      const status = await this.delete(options.userID, options.validFrom, options.impersonatorID)
+      return getStatusOnlyResponse(status)
+    } catch (e) {
+      return getErrorResponse(e)
+    }
+  }
+
+  async put(value, userID, validFrom, impersonatorID, eTag) {
+    utils.throwUnless(value, 'value required by TemporalEntity PUT is missing')
+    utils.throwUnless(userID, 'userID required by TemporalEntity operation is missing')
+
+    await this.#hydrate()
+
+    // Process eTag header
+    utils.throwIf(this.#entityMeta.eTags.length > 0 && !eTag, 'ETag header required for TemporalEntity PUT', 428, this.#current)
+    utils.throwIf(eTag && eTag !== this.#current?.meta?.eTag, 'If-Match does not match current ETag', 412, this.#current)
+
+    utils.throwIf(this.#current?.deleted, 'PUT on deleted TemporalEntity not allowed', 404)  // TODO: unit test this
+
+    // Set validFrom and validFromDate
+    let validFromDate
+    ({ validFrom, validFromDate } = this.#setValidFrom(validFrom))
 
     // Determine if this update should be debounced and set oldCurrent
     let debounce = false
@@ -298,6 +357,7 @@ export class TemporalEntity {
 
     utils.throwUnless(this.#entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity PATCH when there is no prior value')
     utils.throwUnless(eTag, 'ETag header required for TemporalEntity PATCH', 428, this.#current)
+    utils.throwIf(this.#current?.deleted, 'PATCH on deleted TemporalEntity not allowed', 404)  // TODO: unit test this
 
     let newValue
     if (eTag === this.#current?.meta?.eTag) {
@@ -328,6 +388,9 @@ export class TemporalEntity {
 
   async get(eTag) {
     await this.#hydrate()
+    console.log('inside of get, this.#current', this.#current)
+    utils.throwIf(this.#current?.meta?.deleted, 'GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true', 404)  // TODO: unit test this
+    console.log('got here')
     if (eTag && eTag === this.#current?.meta?.eTag) return [undefined, 304]
     return [this.#current, 200]
   }
@@ -337,7 +400,7 @@ export class TemporalEntity {
       utils.throwIfAcceptHeaderInvalid(request)
       const eTag = extractETag(request)
       const [current, status] = await this.get(eTag)
-      if (status === 304) return get304Response()
+      if (status === 304) return getStatusOnlyResponse(status)
       return getResponse(current)
     } catch (e) {
       return getErrorResponse(e)
@@ -346,6 +409,7 @@ export class TemporalEntity {
 
   async getEntityMeta(eTag) {
     await this.#hydrate()
+    // Note, we don't check for deleted here because we want to be able to get the entityMeta even if the entity is deleted
     if (eTag && eTag === this.#current?.meta?.eTag) return [undefined, 304]
     return [this.#entityMeta, 200]
   }
@@ -355,8 +419,8 @@ export class TemporalEntity {
       utils.throwIfAcceptHeaderInvalid(request)
       const eTag = extractETag(request)
       const [entityMeta, status] = await this.getEntityMeta(eTag)
-      if (status === 304) return get304Response()
-      return getResponse(entityMeta, entityMeta?.timeline?.at(-1))
+      if (status === 304) return getStatusOnlyResponse(304)
+      return getResponse(entityMeta, this.#current?.meta?.eTag)
     } catch (e) {
       return getErrorResponse(e)
     }

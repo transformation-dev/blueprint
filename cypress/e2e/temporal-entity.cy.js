@@ -3,7 +3,7 @@
 import { Encoder } from 'cbor-x'
 const cborSC = new Encoder({ structuredClone: true })
 
-async function encodeFetchAndDecode(url, options) {
+async function encodeAndFetch(url, options) {
   if (options.body) {
     const u8a = cborSC.encode(options.body)
     options.body = u8a
@@ -18,11 +18,17 @@ async function encodeFetchAndDecode(url, options) {
   }
   options.headers = headers
 
-  const response = await fetch(url, options)
+  return await fetch(url, options)
+}
+
+async function encodeFetchAndDecode(url, options) {
+  const response = await encodeAndFetch(url, options)
   const ab = await response.arrayBuffer()
-  const u8a = new Uint8Array(ab)
-  const o = cborSC.decode(u8a)
-  response.CBOR_SC = o
+  if (ab) {
+    const u8a = new Uint8Array(ab)
+    const o = cborSC.decode(u8a)
+    response.CBOR_SC = o
+  }
   return response
 }
 
@@ -79,7 +85,7 @@ context('Temporal Entity', () => {
 
   // Using fetch() instead of cy.request() because I couldn't get cy.request() to work for binary data
   // Had to merge four tests into one so this test would be independent of the others
-  it('should allow PUT, PATCH, GET, and GET entity-meta', () => {
+  it('should allow PUT, PATCH, GET, DELETE, and GET entity-meta', () => {
     let id
     let t1
     let t2
@@ -158,31 +164,54 @@ context('Temporal Entity', () => {
           "value": { "a": 10 }
         })
 
-        const options3 = {
-          method: 'GET',
+        const options = {
+          method: 'DELETE',
+          body: {
+            userID: '3',
+          },
         }
 
         cy.wrap(null).then(async () => {
-          const response = await encodeFetchAndDecode(`/api/temporal-entity/${id}`, options3)
-          expect(response.status).to.eq(200)
+          const response = await encodeAndFetch(`/api/temporal-entity/${id}`, options)
+          expect(response.status).to.eq(204)
 
-          const o = response.CBOR_SC
-          
-          expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
-          expect(o).to.deep.eq(oAfterPatch)
-
-          const options = {
+          const options3 = {
             method: 'GET',
           }
 
           cy.wrap(null).then(async () => {
-            const response = await encodeFetchAndDecode(`/api/temporal-entity/${id}/entity-meta`, options)
-            expect(response.status).to.eq(200)
+            const response = await encodeFetchAndDecode(`/api/temporal-entity/${id}`, options3)
+            expect(response.status).to.eq(404)
 
             const o = response.CBOR_SC
 
-            expect(response.headers.get('ETag')).to.eq(t2)
-            expect(o.timeline).to.deep.eq([t1, t2])
+            console.log('o.error.message', o.error.message)
+            expect(o.error.message).to.eq('GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true')
+            expect(o.error.status).to.eq(404)
+
+            const options4 = {
+              method: 'GET',
+            }
+
+            cy.wrap(null).then(async () => {
+              const response = await encodeFetchAndDecode(`/api/temporal-entity/${id}/entity-meta`, options4)
+              expect(response.status).to.eq(200)
+
+              const o = response.CBOR_SC
+
+              expect(response.headers.get('ETag')).to.eq(o.eTags.at(-1))
+              expect(o.timeline.length).to.eq(3)
+
+              const options5 = {
+                method: 'GET',
+              }
+
+              cy.wrap(null).then(async () => {
+                const response = await encodeFetchAndDecode(`/api/temporal-entity/${id}`, options5)
+                console.log(response.CBOR_SC)
+                expect(response.status).to.eq(404)
+              })
+            })
           })
         })
       })

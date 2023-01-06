@@ -273,7 +273,7 @@ test('TemporalEntity debouncing', async (t) => {
     t.equal(
       state3.storage.data.entityMeta.timeline.length,
       2,
-      'should still have 2 entries in timeline after 3th put with different value and same userID',
+      'should have 2 entries in timeline after 3th put with a different userID',
     )
     const [newCurrent, newStatus] = await te3.get()
     t.deepEqual(newCurrent.value, { a: 4 }, 'should get back last value')
@@ -284,7 +284,7 @@ test('TemporalEntity debouncing', async (t) => {
     t.equal(
       state3.storage.data.entityMeta.timeline.length,
       3,
-      'should have 3 entries after put with same userID but 61 minutes in the future',
+      'should have 3 entries after 4th put with same userID but 61 minutes in the future',
     )
     const [newCurrent3, newStatus3] = await te3.get()
     t.deepEqual(newCurrent3.value, { a: 5 }, 'should get back last value')
@@ -292,8 +292,8 @@ test('TemporalEntity debouncing', async (t) => {
     t.end()
   })
 
-  test('TemporalEntity PUT still works even with old ETag if the fields are different', async (t) => {
-    t.test('smart optimistic concurrency', async (t) => {
+  test('TemporalEntity PUT fails with old ETag', async (t) => {
+    t.test('optimistic concurrency', async (t) => {
       const state3 = getStateMock()
       const env3 = {}
       const te3 = new TemporalEntity(state3, env3)
@@ -311,16 +311,16 @@ test('TemporalEntity debouncing', async (t) => {
         t.equal(
           e.message,
           'If-Match does not match current ETag',
-          'should throw if new value has conflict with intervening changes',
+          'should throw if old ETag is used',
         )
-        t.equal(e.status, 412, 'should have status 412')
+        t.equal(e.status, 412, 'should see status 412 in e.status')
         t.deepEqual(
           e.body.value,
           { a: 10, b: 2, c: 3, d: 4 },
           'should get back the current value of the entity if the fields are the same',
         )
         t.equal(e.body.meta.validFrom, '2200-01-02T00:00:00.000Z', 'should get back the validFrom of the last successful update')
-        t.equal(e.body.error.status, 412, 'should have status 412')
+        t.equal(e.body.error.status, 412, 'should see status 412 in e.body.error.status')
       }
 
       t.end()
