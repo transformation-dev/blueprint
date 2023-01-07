@@ -1,6 +1,7 @@
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-shadow */
+import { nanoid } from 'nanoid/non-secure'
 import test from 'tape'
 import { TemporalEntity } from '../src/temporal-entity.js'
 
@@ -14,12 +15,12 @@ class StorageMock {
   }
 
   async get(key) {
-    return this.data[key]
+    return structuredClone(this.data[key])
   }
 }
 
 function getStateMock(initialData = {}) {
-  return { storage: new StorageMock(initialData) }
+  return { storage: new StorageMock(initialData), id: nanoid() }
 }
 
 test('TemporalEntity put(), patch(), and rehydrate', async (t) => {
@@ -49,7 +50,15 @@ test('TemporalEntity put(), patch(), and rehydrate', async (t) => {
     const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
     const newValidFromISOString = newValidFromDate.toISOString()
     const fromGet = await te.get()
-    await te.patch({ a: undefined, b: 3, c: 4 }, 'user2', newValidFromISOString, 'impersonator1', fromGet[0].meta.eTag)
+    await te.patch(
+      {
+        delta: { a: undefined, b: 3, c: 4 },
+        userID: 'user2',
+        validFrom: newValidFromISOString,
+        impersonatorID: 'impersonator1',
+      },
+      fromGet[0].meta.eTag,
+    )
 
     const [{ meta, value }, status] = await te.get()
     t.deepEqual(value, { b: 3, c: 4 }, 'should get back patched value (note, a was deleted)')
@@ -83,7 +92,10 @@ test('TemporalEntity validation', async (t) => {
     const te2 = new TemporalEntity(state2, env2)
 
     try {
-      await te2.patch({ a: 100 }, 'userX')
+      await te2.patch({
+        delta: { a: 100 },
+        userID: 'userX',
+      })
       t.fail('async thrower did not throw')
     } catch (e) {
       t.equal(e.message, 'cannot call TemporalEntity PATCH when there is no prior value', 'should throw if attempted to patch() with no prior value')
@@ -132,7 +144,13 @@ test('TemporalEntity validation', async (t) => {
     }
 
     try {
-      const response2 = await te2.patch({ a: 2000 }, 'userX', undefined, undefined, '2000-01-01T00:00:00.000Z')  // random date so as not to match
+      const response2 = await te2.patch(
+        {
+          delta: { a: 2000 },
+          userID: 'userX',
+        },
+        '0123456789abcdef',  // random eTag so as not to match
+      )
       t.fail('async thrower did not throw')
     } catch (e) {
       t.equal(
@@ -149,21 +167,74 @@ test('TemporalEntity validation', async (t) => {
 
 test('TemporalEntity idempotency', async (t) => {
   t.test('idempotency', async (t) => {
-    const state3 = getStateMock()
-    const env3 = {}
-    const te3 = new TemporalEntity(state3, env3)
+    const state = getStateMock()
+    const env = {}
+    const te = new TemporalEntity(state, env)
 
-    const response3 = await te3.put({ a: 1 }, 'userY')
-    t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+    let response
 
-    const response4 = await te3.put({ a: 1 }, 'userZ', undefined, undefined, response3.meta.eTag)
-    t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should still have 1 entry in timeline after 2nd put with same value but different userID')
+    response = await te.put({ a: 1 }, 'userW')
+    t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
 
-    const response5 = await te3.put({ a: 2 }, 'userZ', undefined, undefined, response4.meta.eTag)
-    t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 3rd put with different value')
+    response = await te.put({ a: 1 }, 'userX', undefined, undefined, response.meta.eTag)
+    t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should still have 1 entry in timeline after 2nd put with same value but different userID')
 
-    await te3.put({ a: 2 }, 'userZ', undefined, undefined, response5.meta.eTag)
-    t.equal(state3.storage.data.entityMeta.timeline.length, 2, 'should still have 2 entries in timeline after 4th put')
+    response = await te.put({ a: 2 }, 'userY', undefined, undefined, response.meta.eTag)
+    t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 3rd put with different value')
+
+    await te.put({ a: 2 }, 'userZ', undefined, undefined, response.meta.eTag)
+    t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should still have 2 entries in timeline after 4th put')
+
+    t.end()
+  })
+})
+
+test('TemporalEntity delete and undelete', async (t) => {
+  const state = getStateMock()
+  const env = {}
+  const te = new TemporalEntity(state, env)
+  const { data } = state.storage
+  let response
+
+  t.test('delete', async (t) => {
+    response = await te.put({ a: 1 }, 'userW')
+    t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+
+    response = await te.put({ a: 2 }, 'userX', undefined, undefined, response.meta.eTag)
+    t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should now have 2 entries in timeline after 2nd put')
+
+    response = await te.delete('userY')
+    t.equal(state.storage.data.entityMeta.timeline.length, 3, 'should have 3 entries in timeline after delete')
+
+    const validFrom1 = data.entityMeta.timeline[0]
+    const validFrom2 = data.entityMeta.timeline[1]
+    const validFrom3 = data.entityMeta.timeline[2]
+    const snapshot1 = data[`snapshot-${validFrom1}`]
+    const snapshot2 = data[`snapshot-${validFrom2}`]
+    const snapshot3 = data[`snapshot-${validFrom3}`]
+
+    t.equal(snapshot1.meta.validTo, snapshot2.meta.validFrom, 'second snapshot should start where first snapshot ends')
+    t.equal(snapshot2.meta.validTo, snapshot3.meta.validFrom, 'third snapshot should start where second snapshot ends')
+    t.equal(snapshot3.meta.validTo, TemporalEntity.END_OF_TIME, 'third snapshot should end at the end of time')
+    t.deepEqual(snapshot3.value, { }, 'the value of the last snapshot should be an empty object')
+    t.deepEqual(snapshot3.meta.previousValues, snapshot2.value, 'the previousValues should be the value of the snapshot before the delete')
+
+    t.end()
+  })
+
+  t.test('undelete', async (t) => {
+    response = await te.undelete('userY')
+
+    const validFrom2 = data.entityMeta.timeline[1]
+    const validFrom3 = data.entityMeta.timeline[2]
+    const validFrom4 = data.entityMeta.timeline[3]
+    const snapshot2 = data[`snapshot-${validFrom2}`]
+    const snapshot3 = data[`snapshot-${validFrom3}`]
+    const snapshot4 = data[`snapshot-${validFrom4}`]
+
+    t.equal(snapshot3.meta.validTo, snapshot4.meta.validFrom, 'fourth snapshot should start where third snapshot ends')
+    t.deepEqual(snapshot4.value, snapshot2.value, 'the value after undelete should equal the value before delete')
+    t.deepEqual(snapshot4.meta.previousValues, { a: undefined }, 'the previousValues should be the diff with the current value')
 
     t.end()
   })
@@ -199,19 +270,40 @@ test('deep object put and patch', async (t) => {
     const [result, status] = await te4.get()
     t.deepEqual(result.value, o, 'should get back same value')
 
-    const response2 = await te4.patch({ o: { a: 2, c: 3 } }, 'userX', '2200-01-01T00:00:00.000Z', undefined, response.meta.eTag)
+    const response2 = await te4.patch(
+      {
+        delta: { o: { a: 2, c: 3 } },
+        userID: 'userX',
+        validFrom: '2200-01-01T00:00:00.000Z',
+      },
+      response.meta.eTag,
+    )
     const o2 = structuredClone(o)
     o2.o.a = 2
     o2.o.c = 3
     t.deepEqual(response2.value, o2, 'should get back deeply patched value')
 
-    const response3 = await te4.patch({ o: { children: { 3: 'pushed' } } }, 'userX', '2200-01-02T00:00:00.000Z', undefined, response2.meta.eTag)
+    const response3 = await te4.patch(
+      {
+        delta: { o: { children: { 3: 'pushed' } } },
+        userID: 'userX',
+        validFrom: '2200-01-02T00:00:00.000Z',
+      },
+      response2.meta.eTag,
+    )
     const o3 = structuredClone(o2)
     o3.o.children.push('pushed')
     t.deepEqual(response3.value, o3, 'should get back deeply patched value for array')
 
     try {
-      const response5 = await te4.patch({ a: 4000, o: { children: { 3: 'not pushed' } } }, 'userX', '2200-01-04T00:00:00.000Z', undefined, response.meta.eTag)
+      const response5 = await te4.patch(
+        {
+          delta: { a: 4000, o: { children: { 3: 'not pushed' } } },
+          userID: 'userX',
+          validFrom: '2200-01-04T00:00:00.000Z',
+        },
+        response.meta.eTag,
+      )
       t.fail('async thrower did not throw')
     } catch (e) {
       t.equal(

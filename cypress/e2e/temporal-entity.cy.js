@@ -4,10 +4,13 @@ import { Encoder } from 'cbor-x'
 const cborSC = new Encoder({ structuredClone: true })
 
 async function encodeAndFetch(url, options) {
+  console.log('encodeAndFetch called', url, options)
   if (options.body) {
     const u8a = cborSC.encode(options.body)
     options.body = u8a
   }
+
+  console.log('done encoding body')
 
   const headers = new Headers(options.headers)
   if (!headers.has('Content-Type')) {
@@ -18,10 +21,13 @@ async function encodeAndFetch(url, options) {
   }
   options.headers = headers
 
+  console.log('done setting headers. about to call fetch')
+
   return await fetch(url, options)
 }
 
 async function encodeFetchAndDecode(url, options) {
+  console.log('encodeFetchAndDecode called', url, options)
   const response = await encodeAndFetch(url, options)
   const ab = await response.arrayBuffer()
   if (ab) {
@@ -32,7 +38,7 @@ async function encodeFetchAndDecode(url, options) {
   return response
 }
 
-context('Temporal Entity', () => {
+context('TemporalEntity', () => {
   
   it('should respond with 415 on PUT with Content-Type header application/json', () => {
     const options = {
@@ -85,7 +91,7 @@ context('Temporal Entity', () => {
 
   // Using fetch() instead of cy.request() because I couldn't get cy.request() to work for binary data
   // Had to merge four tests into one so this test would be independent of the others
-  it('should allow PUT, PATCH, GET, DELETE, and GET entity-meta', () => {
+  it('should allow PUT, PATCH delta, GET, DELETE, PATCH undelete, and GET entity-meta', () => {
     let id
     let t1
     let t2
@@ -102,17 +108,17 @@ context('Temporal Entity', () => {
       expect(response.headers.get('Content-Type')).to.eq('application/cbor-sc')
 
       const o = response.CBOR_SC
-      expect(o.meta.id).to.be.a('string')
+      expect(o.id).to.be.a('string')
       expect(o.meta.validFrom).to.be.a('string')
       expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
 
-      id = o.meta.id
+      id = o.id
       t1 = o.meta.validFrom
       const eTag1 = o.meta.eTag
-      delete o.meta.id
       delete o.meta.validFrom
       delete o.meta.eTag
       expect(o).to.deep.eq({
+        "id": id,
         "meta": {
           "previousValues": { a: undefined, b: undefined },
           "userID": "1",
@@ -153,13 +159,13 @@ context('Temporal Entity', () => {
         const eTag2 = o.meta.eTag
         delete o.meta.eTag
         expect(o).to.deep.eq({
+          "id": id,
           "meta": {
             "previousValues": { a: 1, b: 2 },
             "userID": "2",
             "validFrom": newValidFromISOString,
             "impersonatorID": "impersonator1",
             "validTo": "9999-01-01T00:00:00.000Z",
-            "id": id,
           },
           "value": { "a": 10 }
         })
@@ -208,8 +214,21 @@ context('Temporal Entity', () => {
 
               cy.wrap(null).then(async () => {
                 const response = await encodeFetchAndDecode(`/api/temporal-entity/${id}`, options5)
-                console.log(response.CBOR_SC)
                 expect(response.status).to.eq(404)
+
+                const options6 = {
+                  method: 'PATCH',
+                  body: {
+                    undelete: true,
+                    userID: '4',
+                  },
+                }
+
+                cy.wrap(null).then(async () => {
+                  const response = await encodeFetchAndDecode(`/api/temporal-entity/${id}`, options6)
+                  console.log('response.CBOR_SC', response.CBOR_SC)
+                  expect(response.status).to.eq(200)
+                })
               })
             })
           })
@@ -231,7 +250,7 @@ context('Temporal Entity', () => {
       const response = await encodeFetchAndDecode(`/api/temporal-entity`, options)
       expect(response.status, '1st PUT').to.eq(200)
       const o5 = response.CBOR_SC
-      const id = o5.meta.id
+      const id = o5.id
 
       const options4 = {
         method: 'PUT',
@@ -269,7 +288,7 @@ context('Temporal Entity', () => {
       expect(response.status, '1st call to fetch() to set date far into future').to.eq(200)
       const eTagFromHeaders = response.headers.get('ETag')
       const o5 = response.CBOR_SC
-      const id = o5.meta.id
+      const id = o5.id
       const eTagFromMeta = o5.meta.eTag
       expect(eTagFromHeaders).to.eq(eTagFromMeta)
 
