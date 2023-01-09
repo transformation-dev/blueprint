@@ -4,13 +4,10 @@ import { Encoder } from 'cbor-x'
 const cborSC = new Encoder({ structuredClone: true })
 
 async function encodeAndFetch(url, options) {
-  console.log('encodeAndFetch called', url, options)
   if (options.body) {
     const u8a = cborSC.encode(options.body)
     options.body = u8a
   }
-
-  console.log('done encoding body')
 
   const headers = new Headers(options.headers)
   if (!headers.has('Content-Type')) {
@@ -21,13 +18,10 @@ async function encodeAndFetch(url, options) {
   }
   options.headers = headers
 
-  console.log('done setting headers. about to call fetch')
-
   return await fetch(url, options)
 }
 
 async function encodeFetchAndDecode(url, options) {
-  console.log('encodeFetchAndDecode called', url, options)
   const response = await encodeAndFetch(url, options)
   const ab = await response.arrayBuffer()
   if (ab) {
@@ -191,7 +185,6 @@ context('TemporalEntity', () => {
 
             const o = response.CBOR_SC
 
-            console.log('o.error.message', o.error.message)
             expect(o.error.message).to.eq('GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true')
             expect(o.error.status).to.eq(404)
 
@@ -226,7 +219,6 @@ context('TemporalEntity', () => {
 
                 cy.wrap(null).then(async () => {
                   const response = await encodeFetchAndDecode(`/api/temporal-entity/${id}`, options6)
-                  console.log('response.CBOR_SC', response.CBOR_SC)
                   expect(response.status).to.eq(200)
                 })
               })

@@ -18,7 +18,8 @@ export async function onRequest({ request, env, params }) {
   // PATCH should fail before it even attempts to store anything because there is no prior value when an id is randomly generated.
   // GET should generally never try to store anything because it's a read-only operation. Etc.
   debug('request.url: %O', request.url)
-  const idString = params?.id?.[0]
+  debug('params: %O', params)
+  const idString = params?.path?.[0]
   let id
   let url
   if (idString) {
@@ -26,6 +27,18 @@ export async function onRequest({ request, env, params }) {
     id = env.TEMPORAL_ENTITY.idFromString(idString)
     const loc = request.url.indexOf(idString)
     url = request.url.slice(loc + idString.length)
+    debug('url: %O', url)
+    // if second path segment is a 64 character hex string, then the first segment is a type
+    // const newPathArray = []
+    // for (const segment of params.path) {
+    //   if (/[a-zA-Z0-9]{64}/.test(segment)) {
+
+    //     newPathArray.push(segment)
+    //   console.log(segment)
+    // }
+    // const altUrl = params.path.join('/')
+    // debug('altUrl: %O', altUrl)
+    // if (url !== altUrl) throw new Error(`url: ${url} !== altUrl: ${altUrl}`)
     if (url === '') url = '/'
   } else {
     id = ['production', 'preview'].includes(env.CF_ENV) ? env.TEMPORAL_ENTITY.newUniqueId() : env.TEMPORAL_ENTITY.idFromName(nanoidNonSecure()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler

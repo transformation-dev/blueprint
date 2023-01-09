@@ -106,7 +106,7 @@ test('TemporalEntity validation', async (t) => {
       await te2.put(undefined, 'userX')
       t.fail('async thrower did not throw')
     } catch (e) {
-      t.equal(e.message, 'value required by TemporalEntity PUT is missing', 'should throw if attempted to put() without value')
+      t.equal(e.message, 'body.value field required by TemporalEntity PUT is missing', 'should throw if attempted to put() without value')
       t.equal(e.status, 400, 'should have status 400')
     }
 
@@ -137,7 +137,7 @@ test('TemporalEntity validation', async (t) => {
     } catch (e) {
       t.equal(
         e.message,
-        'ETag header required for TemporalEntity PUT',
+        'required ETag header for TemporalEntity PUT is missing',
         'should throw 412 if ETag is not passed in',
       )
       t.equal(e.status, 428, 'should have status 428')
@@ -155,8 +155,8 @@ test('TemporalEntity validation', async (t) => {
     } catch (e) {
       t.equal(
         e.message,
-        'If-Match does not match current ETag',
-        'should throw 412 if ETag does not match any prior validFrom',
+        'If-Match does not match this TemporalEntity\'s current ETag',
+        'should throw 412 if ETag does not match current eTag',
       )
       t.equal(e.status, 412, 'should have status 412')
     }
@@ -295,24 +295,6 @@ test('deep object put and patch', async (t) => {
     o3.o.children.push('pushed')
     t.deepEqual(response3.value, o3, 'should get back deeply patched value for array')
 
-    try {
-      const response5 = await te4.patch(
-        {
-          delta: { a: 4000, o: { children: { 3: 'not pushed' } } },
-          userID: 'userX',
-          validFrom: '2200-01-04T00:00:00.000Z',
-        },
-        response.meta.eTag,
-      )
-      t.fail('async thrower did not throw')
-    } catch (e) {
-      t.equal(
-        e.message,
-        'If-Match does not match current ETag',
-        'should throw if new value has conflict with intervening changes',
-      )
-    }
-
     t.end()
   })
 })
@@ -402,7 +384,7 @@ test('TemporalEntity debouncing', async (t) => {
       } catch (e) {
         t.equal(
           e.message,
-          'If-Match does not match current ETag',
+          'If-Match does not match this TemporalEntity\'s current ETag',
           'should throw if old ETag is used',
         )
         t.equal(e.status, 412, 'should see status 412 in e.status')

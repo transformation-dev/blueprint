@@ -1,7 +1,6 @@
 /* eslint-disable quote-props */
 /* eslint-disable no-param-reassign */
 /* eslint-disable object-curly-newline */
-/* eslint-disable no-restricted-syntax */
 
 import { diff } from 'deep-object-diff'
 import { Encoder } from 'cbor-x'
@@ -28,8 +27,6 @@ const cborSC = new Encoder({ structuredClone: true })
 // https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/capitalization-conventions
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
-
-// TODO: Confirm that when you debounce, you get a new eTag but not for idempotent requests
 
 // TODO: Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
@@ -78,26 +75,27 @@ function extractETag(request) {
  * ## Debouncing
  *
  * If the same user makes multiple updates to the same entity within the time period specified by the granularity
- * (default: 1 hour), the updates are merged into a single snapshot. This prevents the history from growing too
- * rapidly in the now common pattern of saving changes as they are made rather than waiting until the user clicks on
+ * (default: 1 hour), the updates are merged into a single snapshot, aka debounced. This prevents the history from growing too
+ * rapidly in the now common pattern of saving changes in the UI as they are made rather than waiting until the user clicks on
  * a save button.
  *
  * ## CBOR with structured clone extension encoding
  *
  * The entity value is encoded as CBOR with the structured clone extension using the npm package cbor-x. CBOR is the
  * IEC standardized form of MessagePack. I have chosen 'application/cbor-sc' as the media type rather than 'application/cbor'
- * because it seems to error unless the structured clone extension is specified. I use cbor-sc encoding for the following reasons:
+ * because the formats are incompatible and will error if you attempt to decode with the wrong configuration. I use cbor-sc
+ * encoding for the following reasons:
  *   1. With the structured clone extension, it allows you to encode JavaScript objects with directed acyclic graphs (DAGs)
  *      and circular references. The org tree for Transformation.dev Blueprint is a DAG and I needed a way to send
- *      that over the wire so I had to use something like this for at least the transmission of the org tree. I chose
- *      to use it for all transmission for the remainder of these reasons.
+ *      that over the wire so I had to use something like this for at least the transmission of the org tree.
  *   2. It supports essentially all JavaScript types including Dates, Maps, Sets, etc.
- *   3. It's an official standard unlike MessagePack, which is just a defacto standard, although switching to MessagePack
+ *   3. It's an official standard unlike MessagePack, which is merely a defacto standard, although switching to MessagePack
  *      would be trivial since cbor-x package is derived from the msgpackr package by the same author which is likewise
  *      the fastest MessagePack encoder/decoder.
- *   4. It's faster (at least with cbor-x) for encoding and decoding than native JSON.
+ *   4. It's faster (at least with cbor-x) for encoding and decoding than anything else (avsc, protobuf, etc.) including native JSON
  *   5. Since it's a binary format, it's more compact than JSON which makes transmission faster and cheaper.
- *      Also, if you have an array with rows in the same object format, it can be an order of magnitude more compact than JSON.
+ *      Also, if you have an array with rows in the same object format, it can be an order of magnitude more compact than JSON,
+ *      although that does slow down encoding.
  *
  * ## Soft delete and undelete
  *
@@ -106,7 +104,7 @@ function extractETag(request) {
  *
  * You can retrieve a soft-deleted entity by POSTing a query with the includeDeleted option set to true.
  *
- * Unfortunately there is no HTTP method UNDELETE. Instead, you can PATCH the entity with { undelete: true } in the body.
+ * Unfortunately there is no HTTP method UNDELETE. To undelete, you must PATCH with { undelete: true } in the body.
  * Note: a PATCH body can only have one or the other of delta or undelete.
  *
  * ## Optimistic Concurrency
@@ -226,7 +224,6 @@ export class TemporalEntity {
   // The body and return is always a CBOR-SC object
   async fetch(request) {
     const url = new URL(request.url)
-    console.log(`TemporalEntity.fetch: ${request.method}`)
 
     switch (url.pathname) {
       case '/':
@@ -333,14 +330,14 @@ export class TemporalEntity {
   }
 
   async put(value, userID, validFrom, impersonatorID, eTag) {
-    utils.throwUnless(value, 'value required by TemporalEntity PUT is missing')
+    utils.throwUnless(value, 'body.value field required by TemporalEntity PUT is missing')
     utils.throwUnless(userID, 'userID required by TemporalEntity operation is missing')
 
     await this.#hydrate()
 
     // Process eTag header
-    utils.throwIf(this.#entityMeta.eTags.length > 0 && !eTag, 'ETag header required for TemporalEntity PUT', 428, this.#current)
-    utils.throwIf(eTag && eTag !== this.#current?.meta?.eTag, 'If-Match does not match current ETag', 412, this.#current)
+    utils.throwIf(this.#entityMeta.eTags.length > 0 && !eTag, 'required ETag header for TemporalEntity PUT is missing', 428, this.#current)
+    utils.throwIf(eTag && eTag !== this.#current?.meta?.eTag, 'If-Match does not match this TemporalEntity\'s current ETag', 412, this.#current)
 
     utils.throwIf(this.#current?.meta?.deleted, 'PUT on deleted TemporalEntity not allowed', 404)
 
@@ -355,7 +352,7 @@ export class TemporalEntity {
       oldCurrent = structuredClone(this.#current)
       if (userID === this.#current?.meta?.userID && validFromDate - new Date(this.#current.meta.validFrom) < 60 * 60 * 1000) {
         debounce = true
-        // Make oldCurrent and validFrom be from -2
+        // Make oldCurrent and validFrom be from -2 because we're going to replace the -1 with the new value
         oldCurrent = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-2)}`) ?? { value: {} }
         validFrom = this.#current.meta.validFrom
       }
@@ -417,8 +414,8 @@ export class TemporalEntity {
   // To change a value for one key, just set it to the new value in the delta
   async patch(options, eTag) {
     const { delta, undelete, userID, validFrom, impersonatorID } = options
-    utils.throwUnless(delta || undelete, 'delta or undelete required by TemporalEntity PATCH is missing')
-    utils.throwIf(delta && undelete, 'only one or the other of delta or undelete is allowed by TemporalEntity PATCH')
+    utils.throwUnless(delta || undelete, 'body.delta or body.undelete required by TemporalEntity PATCH is missing')
+    utils.throwIf(delta && undelete, 'only one or the other of body.delta or body.undelete is allowed by TemporalEntity PATCH')
 
     if (undelete) {
       return this.undelete(userID, validFrom, impersonatorID)
@@ -427,9 +424,9 @@ export class TemporalEntity {
     await this.#hydrate()
 
     utils.throwUnless(this.#entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity PATCH when there is no prior value')
-    utils.throwUnless(eTag, 'ETag header required for TemporalEntity PATCH', 428, this.#current)
+    utils.throwUnless(eTag, 'ETag header required for TemporalEntity PATCH is missing', 428, this.#current)
     utils.throwIf(this.#current?.meta?.deleted, 'PATCH with delta on deleted TemporalEntity not allowed', 404)
-    utils.throwIf(eTag && eTag !== this.#current?.meta?.eTag, 'If-Match does not match current ETag', 412, this.#current)
+    utils.throwIf(eTag && eTag !== this.#current?.meta?.eTag, 'If-Match does not match this TemporalEntity\'s current ETag', 412, this.#current)
 
     const newValue = structuredClone(this.#current.value)
 
