@@ -164,9 +164,10 @@ export class TemporalEntity {
 
   async #hydrate() {
     if (this.#hydrated) return
+    utils.throwUnless(this.state?.id?.toString() === this.#id, `Entity id mismatch. Url says ${this.#id} but this.state.id says ${this.state.id}.`, 500)
     this.#entityMeta = await this.state.storage.get('entityMeta')
     if (this.#entityMeta) {
-      utils.throwUnless(this.#entityMeta.type === this.#type, `Entity type mismatch. Url says ${this.#type} but entityMeta says ${this.#entityMeta.type}.`)
+      utils.throwUnless(this.#entityMeta.type === this.#type, `Entity type mismatch. Url says ${this.#type} but entityMeta says ${this.#entityMeta.type}.`, 500)
     } else {
       this.#entityMeta = { timeline: [], eTags: [], type: this.#type }
     }
@@ -231,17 +232,8 @@ export class TemporalEntity {
     const url = new URL(request.url)
     const pathArray = url.pathname.split('/')
     if (pathArray[0] === '') pathArray.shift()
-    console.log('pathArray: ', pathArray)
     this.#type = pathArray.shift()
-
-    console.log('this.#type: ', this.#type)
-    const id = pathArray.shift()
-    if (this.state?.id?.toString() === id) {
-      this.#id = id
-    } else {
-      return new Response(`The id in the URL ${id} does not match the id of the Durable Object ${this.state.id.toString()}`, { status: 400 })
-    }
-    console.log('id: ', id)
+    this.#id = pathArray.shift()
 
     let restOfPath = pathArray.join('/')
     if (!restOfPath.startsWith('/')) restOfPath = `/${restOfPath}`
