@@ -28,7 +28,10 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-1 Create a type registry specifying debounceMilliseconds and supressPreviousValues
+// TODO: A-1 Create a type registry specifying debounceMilliseconds and supressPreviousValues.
+//       Store the type registry in a KV namespace called TYPE_REGISTRY. The key is the type name.
+//       The value is a JSON object with debounceMilliseconds and supressPreviousValues properties.
+//       Modify wrangler.toml to create the TYPE_REGISTRY KV namespace and bind it to the Worker that hosts the Durable Objects
 
 // TODO: C Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
