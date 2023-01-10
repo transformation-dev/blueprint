@@ -28,17 +28,18 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
+// TODO: A-1 Create a type registry specifying debounceMilliseconds and supressPreviousValues
+
+// TODO: C Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
 
-// TODO: Implement query against all snapshots using npm module sift
+// TODO: C Implement query against all snapshots using npm module sift
 
-// TODO: Create a schema registry and passing in schemas which will use semantic versioning (e.g. OrgNode@1.7.12)
-//       put() and patch() to allow for the specification of schemas { value/delta, schemas, userID, etc. } in the body
+// TODO: C Add schemas and migrations to type registry. Use semantic versioning.
 
-// TODO: Get Debug() working
+// TODO: C Get Debug() working
 
-// TODO: Implement ticks
+// TODO: C Implement ticks
 
 function apply(obj, d) {
   for (const key of Object.keys(d)) {
