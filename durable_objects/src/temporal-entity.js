@@ -28,10 +28,9 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-1 Create a type registry specifying debounceMilliseconds and supressPreviousValues.
-//       Store the type registry in a KV namespace called TYPE_REGISTRY. The key is the type name.
+// TODO: A-1 Create a types.js file that is imported into TemporalEntity specifying options: {debounceMilliseconds, supressPreviousValues, etc.}
+//       Later, we can add convert this to JSON or YAML. We can also, later, add schema and migrations.
 //       The value is a JSON object with debounceMilliseconds and supressPreviousValues properties.
-//       Modify wrangler.toml to create the TYPE_REGISTRY KV namespace and bind it to the Worker that hosts the Durable Objects
 
 // TODO: C Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
@@ -43,6 +42,8 @@ const cborSC = new Encoder({ structuredClone: true })
 // TODO: C Get Debug() working
 
 // TODO: C Implement ticks
+
+// TODO: C Move TemporalEntity to its own package.
 
 function apply(obj, d) {
   for (const key of Object.keys(d)) {
@@ -142,11 +143,15 @@ function extractETag(request) {
  * @param {DurableObjectEnv} env
  *
  * */
-export class TemporalEntity {
-  static #END_OF_TIME = '9999-01-01T00:00:00.000Z'
-
-  static get END_OF_TIME() {
-    return TemporalEntity.#END_OF_TIME
+// export class TemporalEntity {
+class TemporalEntityBase {
+  
+  static END_OF_TIME = '9999-01-01T00:00:00.000Z'
+  static types = {
+    'temporal-entity-default': {
+      'supressPreviousValues': false,
+      'debounceMilliseconds': 3600000, // 1 hour
+    }
   }
 
   #type
@@ -168,6 +173,7 @@ export class TemporalEntity {
 
   async #hydrate() {
     if (this.#hydrated) return
+    console.log(this.constructor.types)
     utils.throwUnless(this.state?.id?.toString() === this.#id, `Entity id mismatch. Url says ${this.#id} but this.state.id says ${this.state.id}.`, 500)
     this.#entityMeta = await this.state.storage.get('entityMeta')
     if (this.#entityMeta) {
@@ -499,6 +505,16 @@ export class TemporalEntity {
       return this.#getResponse(entityMeta)
     } catch (e) {
       return this.#getErrorResponse(e)
+    }
+  }
+}
+
+export class TemporalEntity extends TemporalEntityBase {
+  static types = {
+    ...super.types,
+    'some-type': {
+      'supressPreviousValues': true,
+      'debounceMilliseconds': 1000, // 1 second
     }
   }
 }

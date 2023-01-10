@@ -20,7 +20,7 @@ class StorageMock {
 }
 
 function getStateMock(initialData = {}) {
-  return { storage: new StorageMock(initialData), id: nanoid() }
+  return { storage: new StorageMock(initialData), id: undefined }  // id must be undefined for unit tests to pass due to the validation that state.id match the id in the url
 }
 
 test('TemporalEntity put(), patch(), and rehydrate', async (t) => {
