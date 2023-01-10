@@ -145,6 +145,8 @@ export class TemporalEntity {
     return TemporalEntity.#END_OF_TIME
   }
 
+  #type
+
   #id
 
   #entityMeta  // Metadata for the entity { timeline, eTags }
@@ -162,9 +164,12 @@ export class TemporalEntity {
 
   async #hydrate() {
     if (this.#hydrated) return
-    this.#id = this.state?.id?.toString()
     this.#entityMeta = await this.state.storage.get('entityMeta')
-    this.#entityMeta ??= { timeline: [], eTags: [] }
+    if (this.#entityMeta) {
+      utils.throwUnless(this.#entityMeta.type === this.#type, `Entity type mismatch. Url says ${this.#type} but entityMeta says ${this.#entityMeta.type}.`)
+    } else {
+      this.#entityMeta = { timeline: [], eTags: [], type: this.#type }
+    }
     if (this.#entityMeta.timeline.length > 0) {
       this.#current = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-1)}`)
     }
@@ -224,8 +229,24 @@ export class TemporalEntity {
   // The body and return is always a CBOR-SC object
   async fetch(request) {
     const url = new URL(request.url)
+    const pathArray = url.pathname.split('/')
+    if (pathArray[0] === '') pathArray.shift()
+    console.log('pathArray: ', pathArray)
+    this.#type = pathArray.shift()
 
-    switch (url.pathname) {
+    console.log('this.#type: ', this.#type)
+    const id = pathArray.shift()
+    if (this.state?.id?.toString() === id) {
+      this.#id = id
+    } else {
+      return new Response(`The id in the URL ${id} does not match the id of the Durable Object ${this.state.id.toString()}`, { status: 400 })
+    }
+    console.log('id: ', id)
+
+    let restOfPath = pathArray.join('/')
+    if (!restOfPath.startsWith('/')) restOfPath = `/${restOfPath}`
+
+    switch (restOfPath) {
       case '/':
         if (['PUT', 'PATCH', 'GET', 'DELETE'].includes(request.method)) {
           return this[request.method](request)

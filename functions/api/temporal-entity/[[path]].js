@@ -19,31 +19,37 @@ export async function onRequest({ request, env, params }) {
   // GET should generally never try to store anything because it's a read-only operation. Etc.
   debug('request.url: %O', request.url)
   debug('params: %O', params)
-  const idString = params?.path?.[0]
-  let id
-  let url
-  if (idString) {
-    debug(`idString: ${idString}`)
-    id = env.TEMPORAL_ENTITY.idFromString(idString)
-    const loc = request.url.indexOf(idString)
-    url = request.url.slice(loc + idString.length)
-    debug('url: %O', url)
-    // if second path segment is a 64 character hex string, then the first segment is a type
-    // const newPathArray = []
-    // for (const segment of params.path) {
-    //   if (/[a-zA-Z0-9]{64}/.test(segment)) {
 
-    //     newPathArray.push(segment)
-    //   console.log(segment)
-    // }
-    // const altUrl = params.path.join('/')
-    // debug('altUrl: %O', altUrl)
-    // if (url !== altUrl) throw new Error(`url: ${url} !== altUrl: ${altUrl}`)
-    if (url === '') url = '/'
-  } else {
-    id = ['production', 'preview'].includes(env.CF_ENV) ? env.TEMPORAL_ENTITY.newUniqueId() : env.TEMPORAL_ENTITY.idFromName(nanoidNonSecure()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
-    url = '/'
+  const newPathArray = []
+  // first path segment is the entity type
+  if (!params?.path?.[0]) {
+    return new Response('Required type segment in the path is missing', { status: 404 })  // TODO: Use my errorResponse() function from durable-object/src/utils.js
   }
+  const type = params.path.shift()
+  newPathArray.push(type)
+
+  // if the second path segment is not a 64 character hex string, then generate a new id
+  let idString = params.path.shift()
+  let id
+  if (idString && /^[a-fA-F0-9]{64}$$/.test(idString)) {  // second path segment is a 64 character hex string
+    console.log('*** second path segment ***IS*** a 64 character hex string')
+    id = env.TEMPORAL_ENTITY.idFromString(idString)
+    newPathArray.push(idString)
+  } else {
+    console.log('*** second path segment is ***NOT*** a 64 character hex string')
+    id = ['production', 'preview'].includes(env.CF_ENV) ? env.TEMPORAL_ENTITY.newUniqueId() : env.TEMPORAL_ENTITY.idFromName(nanoidNonSecure()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
+    newPathArray.push(id.toString())
+    if (idString) newPathArray.push(idString)  // push the non-hex string onto newPathArray as the third segment
+  } 
+
+  // concatenate any remaining path segments to the newPathArray
+  newPathArray.push(...params.path)
+  
+  // build the url to be passed to the durable object
+  const url = newPathArray.join('/')
+  debug('url to pass to durable object: %O', url)
+
+  // return new Response('Got here', { status: 200 })  // TODO: remove this line')
 
   const entityStub = env.TEMPORAL_ENTITY.get(id)
   const response = await entityStub.fetch(url, request)  // TODO: upgrade this to pass the rest along to the durable object
