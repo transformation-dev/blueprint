@@ -30,6 +30,7 @@ module.exports = {
     'max-len': ['error', 256],
     'no-unused-vars': 'warn',
     'import/extensions': 'off',
-    'no-restricted-syntax': [],
+    'no-restricted-syntax': 'off',
+    'max-classes-per-file': 'off',
   },
 }

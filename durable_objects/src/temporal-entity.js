@@ -1,3 +1,4 @@
+/* eslint-disable no-use-before-define */
 /* eslint-disable quote-props */
 /* eslint-disable no-param-reassign */
 /* eslint-disable object-curly-newline */
@@ -145,13 +146,13 @@ function extractETag(request) {
  * */
 // export class TemporalEntity {
 class TemporalEntityBase {
-  
   static END_OF_TIME = '9999-01-01T00:00:00.000Z'
+
   static types = {
     'temporal-entity-default': {
       'supressPreviousValues': false,
       'debounceMilliseconds': 3600000, // 1 hour
-    }
+    },
   }
 
   #type
@@ -173,7 +174,6 @@ class TemporalEntityBase {
 
   async #hydrate() {
     if (this.#hydrated) return
-    console.log(this.constructor.types)
     utils.throwUnless(this.state?.id?.toString() === this.#id, `Entity id mismatch. Url says ${this.#id} but this.state.id says ${this.state.id}.`, 500)
     this.#entityMeta = await this.state.storage.get('entityMeta')
     if (this.#entityMeta) {
@@ -515,6 +515,6 @@ export class TemporalEntity extends TemporalEntityBase {
     'some-type': {
       'supressPreviousValues': true,
       'debounceMilliseconds': 1000, // 1 second
-    }
+    },
   }
 }

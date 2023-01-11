@@ -29,22 +29,20 @@ export async function onRequest({ request, env, params }) {
   newPathArray.push(type)
 
   // if the second path segment is not a 64 character hex string, then generate a new id
-  let idString = params.path.shift()
+  const idString = params.path.shift()
   let id
   if (idString && /^[a-fA-F0-9]{64}$$/.test(idString)) {  // second path segment is a 64 character hex string
-    console.log('*** second path segment ***IS*** a 64 character hex string')
     id = env.TEMPORAL_ENTITY.idFromString(idString)
     newPathArray.push(idString)
   } else {
-    console.log('*** second path segment is ***NOT*** a 64 character hex string')
     id = ['production', 'preview'].includes(env.CF_ENV) ? env.TEMPORAL_ENTITY.newUniqueId() : env.TEMPORAL_ENTITY.idFromName(nanoidNonSecure()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
     newPathArray.push(id.toString())
     if (idString) newPathArray.push(idString)  // push the non-hex string onto newPathArray as the third segment
-  } 
+  }
 
   // concatenate any remaining path segments to the newPathArray
   newPathArray.push(...params.path)
-  
+
   // build the url to be passed to the durable object
   const url = newPathArray.join('/')
   debug('url to pass to durable object: %O', url)
