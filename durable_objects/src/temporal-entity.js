@@ -5,6 +5,7 @@
 
 import { diff } from 'deep-object-diff'
 import { Encoder } from 'cbor-x'
+// TODO: consider switching nanoid out for Crypto.randomUUID() if available in cloudflare
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'  // should be fine to use the non-secure version since we are only using this for eTags
 // import { nanoid } from 'nanoid'
 
@@ -31,7 +32,8 @@ const cborSC = new Encoder({ structuredClone: true })
 
 // TODO: A-1 Create a types.js file that is imported into TemporalEntity specifying options: {debounceMilliseconds, supressPreviousValues, etc.}
 //       Later, we can add convert this to JSON or YAML. We can also, later, add schema and migrations.
-//       The value is a JSON object with debounceMilliseconds and supressPreviousValues properties.
+
+// TODO: A-5 Write a tests for keyForDag, supressPreviousValues, and debounceMilliseconds
 
 // TODO: C Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
@@ -149,15 +151,21 @@ class TemporalEntityBase {
   static END_OF_TIME = '9999-01-01T00:00:00.000Z'
 
   static types = {
-    'temporal-entity-default': {
+    '***default***': {
       'supressPreviousValues': false,
       'debounceMilliseconds': 3600000, // 1 hour
+      'valueIsADag': false,
+    },
+    '---test-supress-previous-values---': {
+      'supressPreviousValues': true,
     },
   }
 
-  #type
-
   #id
+
+  #typeKey
+
+  #type
 
   #entityMeta  // Metadata for the entity { timeline, eTags }
 
@@ -165,25 +173,47 @@ class TemporalEntityBase {
 
   #hydrated
 
-  constructor(state, env) {
+  constructor(state, env, typeKey) {  // typeKey is only used in unit tests. Cloudflare only passes in two parameters
     this.state = state
     this.env = env
     this.#hydrated = false
+    if (typeKey) {  // TODO: add a check that confirms we are not in production or preview
+      this.#typeKey = typeKey
+    }
     // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
   }
 
   async #hydrate() {
     if (this.#hydrated) return
+
+    // validation
     utils.throwUnless(this.state?.id?.toString() === this.#id, `Entity id mismatch. Url says ${this.#id} but this.state.id says ${this.state.id}.`, 500)
+
+    // hydrate #entityMeta
     this.#entityMeta = await this.state.storage.get('entityMeta')
     if (this.#entityMeta) {
-      utils.throwUnless(this.#entityMeta.type === this.#type, `Entity type mismatch. Url says ${this.#type} but entityMeta says ${this.#entityMeta.type}.`, 500)
+      utils.throwUnless(this.#entityMeta.typeKey === this.#typeKey, `Entity type mismatch. Url says ${this.#typeKey} but entityMeta says ${this.#entityMeta.typeKey}.`, 500)
     } else {
-      this.#entityMeta = { timeline: [], eTags: [], type: this.#type }
+      this.#entityMeta = { timeline: [], eTags: [], typeKey: this.#typeKey }
     }
+
+    // hydrate #type. We don't save type in entityMeta which allows for the values to be changed over time
+    const defaultType = this.constructor.types['***default***']
+    const lookedUpType = this.constructor.types[this.#typeKey]  // this.#typeKey is normally set in the fetch handler, but can be set in the constructor for unit tests
+    if (!lookedUpType) {
+      this.#type = defaultType
+    } else {
+      this.#type = []
+      for (const key of Reflect.ownKeys(defaultType).concat(Reflect.ownKeys(lookedUpType))) {
+        this.#type[key] = lookedUpType[key] || defaultType[key]
+      }
+    }
+
+    // hydrate #current
     if (this.#entityMeta.timeline.length > 0) {
       this.#current = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-1)}`)
     }
+
     this.#hydrated = true
   }
 
@@ -238,34 +268,41 @@ class TemporalEntityBase {
   }
 
   // The body and return is always a CBOR-SC object
+  // eslint-disable-next-line consistent-return
   async fetch(request) {
-    const url = new URL(request.url)
-    const pathArray = url.pathname.split('/')
-    if (pathArray[0] === '') pathArray.shift()
-    this.#type = pathArray.shift()
-    this.#id = pathArray.shift()
+    try {
+      const url = new URL(request.url)
+      const pathArray = url.pathname.split('/')
+      if (pathArray[0] === '') pathArray.shift()
+      this.#typeKey = pathArray.shift()
+      this.#id = pathArray.shift()
 
-    let restOfPath = pathArray.join('/')
-    if (!restOfPath.startsWith('/')) restOfPath = `/${restOfPath}`
+      let restOfPath = pathArray.join('/')
+      if (!restOfPath.startsWith('/')) restOfPath = `/${restOfPath}`
 
-    switch (restOfPath) {
-      case '/':
-        if (['PUT', 'PATCH', 'GET', 'DELETE'].includes(request.method)) {
+      switch (restOfPath) {
+        case '/':
+          utils.throwUnless(
+            ['PUT', 'PATCH', 'GET', 'DELETE'].includes(request.method),
+            `Unrecognized HTTP method ${request.method} for ${url.pathname}`,
+            405,
+          )
           return this[request.method](request)
-        } else {
-          return new Response(`Unrecognized HTTP method ${request.method} for ${url.pathname}`, { status: 405 })  // TODO: Upgrade these consistent error responses to use getErrorResponse
-        }
 
-      case '/ticks':
-        // Not yet implemented
-        return new Response('/ticks not implemented yet', { status: 404 })
+        case '/ticks':
+          // Not yet implemented
+          utils.throwIf(true, '/ticks not implemented yet', 404)
+          return this.#getStatusOnlyResponse(500)  // this just here temporarily because every case needs to end with a break or return
 
-      case '/entity-meta':
-        if (request.method === 'GET') return this.GETEntityMeta(request)
-        else return new Response(`Unrecognized HTTP method ${request.method} for ${url.pathname}`, { status: 405 })
+        case '/entity-meta':
+          utils.throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
+          return this.GETEntityMeta(request)
 
-      default:
-        return new Response('Not found', { status: 404 })
+        default:
+          utils.throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
+      }
+    } catch (e) {
+      return this.#getErrorResponse(e)
     }
   }
 
@@ -347,7 +384,7 @@ class TemporalEntityBase {
       const options = await utils.decodeCBORSC(request)
       const status = await this.delete(options.userID, options.validFrom, options.impersonatorID)
       return this.#getStatusOnlyResponse(status)
-    } catch (e) {
+    } catch (e) {  // TODO: move these try/catch blocks up into the this.fetch()
       return this.#getErrorResponse(e)
     }
   }
@@ -357,6 +394,8 @@ class TemporalEntityBase {
     utils.throwUnless(userID, 'userID required by TemporalEntity operation is missing')
 
     await this.#hydrate()
+
+    if (this.#type.keyForDag) utils.throwIfNotDag(value[this.#type.keyForDag])
 
     // Process eTag header
     utils.throwIf(this.#entityMeta.eTags.length > 0 && !eTag, 'required ETag header for TemporalEntity PUT is missing', 428, this.#current)
@@ -373,9 +412,12 @@ class TemporalEntityBase {
     let oldCurrent = { value: {} }
     if (this.#current) {
       oldCurrent = structuredClone(this.#current)
-      if (userID === this.#current?.meta?.userID && validFromDate - new Date(this.#current.meta.validFrom) < 60 * 60 * 1000) {
+      if (
+        userID === this.#current?.meta?.userID
+        && validFromDate - new Date(this.#current.meta.validFrom) < this.#type.debounceMilliseconds
+      ) {
         debounce = true
-        // Make oldCurrent and validFrom be from -2 because we're going to replace the -1 with the new value
+        // Make oldCurrent and validFrom be from -2 (or { value: {} }) because we're going to replace the -1 with the new value
         oldCurrent = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-2)}`) ?? { value: {} }
         validFrom = this.#current.meta.validFrom
       }
@@ -397,12 +439,12 @@ class TemporalEntityBase {
     this.#current = {}
     this.#current.meta = {
       userID,
-      previousValues,
       validFrom,
       validTo: TemporalEntity.END_OF_TIME,
       eTag: nanoidNonSecure(),
       // id: this.#id,
     }
+    if (!this.#type.supressPreviousValues) this.#current.meta.previousValues = previousValues
     if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
     this.#current.value = value
     if (debounce) {
@@ -515,6 +557,7 @@ export class TemporalEntity extends TemporalEntityBase {
     'some-type': {
       'supressPreviousValues': true,
       'debounceMilliseconds': 1000, // 1 second
+      'keyForDag': 'dagTree',
     },
   }
 }
