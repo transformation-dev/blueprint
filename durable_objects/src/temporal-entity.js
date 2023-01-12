@@ -30,10 +30,10 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-1 Create a types.js file that is imported into TemporalEntity specifying options: {debounceMilliseconds, supressPreviousValues, etc.}
+// TODO: A-3 Create a types.js file that is imported into TemporalEntity specifying options: {debounceMilliseconds, supressPreviousValues, etc.}
 //       Later, we can add convert this to JSON or YAML. We can also, later, add schema and migrations.
 
-// TODO: A-5 Write a tests for keyForDag, supressPreviousValues, and debounceMilliseconds
+// TODO: A-2 Write a tests for keyForDag, supressPreviousValues, and debounceMilliseconds
 
 // TODO: C Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
@@ -151,13 +151,16 @@ class TemporalEntityBase {
   static END_OF_TIME = '9999-01-01T00:00:00.000Z'
 
   static types = {
-    '***default***': {
+    '*': {  // default type
       'supressPreviousValues': false,
       'debounceMilliseconds': 3600000, // 1 hour
-      'valueIsADag': false,
+      'keyForDag': false,
     },
-    '---test-supress-previous-values---': {
+    '***test-supress-previous-values***': {
       'supressPreviousValues': true,
+    },
+    '***test-key-for-dag***': {
+      'keyForDag': 'dag',
     },
   }
 
@@ -177,7 +180,7 @@ class TemporalEntityBase {
     this.state = state
     this.env = env
     this.#hydrated = false
-    if (typeKey) {  // TODO: add a check that confirms we are not in production or preview
+    if (typeKey) {  // TODO: add a check that confirms we are not in production or preview since this is only for unit tests
       this.#typeKey = typeKey
     }
     // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
@@ -188,6 +191,7 @@ class TemporalEntityBase {
 
     // validation
     utils.throwUnless(this.state?.id?.toString() === this.#id, `Entity id mismatch. Url says ${this.#id} but this.state.id says ${this.state.id}.`, 500)
+    utils.throwUnless(this.constructor.types[this.#typeKey], `Entity type, ${this.#typeKey}, not found`, 404)
 
     // hydrate #entityMeta
     this.#entityMeta = await this.state.storage.get('entityMeta')
@@ -198,15 +202,11 @@ class TemporalEntityBase {
     }
 
     // hydrate #type. We don't save type in entityMeta which allows for the values to be changed over time
-    const defaultType = this.constructor.types['***default***']
+    const defaultType = this.constructor.types['*']
     const lookedUpType = this.constructor.types[this.#typeKey]  // this.#typeKey is normally set in the fetch handler, but can be set in the constructor for unit tests
-    if (!lookedUpType) {
-      this.#type = defaultType
-    } else {
-      this.#type = []
-      for (const key of Reflect.ownKeys(defaultType).concat(Reflect.ownKeys(lookedUpType))) {
-        this.#type[key] = lookedUpType[key] || defaultType[key]
-      }
+    this.#type = []
+    for (const key of Reflect.ownKeys(defaultType).concat(Reflect.ownKeys(lookedUpType))) {
+      this.#type[key] = lookedUpType[key] || defaultType[key]
     }
 
     // hydrate #current
@@ -273,12 +273,11 @@ class TemporalEntityBase {
     try {
       const url = new URL(request.url)
       const pathArray = url.pathname.split('/')
-      if (pathArray[0] === '') pathArray.shift()
+      if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
       this.#typeKey = pathArray.shift()
       this.#id = pathArray.shift()
 
-      let restOfPath = pathArray.join('/')
-      if (!restOfPath.startsWith('/')) restOfPath = `/${restOfPath}`
+      const restOfPath = `/${pathArray.join('/')}`
 
       switch (restOfPath) {
         case '/':
@@ -384,7 +383,7 @@ class TemporalEntityBase {
       const options = await utils.decodeCBORSC(request)
       const status = await this.delete(options.userID, options.validFrom, options.impersonatorID)
       return this.#getStatusOnlyResponse(status)
-    } catch (e) {  // TODO: move these try/catch blocks up into the this.fetch()
+    } catch (e) {
       return this.#getErrorResponse(e)
     }
   }

@@ -26,7 +26,7 @@ function getStateMock(initialData = {}) {
 test('TemporalEntity put(), patch(), and rehydrate', async (t) => {
   const state = getStateMock()
   const env = {}
-  const te = new TemporalEntity(state, env)
+  const te = new TemporalEntity(state, env, '*')
 
   t.test('put() with only value and userID', async (t) => {
     await te.put({ a: 1, b: 2 }, 'user1')
@@ -71,7 +71,7 @@ test('TemporalEntity put(), patch(), and rehydrate', async (t) => {
   })
 
   t.test('rehydrate with old state', async (t) => {
-    const te2 = new TemporalEntity(state, env)
+    const te2 = new TemporalEntity(state, env, '*')
     const [{ meta, value }, status] = await te2.get()
     t.deepEqual(value, { b: 3, c: 4 }, 'should get same value from rehydrated entity')
   })
@@ -85,11 +85,41 @@ test('TemporalEntity END_OF_TIME', async (t) => {
   })
 })
 
+test('TemporalEntity validation for invalid or missing type', async (t) => {
+  t.test('missing type', async (t) => {
+    const state = getStateMock()
+    const env = {}
+    const te = new TemporalEntity(state, env)
+
+    try {
+      await te.put({ a: 100 }, 'userX')
+      t.fail('async thrower did not throw')
+    } catch (e) {
+      t.equal(e.message, 'Entity type, undefined, not found', 'should throw when no type is provided')
+      t.equal(e.status, 404, 'should have status 404')
+    }
+  })
+
+  t.test('unknown type', async (t) => {
+    const state = getStateMock()
+    const env = {}
+    const te = new TemporalEntity(state, env, '***unknown***')
+
+    try {
+      await te.put({ a: 100 }, 'userX')
+      t.fail('async thrower did not throw')
+    } catch (e) {
+      t.equal(e.message, 'Entity type, ***unknown***, not found', 'should throw when an unknown type is provided')
+      t.equal(e.status, 404, 'should have status 404')
+    }
+  })
+})
+
 test('TemporalEntity validation', async (t) => {
   t.test('validation', async (t) => {
     const state2 = getStateMock()
     const env2 = {}
-    const te2 = new TemporalEntity(state2, env2)
+    const te2 = new TemporalEntity(state2, env2, '*')
 
     try {
       await te2.patch({
@@ -165,11 +195,51 @@ test('TemporalEntity validation', async (t) => {
   })
 })
 
+test('TemporalEntity DAG', async (t) => {
+  t.test('keyForDag is simply "dag"', async (t) => {
+    const state = getStateMock()
+    const env = {}
+    const te = new TemporalEntity(state, env, '***test-key-for-dag***')
+
+    const dag = {
+      id: '1',
+      children: [
+        {
+          id: '2',
+        },
+      ],
+    }
+    const value = {
+      a: 1,
+      dag,
+    }
+
+    let response
+
+    response = await te.put(value, 'userW')
+    // console.log('response', JSON.stringify(response, null, 2))
+    response = await te.getEntityMeta()
+    // console.log('response', JSON.stringify(response, null, 2))
+    // t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+
+    // response = await te.put({ a: 1 }, 'userX', undefined, undefined, response.meta.eTag)
+    // t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should still have 1 entry in timeline after 2nd put with same value but different userID')
+
+    // response = await te.put({ a: 2 }, 'userY', undefined, undefined, response.meta.eTag)
+    // t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 3rd put with different value')
+
+    // await te.put({ a: 2 }, 'userZ', undefined, undefined, response.meta.eTag)
+    // t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should still have 2 entries in timeline after 4th put')
+
+    t.end()
+  })
+})
+
 test('TemporalEntity idempotency', async (t) => {
   t.test('idempotency', async (t) => {
     const state = getStateMock()
     const env = {}
-    const te = new TemporalEntity(state, env)
+    const te = new TemporalEntity(state, env, '*')
 
     let response
 
@@ -192,7 +262,7 @@ test('TemporalEntity idempotency', async (t) => {
 test('TemporalEntity delete and undelete', async (t) => {
   const state = getStateMock()
   const env = {}
-  const te = new TemporalEntity(state, env)
+  const te = new TemporalEntity(state, env, '*')
   const { data } = state.storage
   let response
 
@@ -244,7 +314,7 @@ test('TemporalEntity auto-incremented validFrom', async (t) => {
   t.test('auto-incremented validFrom', async (t) => {
     const state4 = getStateMock()
     const env4 = {}
-    const te4 = new TemporalEntity(state4, env4)
+    const te4 = new TemporalEntity(state4, env4, '*')
     const validFromISOString = '2200-01-01T00:00:00.000Z'
     const lastValidFromDate = new Date(validFromISOString)
     const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
@@ -263,7 +333,7 @@ test('deep object put and patch', async (t) => {
   t.test('deep patching', async (t) => {
     const state4 = getStateMock()
     const env4 = {}
-    const te4 = new TemporalEntity(state4, env4)
+    const te4 = new TemporalEntity(state4, env4, '*')
     const o = { a: 2000, o: { a: 1, b: 2, children: [1, 'a', new Date()] } }
 
     const response = await te4.put(o, 'userX')
@@ -303,7 +373,7 @@ test('get and getEntityMeta with correct eTag returns a 304', async (t) => {
   t.test('auto-incremented validFrom', async (t) => {
     const state4 = getStateMock()
     const env4 = {}
-    const te4 = new TemporalEntity(state4, env4)
+    const te4 = new TemporalEntity(state4, env4, '*')
 
     const response = await te4.put({ a: 1 }, 'userY')
     const [result, status] = await te4.get()
@@ -326,7 +396,7 @@ test('TemporalEntity debouncing', async (t) => {
   t.test('debouncing', async (t) => {
     const state3 = getStateMock()
     const env3 = {}
-    const te3 = new TemporalEntity(state3, env3)
+    const te3 = new TemporalEntity(state3, env3, '*')
 
     const firstCurrent = await te3.put({ a: 1 }, 'userY')
     const middleCurrent = await te3.put({ a: 2 }, 'userY', undefined, undefined, firstCurrent.meta.eTag)
@@ -370,7 +440,7 @@ test('TemporalEntity debouncing', async (t) => {
     t.test('optimistic concurrency', async (t) => {
       const state3 = getStateMock()
       const env3 = {}
-      const te3 = new TemporalEntity(state3, env3)
+      const te3 = new TemporalEntity(state3, env3, '*')
 
       const response3 = await te3.put({ a: 1, b: 2, c: 3, d: 4 }, 'userY', '2200-01-01T00:00:00.000Z')
       t.equal(state3.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
