@@ -1,10 +1,12 @@
 import Debug from 'debug'
-import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
+import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'  // TODO: Consider switching to Crypto.randomUUID() if it's available in Cloudflare
+// import { customAlphabet } from 'nanoid/non-secure'
 // import { nanoid } from 'nanoid'
 
 import { getDebug } from '../../_utils'
 
 const debug = getDebug('blueprint:api:temporal-entity')
+// const nanoidNonSecure = customAlphabet('1234567890abcdef', 64) // to mimick durable object id.toString()
 
 export async function onRequest({ request, env, params }) {
   Debug.enable(env.DEBUG)

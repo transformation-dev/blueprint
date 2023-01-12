@@ -6,7 +6,7 @@ import { getDebug } from './_utils'
 
 const debug = getDebug('blueprint:_middleware')
 
-async function csp({ request, env, next }) {
+async function csp({ request, env, next }) {  // TODO: split this out to its own file or maybe even an npm package
   Debug.enable(env.DEBUG)
   // debug('%O', request.headers.get('Cookie') || '')
   const url = new URL(request.url)
@@ -99,4 +99,4 @@ async function csp({ request, env, next }) {
   return next()
 }
 
-export const onRequestGet = [csp]
+export const onRequestGet = [csp]  // TODO: Switch this to onRequest and check for request.method === 'GET' in the csp function
