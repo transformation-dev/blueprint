@@ -196,7 +196,7 @@ test('TemporalEntity validation', async (t) => {
 })
 
 test('TemporalEntity DAG', async (t) => {
-  t.test('keyForDag is simply "dag"', async (t) => {
+  t.test('valid DAG should not throw', async (t) => {
     const state = getStateMock()
     const env = {}
     const te = new TemporalEntity(state, env, '***test-key-for-dag***')
@@ -216,20 +216,75 @@ test('TemporalEntity DAG', async (t) => {
 
     let response
 
-    response = await te.put(value, 'userW')
-    // console.log('response', JSON.stringify(response, null, 2))
-    response = await te.getEntityMeta()
-    // console.log('response', JSON.stringify(response, null, 2))
-    // t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+    try {
+      response = await te.put(value, 'userW')
+      t.pass('should not throw')
+    } catch (e) {
+      t.fail('a valid DAG should not throw')
+    }
 
-    // response = await te.put({ a: 1 }, 'userX', undefined, undefined, response.meta.eTag)
-    // t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should still have 1 entry in timeline after 2nd put with same value but different userID')
+    t.end()
+  })
 
-    // response = await te.put({ a: 2 }, 'userY', undefined, undefined, response.meta.eTag)
-    // t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 3rd put with different value')
+  t.test('invalid DAG because of cycle should throw', async (t) => {
+    const state = getStateMock()
+    const env = {}
+    const te = new TemporalEntity(state, env, '***test-key-for-dag***')
 
-    // await te.put({ a: 2 }, 'userZ', undefined, undefined, response.meta.eTag)
-    // t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should still have 2 entries in timeline after 4th put')
+    const dag = {
+      id: '1',
+      children: [
+        {
+          id: '1',
+        },
+      ],
+    }
+    const value = {
+      a: 1,
+      dag,
+    }
+
+    let response
+
+    try {
+      response = await te.put(value, 'userW')
+      t.fail('async thrower did not throw')
+    } catch (e) {
+      t.pass('should throw')
+    }
+
+    t.end()
+  })
+
+  t.test('invalid DAG because of duplicate sibling should throw', async (t) => {
+    const state = getStateMock()
+    const env = {}
+    const te = new TemporalEntity(state, env, '***test-key-for-dag***')
+
+    const dag = {
+      id: '1',
+      children: [
+        {
+          id: '2',
+        },
+        {
+          id: '2',
+        },
+      ],
+    }
+    const value = {
+      a: 1,
+      dag,
+    }
+
+    let response
+
+    try {
+      response = await te.put(value, 'userW')
+      t.fail('async thrower did not throw')
+    } catch (e) {
+      t.pass('should throw')
+    }
 
     t.end()
   })

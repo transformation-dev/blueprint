@@ -30,10 +30,12 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-3 Create a types.js file that is imported into TemporalEntity specifying options: {debounceMilliseconds, supressPreviousValues, etc.}
-//       Later, we can add convert this to JSON or YAML. We can also, later, add schema and migrations.
-
 // TODO: A-2 Write a tests for keyForDag, supressPreviousValues, and debounceMilliseconds
+
+// TODO: A-3 Update documentation for '*', keyForDag, supressPreviousValues, and debounceMilliseconds
+
+// TODO: A-4 Create a types.js file that is imported into TemporalEntity specifying options: {debounceMilliseconds, supressPreviousValues, etc.}
+//       Later, we can add convert this to JSON or YAML. We can also, later, add schema and migrations.
 
 // TODO: C Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
