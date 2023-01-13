@@ -155,7 +155,7 @@ class TemporalEntityBase {
   static types = {
     '*': {  // default type
       'supressPreviousValues': false,
-      'debounceMilliseconds': 3600000, // 1 hour
+      'debounceMilliseconds': 3600000,  // 1 hour
       'keyForDag': false,
     },
     '***test-supress-previous-values***': {
@@ -163,6 +163,9 @@ class TemporalEntityBase {
     },
     '***test-key-for-dag***': {
       'keyForDag': 'dag',
+    },
+    '***test-debounce-milliseconds***': {
+      'debounceMilliseconds': 1000,  // 1 second
     },
   }
 

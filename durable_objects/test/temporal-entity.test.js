@@ -290,15 +290,31 @@ test('TemporalEntity DAG', async (t) => {
   })
 })
 
+test('TemporalEntity supressPreviousValues', async (t) => {
+  t.test('idempotency', async (t) => {
+    const state = getStateMock()
+    const env = {}
+    const te = new TemporalEntity(state, env, '***test-supress-previous-values***')
+
+    let response = await te.put({ a: 1 }, 'userW')
+    t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+
+    response = await te.put({ a: 2 }, 'userX', undefined, undefined, response.meta.eTag)
+    t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 2nd put')
+
+    t.equal(response.meta.previousValues, undefined, 'should not have previousValues in response')
+
+    t.end()
+  })
+})
+
 test('TemporalEntity idempotency', async (t) => {
   t.test('idempotency', async (t) => {
     const state = getStateMock()
     const env = {}
     const te = new TemporalEntity(state, env, '*')
 
-    let response
-
-    response = await te.put({ a: 1 }, 'userW')
+    let response = await te.put({ a: 1 }, 'userW')
     t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
 
     response = await te.put({ a: 1 }, 'userX', undefined, undefined, response.meta.eTag)
@@ -489,6 +505,34 @@ test('TemporalEntity debouncing', async (t) => {
     t.deepEqual(newCurrent3.value, { a: 5 }, 'should get back last value')
 
     t.end()
+  })
+
+  test('TemporalEntity debounceMilliseconds', async (t) => {
+    t.test('debounceMilliseconds=1000ms', async (t) => {
+      const state = getStateMock()
+      const env = {}
+      const te = new TemporalEntity(state, env, '***test-debounce-milliseconds***')
+
+      let response = await te.put({ a: 1 }, 'userX')
+
+      let newValidFromDate = new Date(new Date(response.meta.validFrom).getTime() + 1500) // 1500 ms later
+      response = await te.put({ a: 2 }, 'userX', newValidFromDate.toISOString(), undefined, response.meta.eTag)
+      t.equal(
+        state.storage.data.entityMeta.timeline.length,
+        2,
+        'should have 2 entries after 2nd put with same userID but 1500 ms in the future',
+      )
+
+      newValidFromDate = new Date(new Date(response.meta.validFrom).getTime() + 500) // 500 ms later
+      response = await te.put({ a: 2 }, 'userX', newValidFromDate.toISOString(), undefined, response.meta.eTag)
+      t.equal(
+        state.storage.data.entityMeta.timeline.length,
+        2,
+        'should still have 2 entries after 2nd put with same userID but only 500 ms in the future',
+      )
+
+      t.end()
+    })
   })
 
   test('TemporalEntity PUT fails with old ETag', async (t) => {
