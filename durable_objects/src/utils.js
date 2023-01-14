@@ -66,6 +66,9 @@ export function throwIfNotDag(o, currentPath = []) {
   throwUnless(o.id && typeof o.id === 'string', 'Each node, including the root, must have an id property that is a string', 400)
   throwIf(o.children && !Array.isArray(o.children), 'If present, the children property must be an array', 400)
   const newPath = [...currentPath, o.id]
+  // Note, we have to do the ancestor check in the next line outside of the for loop because we need to detect a cycle as soon as possible
+  // otherwise it will endlessly recurse down. I previously had an algorithm that found the leaves and then checked the ancestors of each leaf
+  // and that didn't work.
   throwUnless(new Set(newPath).size === newPath.length, `Not a valid DAG. The path ${JSON.stringify(newPath)} contains duplicate ids`, 400)
   if (o.children && o.children.length > 0) {
     const siblings = []
