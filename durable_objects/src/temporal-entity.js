@@ -1,3 +1,4 @@
+/* eslint-disable no-irregular-whitespace */
 /* eslint-disable no-use-before-define */
 /* eslint-disable quote-props */
 /* eslint-disable no-param-reassign */
@@ -30,19 +31,47 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-2 Write a tests for keyForDag, supressPreviousValues, and debounceMilliseconds
+// TODO: A-1 Update documentation for '*', supressPreviousValues, and granularity
 
-// TODO: A-3 Update documentation for '*', keyForDag, supressPreviousValues, and debounceMilliseconds
+// TODO: A-2 Refactor to granuality rather than debounceMilliseconds. If a string is provided convert to milliseconds.
 
-// TODO: A-4 Create a types.js file that is imported into TemporalEntity specifying options: {debounceMilliseconds, supressPreviousValues, etc.}
+// TODO: A-3 Refactor #type to #typeConfig and #typeKey to #type
+
+// TODO: A-4 Create a types.js file that is imported into TemporalEntity specifying options: {granularity, supressPreviousValues, etc.}
 //       Later, we can add convert this to JSON or YAML. We can also, later, add schema and migrations.
 
-// TODO: C Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
+// TODO: A-5 Since types.js is javascript and the migrations need to be code anyway, let's also make the validation be javascript.
+//       We will provide a few helpers though: 1) A DAG validator, and 2) A JSON schema validator using
+//       https://github.com/cfworker/cfworker/blob/main/packages/json-schema/README.md. So for instance, you could call JSON schema validator
+//       to validate the entire enity value. For the root value, you could use JSON schema to validate the id and children in a recursive schema
+//       but also call the DAG validator on the property that is supposed to be the root of a valid DAG.
+//       However, we will make each schema be in a separate file named /schemas/<type>.yaml. We can then later reuse these files for OpenAPI
+//       Use vite-plugin-yaml to import the YAML files as javascript objects in code for use in the validator.
+
+// TODO: A-6 Refactor so the base is TemporalEntity and the inherited class is simply Entity. I may change my mind on this. Most of the docs are
+//       written this way already but we should double check.
+
+// TODO: A-7 Remove the keyForDag option once types.js is working
+
+// TODO: B Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
 
-// TODO: C Implement query against all snapshots using npm module sift
+// TODO: B Implement query against all snapshots using npm module sift
 
-// TODO: C Add schemas and migrations to type registry. Use semantic versioning.
+// TODO: C Add migrations to type registry. Use simple integer versioning v1, v2, etc. Use Accept-Version to tell the server which version to return.
+//       Migrations can be provided for both directions (upgrade and downgrade). We'll probably look in the types.migrations object for the
+//       desired from and to version and if no migration is found we'll throw an error (406, I think).
+//       Use Content-Version to tell the server which version is being sent up. I am aware that this is definitely not the original intent of
+//       Content-Version which seems to have been deprecated in HTTP/2. However, I think it's a good use of the header. I also suspect that
+//       it's not the original intent of Accept-Version either, but ohh well. I reject the alternative of using Content-Type with something like
+//       application/vnd.myapplication.user.v1+json. cbor-sc feels more like an encoding than a content-type but I get the impression that the
+//       encoding header is reserved for things like gzip, deflate, etc. I could change my mind before I implement this.
+
+// TODO: C Add the ability to return a body.warnings array in the response. This would be useful for things like deprecated versions that might
+//       stop being supported at some point. Even if there exists an appropriate downgrade migration, the client might want to know that the
+//       version they are using is not the latest so they can plan to upgrade their code.
+
+// TODO: C OpenAPI documentation
 
 // TODO: C Get Debug() working
 
@@ -82,7 +111,16 @@ function extractETag(request) {
  * snapshot is set to a date ~8000 years in the future, 9999-01-01T00:00:00.000Z. This makes queries for a particular
  * moment in time or a range include the current snapshot.
  *
- * ## Debouncing
+ * ## Inheriting from TemporalEntity
+ *
+ * You can use TemporalEntity as-is with the '*' default type. However, the recommended approach is to inherit from
+ * TemporalEntity. You don't need to do this seperately for each type you desire, but you could. Rather, the recommended approach
+ * is to import types.js in your inherited class where you specify the types. The main reason why inheriting sepearetly for
+ * each type is not recommended is because you'll have to specify each as a separate binding in your wrangler.toml. With the
+ * recommended approach, you can specify a single inherited class (e.g. Entity) as the binding and then specify your various
+ * types in types.js.
+ *
+ * ## Granularity and debouncing
  *
  * If the same user makes multiple updates to the same entity within the time period specified by the granularity
  * (default: 1 hour), the updates are merged into a single snapshot, aka debounced. This prevents the history from growing too
@@ -143,12 +181,32 @@ function extractETag(request) {
  *      GMail also just supplies the id. This should be safe since our ids are globally unique. GMail and I assume the "@domain" is
  *      there for cases where the id is not globally unique, like if it was an auto-incrementing counter.
  *
+ * ## Types
+ *
+ * You must specify a type in the first path segment of the URL after the base URL for the temporal-entity proxy
+ * (e.g. https://api/temporal-entity/<type>/<id>/...).
+ *
+ * The convention is to use the types.js file to specify the type but you could do it right in your inherited class. Regardless, it must
+ * provide a types object where the key is the name of the type (ie <type> in our example above). The type can have these properrties:
+ *   1. supressPreviousValues (default: false)
+ *   2. granularity (default: 'hour') - 'second' or 'sec', 'minute' or 'min', 'hour' or 'hr', 'day', or 'week' are supported.
+ *      You can also just specify an integer number of milliseconds.
+ *   3. validation which is javascript code so you can chose to use JSON Schema or utils.throwIfNotDag. Failing validation should throw
+ *      an error with utils.HTTPError()
+ *   4. warnings (TBD)
+ *   5. migrations (TBD)
+ *
+ * ### Default type
+ *
+ * You can specify a default type by using '*' (e.g. https://api/temporal-entity/*​/<id>/...). You can override the defaults for the default
+ * type by specifying a type named '*' in your types.js file and not including ...super.types or just super.types[*] in the constructor
+ * of your inherited class.
+ *
  * @constructor
  * @param {DurableObjectState} state
  * @param {DurableObjectEnv} env
  *
  * */
-// export class TemporalEntity {
 class TemporalEntityBase {
   static END_OF_TIME = '9999-01-01T00:00:00.000Z'
 
@@ -399,7 +457,7 @@ class TemporalEntityBase {
 
     await this.#hydrate()
 
-    if (this.#type.keyForDag) utils.throwIfNotDag(value[this.#type.keyForDag])
+    if (this.#type.keyForDag) utils.throwIfNotDag(value[this.#type.keyForDag])  // TODO: Move this to validation in types.js
 
     // Process eTag header
     utils.throwIf(this.#entityMeta.eTags.length > 0 && !eTag, 'required ETag header for TemporalEntity PUT is missing', 428, this.#current)
