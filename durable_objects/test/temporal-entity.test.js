@@ -507,11 +507,11 @@ test('TemporalEntity debouncing', async (t) => {
     t.end()
   })
 
-  test('TemporalEntity debounceMilliseconds', async (t) => {
-    t.test('debounceMilliseconds=1000ms', async (t) => {
+  test('TemporalEntity granularity', async (t) => {
+    t.test('granularity="sec"', async (t) => {
       const state = getStateMock()
       const env = {}
-      const te = new TemporalEntity(state, env, '***test-debounce-milliseconds***')
+      const te = new TemporalEntity(state, env, '***test-granularity***')
 
       let response = await te.put({ a: 1 }, 'userX')
 

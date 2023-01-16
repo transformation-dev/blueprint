@@ -31,10 +31,6 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-2 Refactor to granuality rather than debounceMilliseconds. If a string is provided convert to milliseconds.
-
-// TODO: A-3 Refactor #type to #typeConfig and #typeKey to #type
-
 // TODO: A-4 Create a types.js file that is imported into TemporalEntity specifying options: {granularity, supressPreviousValues, etc.}
 //       Later, we can add convert this to JSON or YAML. We can also, later, add schema and migrations.
 
@@ -123,7 +119,9 @@ function extractETag(request) {
  * If the same user makes multiple updates to the same entity within the time period specified by the granularity
  * (default: 1 hour), the updates are merged into a single snapshot, aka debounced. This prevents the history from growing too
  * rapidly in the now common pattern of saving changes in the UI as they are made rather than waiting until the user clicks on
- * a save button.
+ * a save button. The granularity can be specified as a string (e.g. 'hour'). The most coarse granularity you'll probably ever
+ * want is 'day' so that's the coarsest you can specify with a string but you can specify any number of milliseconds by using
+ * as an integer rather than a string.
  *
  * ## Using previousValues and when to supress them
  *
@@ -209,7 +207,7 @@ function extractETag(request) {
  * The convention is to use the types.js file to specify the type but you could do it right in your inherited class. Regardless, it must
  * provide a types object where the key is the name of the type (ie <type> in our example above). The type can have these properrties:
  *   1. supressPreviousValues (default: false)
- *   2. granularity (default: 'hour') - 'second' or 'sec', 'minute' or 'min', 'hour' or 'hr', 'day', or 'week' are supported.
+ *   2. granularity (default: 'hour') - 'second' or 'sec', 'minute' or 'min', 'hour' or 'hr', or 'day' are supported.
  *      You can also just specify an integer number of milliseconds.
  *   3. validation which is javascript code so you can chose to use JSON Schema or utils.throwIfNotDag. Failing validation should throw
  *      an error with utils.HTTPError()
@@ -242,16 +240,16 @@ class TemporalEntityBase {
     '***test-key-for-dag***': {
       'keyForDag': 'dag',
     },
-    '***test-debounce-milliseconds***': {
-      'granularity': 1000,  // 1 second
+    '***test-granularity***': {
+      'granularity': 'second',
     },
   }
 
   #id
 
-  #typeKey
-
   #type
+
+  #typeConfig
 
   #entityMeta  // Metadata for the entity { timeline, eTags }
 
@@ -259,12 +257,12 @@ class TemporalEntityBase {
 
   #hydrated
 
-  constructor(state, env, typeKey) {  // typeKey is only used in unit tests. Cloudflare only passes in two parameters
+  constructor(state, env, type) {  // type is only used in unit tests. Cloudflare only passes in two parameters
     this.state = state
     this.env = env
     this.#hydrated = false
-    if (typeKey) {  // TODO: add a check that confirms we are not in production or preview since this is only for unit tests
-      this.#typeKey = typeKey
+    if (type) {  // TODO: add a check that confirms we are not in production or preview since this is only for unit tests
+      this.#type = type
     }
     // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
   }
@@ -274,22 +272,29 @@ class TemporalEntityBase {
 
     // validation
     utils.throwUnless(this.state?.id?.toString() === this.#id, `Entity id mismatch. Url says ${this.#id} but this.state.id says ${this.state.id}.`, 500)
-    utils.throwUnless(this.constructor.types[this.#typeKey], `Entity type, ${this.#typeKey}, not found`, 404)
+    utils.throwUnless(this.constructor.types[this.#type], `Entity type, ${this.#type}, not found`, 404)
 
     // hydrate #entityMeta
     this.#entityMeta = await this.state.storage.get('entityMeta')
     if (this.#entityMeta) {
-      utils.throwUnless(this.#entityMeta.typeKey === this.#typeKey, `Entity type mismatch. Url says ${this.#typeKey} but entityMeta says ${this.#entityMeta.typeKey}.`, 500)
+      utils.throwUnless(this.#entityMeta.type === this.#type, `Entity type mismatch. Url says ${this.#type} but entityMeta says ${this.#entityMeta.type}.`, 500)
     } else {
-      this.#entityMeta = { timeline: [], eTags: [], typeKey: this.#typeKey }
+      this.#entityMeta = { timeline: [], eTags: [], type: this.#type }
     }
 
     // hydrate #type. We don't save type in entityMeta which allows for the values to be changed over time
     const defaultType = this.constructor.types['*']
-    const lookedUpType = this.constructor.types[this.#typeKey]  // this.#typeKey is normally set in the fetch handler, but can be set in the constructor for unit tests
-    this.#type = []
+    const lookedUpType = this.constructor.types[this.#type]  // this.#type is normally set in the fetch handler, but can be set in the constructor for unit tests
+    this.#typeConfig = []
     for (const key of Reflect.ownKeys(defaultType).concat(Reflect.ownKeys(lookedUpType))) {
-      this.#type[key] = lookedUpType[key] || defaultType[key]
+      this.#typeConfig[key] = lookedUpType[key] || defaultType[key]
+      if (key === 'granularity' && typeof this.#typeConfig.granularity === 'string') {
+        if (['sec', 'second'].includes(this.#typeConfig.granularity)) this.#typeConfig.granularity = 1000
+        else if (['min', 'minute'].includes(this.#typeConfig.granularity)) this.#typeConfig.granularity = 60000
+        else if (['hr', 'hour'].includes(this.#typeConfig.granularity)) this.#typeConfig.granularity = 3600000
+        else if (this.#typeConfig.granularity === 'day') this.#typeConfig.granularity = 86400000
+        else utils.throwIf(true, `Unsupported granularity: ${this.#typeConfig.granularity}`, 500)
+      }
     }
 
     // hydrate #current
@@ -357,7 +362,7 @@ class TemporalEntityBase {
       const url = new URL(request.url)
       const pathArray = url.pathname.split('/')
       if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
-      this.#typeKey = pathArray.shift()
+      this.#type = pathArray.shift()
       this.#id = pathArray.shift()
 
       const restOfPath = `/${pathArray.join('/')}`
@@ -477,7 +482,7 @@ class TemporalEntityBase {
 
     await this.#hydrate()
 
-    if (this.#type.keyForDag) utils.throwIfNotDag(value[this.#type.keyForDag])  // TODO: Move this to validation in types.js
+    if (this.#typeConfig.keyForDag) utils.throwIfNotDag(value[this.#typeConfig.keyForDag])  // TODO: Move this to validation in types.js
 
     // Process eTag header
     utils.throwIf(this.#entityMeta.eTags.length > 0 && !eTag, 'required ETag header for TemporalEntity PUT is missing', 428, this.#current)
@@ -496,7 +501,7 @@ class TemporalEntityBase {
       oldCurrent = structuredClone(this.#current)
       if (
         userID === this.#current?.meta?.userID
-        && validFromDate - new Date(this.#current.meta.validFrom) < this.#type.granularity
+        && validFromDate - new Date(this.#current.meta.validFrom) < this.#typeConfig.granularity
       ) {
         debounce = true
         // Make oldCurrent and validFrom be from -2 (or { value: {} }) because we're going to replace the -1 with the new value
@@ -526,7 +531,7 @@ class TemporalEntityBase {
       eTag: nanoidNonSecure(),
       // id: this.#id,
     }
-    if (!this.#type.supressPreviousValues) this.#current.meta.previousValues = previousValues
+    if (!this.#typeConfig.supressPreviousValues) this.#current.meta.previousValues = previousValues
     if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
     this.#current.value = value
     if (debounce) {
@@ -638,7 +643,7 @@ export class TemporalEntity extends TemporalEntityBase {
     ...super.types,
     'some-type': {
       'supressPreviousValues': true,
-      'granularity': 1000, // 1 second
+      'granularity': 'hour',
       'keyForDag': 'dagTree',
     },
   }
