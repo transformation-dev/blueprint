@@ -31,8 +31,6 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-1 Update documentation for '*', supressPreviousValues, and granularity
-
 // TODO: A-2 Refactor to granuality rather than debounceMilliseconds. If a string is provided convert to milliseconds.
 
 // TODO: A-3 Refactor #type to #typeConfig and #typeKey to #type
@@ -127,6 +125,28 @@ function extractETag(request) {
  * rapidly in the now common pattern of saving changes in the UI as they are made rather than waiting until the user clicks on
  * a save button.
  *
+ * ## Using previousValues and when to supress them
+ *
+ * The meta.previousValues property is used to find or count particular state transitions by only looking at one snapshot at
+ * a time. Let's say, you want to know the throughput of a lean/agile development team for a particular two-week sprint. Let's assume
+ * the following states for stories: 'To Do', 'In Progress', 'Accepted', and 'Shipped'. You could write a query like this:
+ *
+ *     meta.validFrom >= '2020-01-01' AND
+ *     meta.validFrom < '2020-01-15' AND
+ *     value.storyState >= 'Accepted" AND
+ *     meta.previousValues.storyState < 'Accepted'
+ *
+ * To accomplish the same thing without previousValues, you would have to use a query with only the first three conditions and then
+ * retrieve the snapshot immediately prior to those by 1st doing a lookup in the timeline and then making another round trip to storage.
+ * You'd then have to post-process the results. At least 2x more expensive and perhaps 10x more complex.
+ *
+ * The cost of storing previousValues is negligible since it's only storing the diff which means only the fields that have changed.
+ * The incremental cost of calculating the diff is zero since we calculate it anyway to determine idempotency. In theory, we could
+ * have a short-circuited idempotency checker that would be more efficient but it's not worth the complexity especially since the
+ * diff is calculated in memory with no I/O. So, you should only supress previousValues if you are sure you'll never want to analyze
+ * state transitions and you expect them to be more expensive than normal, for instance for large entities that change frequently and 
+ * where almost the entire value is changing every update.
+ *
  * ## CBOR with structured clone extension encoding
  *
  * The entity value is encoded as CBOR with the structured clone extension using the npm package cbor-x. CBOR is the
@@ -213,7 +233,7 @@ class TemporalEntityBase {
   static types = {
     '*': {  // default type
       'supressPreviousValues': false,
-      'debounceMilliseconds': 3600000,  // 1 hour
+      'granularity': 3600000,  // 1 hour
       'keyForDag': false,
     },
     '***test-supress-previous-values***': {
@@ -223,7 +243,7 @@ class TemporalEntityBase {
       'keyForDag': 'dag',
     },
     '***test-debounce-milliseconds***': {
-      'debounceMilliseconds': 1000,  // 1 second
+      'granularity': 1000,  // 1 second
     },
   }
 
@@ -476,7 +496,7 @@ class TemporalEntityBase {
       oldCurrent = structuredClone(this.#current)
       if (
         userID === this.#current?.meta?.userID
-        && validFromDate - new Date(this.#current.meta.validFrom) < this.#type.debounceMilliseconds
+        && validFromDate - new Date(this.#current.meta.validFrom) < this.#type.granularity
       ) {
         debounce = true
         // Make oldCurrent and validFrom be from -2 (or { value: {} }) because we're going to replace the -1 with the new value
@@ -618,7 +638,7 @@ export class TemporalEntity extends TemporalEntityBase {
     ...super.types,
     'some-type': {
       'supressPreviousValues': true,
-      'debounceMilliseconds': 1000, // 1 second
+      'granularity': 1000, // 1 second
       'keyForDag': 'dagTree',
     },
   }

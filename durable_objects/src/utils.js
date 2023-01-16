@@ -11,7 +11,7 @@ export class HTTPError extends Error {
     this.status = status
     if (body) {
       if (typeof body === 'object') {
-        this.body = structuredClone(body)
+        this.body = structuredClone(body)  // TODO: C - Consider not cloning in production or preview
         this.body.error = { message, status }
       } else {
         this.body = body
