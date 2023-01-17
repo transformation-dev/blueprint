@@ -1,7 +1,6 @@
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-shadow */
-import { nanoid } from 'nanoid/non-secure'
 import test from 'tape'
 import { TemporalEntity } from '../src/temporal-entity.js'
 
@@ -22,6 +21,17 @@ class StorageMock {
 function getStateMock(initialData = {}) {
   return { storage: new StorageMock(initialData), id: undefined }  // id must be undefined for unit tests to pass due to the validation that state.id match the id in the url
 }
+
+test('TemporalEntity END_OF_TIME', async (t) => {
+  t.test('END_OF_TIME', (t) => {
+    t.true(
+      TemporalEntity.types['***test-type-in-subclass***']['***test-property-in-type-in-subclass***'],
+      'should have property from subclass',
+    )
+
+    t.end()
+  })
+})
 
 test('TemporalEntity put(), patch(), and rehydrate', async (t) => {
   const state = getStateMock()
