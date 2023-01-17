@@ -66,7 +66,7 @@ function apply(obj, d) {
   for (const key of Object.keys(d)) {
     if (d[key] instanceof Object) {
       // eslint-disable-next-line no-param-reassign
-      obj[key] = apply(obj[key] || {}, d[key])
+      obj[key] = apply(obj[key] ?? {}, d[key])
     } else if (d[key] === undefined) {
       // eslint-disable-next-line no-param-reassign
       delete obj[key]
@@ -249,7 +249,7 @@ export class TemporalEntityBase {
 
   #typeConfig
 
-  #entityMeta  // Metadata for the entity { timeline, eTags }
+  #entityMeta  // Metadata for the entity { timeline, eTags, type, version }
 
   #current  // { value, meta }
 
@@ -262,7 +262,7 @@ export class TemporalEntityBase {
     if (type) {  // TODO: add a check that confirms we are not in production or preview since this is only for unit tests
       this.#type = type
     }
-    this.#version ??= version || 'v1'
+    this.#version ??= version ?? 'v1'
     // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
   }
 
@@ -277,8 +277,9 @@ export class TemporalEntityBase {
     this.#entityMeta = await this.state.storage.get('entityMeta')
     if (this.#entityMeta) {
       utils.throwUnless(this.#entityMeta.type === this.#type, `Entity type mismatch. Url says ${this.#type} but entityMeta says ${this.#entityMeta.type}.`, 500)
+      utils.throwUnless(this.#entityMeta.version === this.#version, `Entity version mismatch. Url/default says ${this.#version} but entityMeta says ${this.#entityMeta.version}.`, 500)
     } else {
-      this.#entityMeta = { timeline: [], eTags: [], type: this.#type }
+      this.#entityMeta = { timeline: [], eTags: [], type: this.#type, version: this.#version }
     }
 
     // hydrate #type. We don't save typeConfig in entityMeta which allows for the values to be changed over time
@@ -286,7 +287,7 @@ export class TemporalEntityBase {
     const lookedUpType = this.constructor.types[this.#type]  // this.#type is normally set in the fetch handler, but can be set in the constructor for unit tests
     this.#typeConfig = {}
     for (const key of Reflect.ownKeys(defaultType).concat(Reflect.ownKeys(lookedUpType))) {
-      this.#typeConfig[key] = lookedUpType[key] || defaultType[key]
+      this.#typeConfig[key] = lookedUpType[key] ?? defaultType[key]
       if (key === 'granularity' && typeof this.#typeConfig.granularity === 'string') {
         if (['sec', 'second'].includes(this.#typeConfig.granularity)) this.#typeConfig.granularity = 1000
         else if (['min', 'minute'].includes(this.#typeConfig.granularity)) this.#typeConfig.granularity = 60000
@@ -323,7 +324,7 @@ export class TemporalEntityBase {
   #getErrorResponse(e) {
     if (!e.body) e.body = {}
     e.body.error = { message: e.message, status: e.status }
-    return this.#getResponse(e.body, e.status || 500, e.message)
+    return this.#getResponse(e.body, e.status ?? 500, e.message)
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -569,7 +570,7 @@ export class TemporalEntityBase {
   // To change a value for one key, just set it to the new value in the delta
   async patch(options, eTag) {
     const { delta, undelete, userID, validFrom, impersonatorID } = options
-    utils.throwUnless(delta || undelete, 'body.delta or body.undelete required by TemporalEntity PATCH is missing')
+    utils.throwUnless(delta ?? undelete, 'body.delta or body.undelete required by TemporalEntity PATCH is missing')
     utils.throwIf(delta && undelete, 'only one or the other of body.delta or body.undelete is allowed by TemporalEntity PATCH')
 
     if (undelete) {
