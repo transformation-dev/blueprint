@@ -209,7 +209,7 @@ test('TemporalEntity DAG', async (t) => {
   t.test('valid DAG should not throw', async (t) => {
     const state = getStateMock()
     const env = {}
-    const te = new TemporalEntity(state, env, '***test-key-for-dag***')
+    const te = new TemporalEntity(state, env, '***test-dag***')
 
     const dag = {
       id: '1',
@@ -239,7 +239,7 @@ test('TemporalEntity DAG', async (t) => {
   t.test('invalid DAG because of cycle should throw', async (t) => {
     const state = getStateMock()
     const env = {}
-    const te = new TemporalEntity(state, env, '***test-key-for-dag***')
+    const te = new TemporalEntity(state, env, '***test-dag***')
 
     const dag = {
       id: '1',
@@ -269,7 +269,7 @@ test('TemporalEntity DAG', async (t) => {
   t.test('invalid DAG because of duplicate sibling should throw', async (t) => {
     const state = getStateMock()
     const env = {}
-    const te = new TemporalEntity(state, env, '***test-key-for-dag***')
+    const te = new TemporalEntity(state, env, '***test-dag***')
 
     const dag = {
       id: '1',

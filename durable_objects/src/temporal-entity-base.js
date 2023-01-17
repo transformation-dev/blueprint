@@ -31,40 +31,22 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-0 Refactor to remove the type from the url and instead use the Content-Type and Accept headers. For example:
-//       `application/vnd.transformation.dev.user+cbor; version=1`. In this example user is the type. Note, I'm
-//       dropping the -sc suffix from +cbor-sc because the RFC 6839 says that you should only use registered suffixes and cbor-sc is not one.
-//       This refactor likely means abandoning the package @transformation-dev/accept which has a bunch of feature we don't need
-//       like quality value syntax and creating a much simpler approach that assumes the format `application/vnd.transformation.dev.user+cbor; version=1`
-//       Multiple values in an Accept header are separated by commas, so you can parse with something like this:
-//           myHeaders.append('Accept-Encoding', 'deflate');
-//           myHeaders.append('Accept-Encoding', 'gzip');
-//           myHeaders.get('Accept-Encoding'); // Returns "deflate, gzip"
-//           myHeaders.get('Accept-Encoding').split(',').map((v) => v.trimStart()); // Returns [ "deflate", "gzip" ]
-
-// TODO: A-1 Add a reference to the DAG validator in types.
-//       Since types.js is javascript and the migrations need to be code anyway, let's also make the validation be javascript.
-//       We will provide a few helpers though: 1) A DAG validator, and 2) A JSON schema validator. So for instance, you could call JSON schema validator
-//       to validate the entire enity value. For the root value, you could use JSON schema to validate the id and children in a recursive schema
-//       but also call the DAG validator on the property that is supposed to be the root of a valid DAG.
-//       However, we will make each schema be in a separate file named /schemas/<type>.yaml. We can then later reuse these files for OpenAPI
-//       Use vite-plugin-yaml to import the YAML files as javascript objects in code for use in the validator.
-
-// TODO: A-2 Remove the keyForDag option once types.js is working
-
 // TODO: A-3 Add a reference to the JSON Schema validation in types using
 //       https://github.com/cfworker/cfworker/blob/main/packages/json-schema/README.md.
+//       Make each schema be in a separate file named /schemas/<type>.yaml. We can then later reuse these files for OpenAPI
+//       Use vite-plugin-yaml to import the YAML files as javascript objects in code for use in the validator.
 
 // TODO: B Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
 
 // TODO: B Implement query against all snapshots using npm module sift
 
-// TODO: C Add migrations to type registry. Use simple integer versioning v1, v2, etc. Use Content-Type and Accept headers with vendor (vnd),
-//       for example: `application/vnd.transformation.dev.user+cbor; version=1`. In this example user is the type and v1 is the version.
+// TODO: B Replace cbor-sc with cbor once we get an answer on the GitHub cbor-x discussion board https://github.com/kriszyp/cbor-x/discussions/65
+
+// TODO: C Add migrations to type registry. Use simple integer versioning v1, v2, in the URL right after the type segment.
 //       Migrations can be provided for both directions (upgrade and downgrade). Look in the types.migrations object for the
 //       desired from and to version and if no migration is found we'll throw an error (406, I think). We should also add a warnings property
-//       to all replies if the user still only accepts older versions. Maybe even a stronger warning for versions specified as deprecated.
+//       to all requests where the user asks for an older version. Maybe even a stronger warning for versions specified as deprecated.
 
 // TODO: C Add the ability to return a body.warnings array in the response. This would be useful for things like deprecated versions that might
 //       stop being supported at some point. Even if there exists an appropriate downgrade migration, the client might want to know that the
@@ -240,13 +222,19 @@ export class TemporalEntityBase {
     '*': {  // default type
       'supressPreviousValues': false,
       'granularity': 3600000,  // 1 hour
-      'keyForDag': false,
     },
     '***test-supress-previous-values***': {
       'supressPreviousValues': true,
     },
-    '***test-key-for-dag***': {
-      'keyForDag': 'dag',
+    '***test-dag***': {
+      versions: {
+        v1: {  // 'v1' is also used when no version is specified
+          validate(value) {
+            utils.throwIfNotDag(value.dag)
+            return true
+          },
+        },
+      },
     },
     '***test-granularity***': {
       'granularity': 'second',
@@ -257,6 +245,8 @@ export class TemporalEntityBase {
 
   #type
 
+  #version
+
   #typeConfig
 
   #entityMeta  // Metadata for the entity { timeline, eTags }
@@ -265,13 +255,14 @@ export class TemporalEntityBase {
 
   #hydrated
 
-  constructor(state, env, type) {  // type is only used in unit tests. Cloudflare only passes in two parameters
+  constructor(state, env, type, version) {  // type and version are only used in unit tests. Cloudflare only passes in two parameters
     this.state = state
     this.env = env
     this.#hydrated = false
     if (type) {  // TODO: add a check that confirms we are not in production or preview since this is only for unit tests
       this.#type = type
     }
+    this.#version ??= version || 'v1'
     // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
   }
 
@@ -290,10 +281,10 @@ export class TemporalEntityBase {
       this.#entityMeta = { timeline: [], eTags: [], type: this.#type }
     }
 
-    // hydrate #type. We don't save type in entityMeta which allows for the values to be changed over time
+    // hydrate #type. We don't save typeConfig in entityMeta which allows for the values to be changed over time
     const defaultType = this.constructor.types['*']
     const lookedUpType = this.constructor.types[this.#type]  // this.#type is normally set in the fetch handler, but can be set in the constructor for unit tests
-    this.#typeConfig = []
+    this.#typeConfig = {}
     for (const key of Reflect.ownKeys(defaultType).concat(Reflect.ownKeys(lookedUpType))) {
       this.#typeConfig[key] = lookedUpType[key] || defaultType[key]
       if (key === 'granularity' && typeof this.#typeConfig.granularity === 'string') {
@@ -371,6 +362,7 @@ export class TemporalEntityBase {
       const pathArray = url.pathname.split('/')
       if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
       this.#type = pathArray.shift()
+      this.#version = 'v1'  // TODO: support multiple versions by expecting it in the path segment right after the type
       this.#id = pathArray.shift()
 
       const restOfPath = `/${pathArray.join('/')}`
@@ -490,7 +482,10 @@ export class TemporalEntityBase {
 
     await this.#hydrate()
 
-    if (this.#typeConfig.keyForDag) utils.throwIfNotDag(value[this.#typeConfig.keyForDag])  // TODO: Move this to validation in types.js
+    const { versions } = this.#typeConfig
+    if (versions) {
+      versions[this.#version]?.validate(value)
+    }
 
     // Process eTag header
     utils.throwIf(this.#entityMeta.eTags.length > 0 && !eTag, 'required ETag header for TemporalEntity PUT is missing', 428, this.#current)
