@@ -15,7 +15,7 @@ import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 import * as utils from './utils.js'
 import testSchemaString from './schemas/test.yaml'
 
-const testSchema = yamlParse(testSchemaString)  // TODO: Upgrade testSchema to be recursive
+const testSchema = yamlParse(testSchemaString)
 const testSchemaValidator = new JsonSchemaValidator(testSchema, '2020-12')
 
 const cborSC = new Encoder({ structuredClone: true })
@@ -36,6 +36,8 @@ const cborSC = new Encoder({ structuredClone: true })
 // https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/capitalization-conventions
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
+
+// TODO: A-1 Upgrade testSchema to be recursive
 
 // TODO: B Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js

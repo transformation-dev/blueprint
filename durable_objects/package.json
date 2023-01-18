@@ -9,7 +9,7 @@
   },
   "scripts": {
     "publish": "npm run build && npx wrangler publish",
-    "build": "npm run test && npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm --target=esnext --bundle --loader:.yaml=text",
+    "build": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm --target=esnext --bundle --loader:.yaml=text && npm run test",
     "dev": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm  --bundle --loader:.yaml=text --watch",
     "test": "tape test/* | tap-spec",
     "coverage": "c8 npm run test",
