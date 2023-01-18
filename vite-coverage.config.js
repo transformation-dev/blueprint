@@ -1,4 +1,3 @@
-/* eslint-disable import/no-extraneous-dependencies */
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import istanbul from 'vite-plugin-istanbul'

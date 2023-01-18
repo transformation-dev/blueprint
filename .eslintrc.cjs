@@ -32,5 +32,6 @@ module.exports = {
     'import/extensions': 'off',
     'no-restricted-syntax': 'off',
     'max-classes-per-file': 'off',
+    'import/no-extraneous-dependencies': ['error', { devDependencies: true, optionalDependencies: false }],
   },
 }

@@ -9,8 +9,14 @@ import { Encoder } from 'cbor-x'
 // TODO: consider switching nanoid out for Crypto.randomUUID() if available in cloudflare
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'  // should be fine to use the non-secure version since we are only using this for eTags
 // import { nanoid } from 'nanoid'
+import { parse as yamlParse } from 'yaml'
+import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 
 import * as utils from './utils.js'
+import testSchemaString from './schemas/test.yaml'
+
+const testSchema = yamlParse(testSchemaString)  // TODO: Upgrade testSchema to be recursive
+const testSchemaValidator = new JsonSchemaValidator(testSchema, '2020-12')
 
 const cborSC = new Encoder({ structuredClone: true })
 
@@ -30,11 +36,6 @@ const cborSC = new Encoder({ structuredClone: true })
 // https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/capitalization-conventions
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
-
-// TODO: A-3 Add a reference to the JSON Schema validation in types using
-//       https://github.com/cfworker/cfworker/blob/main/packages/json-schema/README.md.
-//       Make each schema be in a separate file named /schemas/<type>.yaml. We can then later reuse these files for OpenAPI
-//       Use vite-plugin-yaml to import the YAML files as javascript objects in code for use in the validator.
 
 // TODO: B Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
@@ -61,6 +62,8 @@ const cborSC = new Encoder({ structuredClone: true })
 // TODO: C Move TemporalEntity to its own package.
 
 // TODO: C Specify the Vary header in the response to let caching know what headers were used in content negotiation.
+
+// TODO: C Add a HEAD method that returns the same headers as GET but no body.
 
 function apply(obj, d) {
   for (const key of Object.keys(d)) {
@@ -228,10 +231,11 @@ export class TemporalEntityBase {
     },
     '***test-dag***': {
       versions: {
-        v1: {  // 'v1' is also used when no version is specified
+        v1: {  // 'v1' is the default when no version is specified
           validate(value) {
             utils.throwIfNotDag(value.dag)
-            return true
+            const result = testSchemaValidator.validate(value)
+            utils.throwUnless(result.valid, `Schema validation failed. Error(s):\n${JSON.stringify(result.errors, null, 2)}`)
           },
         },
       },
@@ -316,6 +320,8 @@ export class TemporalEntityBase {
     }
     if (body && typeof body === 'object') {
       body.id = this.#id
+      body.type = this.#type
+      body.version = this.#version
       return new Response(cborSC.encode(body), { status, headers })
     }
     return new Response(undefined, { status, headers })
@@ -363,7 +369,7 @@ export class TemporalEntityBase {
       const pathArray = url.pathname.split('/')
       if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
       this.#type = pathArray.shift()
-      this.#version = 'v1'  // TODO: support multiple versions by expecting it in the path segment right after the type
+      this.#version = 'v1'  // TODO: support multiple versions by optionally expecting it in the path segment right after the type
       this.#id = pathArray.shift()
 
       const restOfPath = `/${pathArray.join('/')}`
@@ -570,7 +576,7 @@ export class TemporalEntityBase {
   // To change a value for one key, just set it to the new value in the delta
   async patch(options, eTag) {
     const { delta, undelete, userID, validFrom, impersonatorID } = options
-    utils.throwUnless(delta ?? undelete, 'body.delta or body.undelete required by TemporalEntity PATCH is missing')
+    utils.throwUnless(delta || undelete, 'body.delta or body.undelete required by TemporalEntity PATCH is missing')
     utils.throwIf(delta && undelete, 'only one or the other of body.delta or body.undelete is allowed by TemporalEntity PATCH')
 
     if (undelete) {

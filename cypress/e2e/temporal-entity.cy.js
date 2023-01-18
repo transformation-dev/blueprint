@@ -113,6 +113,8 @@ context('TemporalEntity', () => {
       delete o.meta.eTag
       expect(o).to.deep.eq({
         "id": id,
+        "type": "*",
+        "version": "v1",
         "meta": {
           "previousValues": { a: undefined, b: undefined },
           "userID": "1",
@@ -154,6 +156,8 @@ context('TemporalEntity', () => {
         delete o.meta.eTag
         expect(o).to.deep.eq({
           "id": id,
+          "type": "*",
+          "version": "v1",
           "meta": {
             "previousValues": { a: 1, b: 2 },
             "userID": "2",

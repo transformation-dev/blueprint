@@ -2,7 +2,8 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-shadow */
 import test from 'tape'
-import { TemporalEntity } from '../src/temporal-entity.js'
+// import { TemporalEntity } from '../src/temporal-entity.js'
+import { TemporalEntity } from '../index.mjs'
 
 class StorageMock {
   constructor(initialData = {}) {
@@ -206,7 +207,7 @@ test('TemporalEntity validation', async (t) => {
 })
 
 test('TemporalEntity DAG', async (t) => {
-  t.test('valid DAG should not throw', async (t) => {
+  t.test('valid DAG matching schema should not throw', async (t) => {
     const state = getStateMock()
     const env = {}
     const te = new TemporalEntity(state, env, '***test-dag***')
@@ -293,6 +294,37 @@ test('TemporalEntity DAG', async (t) => {
       response = await te.put(value, 'userW')
       t.fail('async thrower did not throw')
     } catch (e) {
+      t.pass('should throw')
+    }
+
+    t.end()
+  })
+
+  t.test('valid DAG but not matching schema should throw', async (t) => {
+    const state = getStateMock()
+    const env = {}
+    const te = new TemporalEntity(state, env, '***test-dag***')
+
+    const dag = {
+      id: '1',
+      children: [
+        {
+          id: '2',
+        },
+      ],
+    }
+    const value = {
+      a: 'string when a number is expected',
+      dag,
+    }
+
+    let response
+
+    try {
+      response = await te.put(value, 'userW')
+      t.fail('async thrower did not throw')
+    } catch (e) {
+      t.true(e.message.startsWith('Schema validation failed'), 'should start with "Schema validation failed"')
       t.pass('should throw')
     }
 

@@ -9,20 +9,23 @@
   },
   "scripts": {
     "publish": "npm run build && npx wrangler publish",
-    "build": "npm run test && npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm --target=esnext --bundle",
-    "dev": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm  --bundle --watch",
+    "build": "npm run test && npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm --target=esnext --bundle --loader:.yaml=text",
+    "dev": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm  --bundle --loader:.yaml=text --watch",
     "test": "tape test/* | tap-spec",
     "coverage": "c8 npm run test",
     "coverage-report": "c8 report --reporter=html"
   },
   "dependencies": {
+    "@cfworker/json-schema": "^1.12.5",
     "@transformation-dev/accept": "file:packages/accept",
     "cbor-x": "^1.4.1",
     "debug": "^4.3.3",
     "deep-object-diff": "^1.1.9",
-    "nanoid": "^4.0.0"
+    "nanoid": "^4.0.0",
+    "yaml": "^2.2.1"
   },
   "devDependencies": {
+    "esbuild": "^0.17.2",
     "tap-spec": "^5.0.0",
     "tape": "^5.6.1",
     "wrangler": "^2.6.2"
