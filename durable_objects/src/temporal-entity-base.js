@@ -13,10 +13,9 @@ import { parse as yamlParse } from 'yaml'
 import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 
 import * as utils from './utils.js'
-import testSchemaString from './schemas/test.yaml'
+import testDagSchemaV1String from './schemas/***test-dag***.v1.yaml'
 
-const testSchema = yamlParse(testSchemaString)
-const testSchemaValidator = new JsonSchemaValidator(testSchema, '2020-12')
+const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 
 const cborSC = new Encoder({ structuredClone: true })
 
@@ -37,7 +36,16 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-1 Upgrade testSchema to be recursive
+// TODO: A-2 Refactor to have an explicit schema section in types.versions.<version> and do validation against that schema
+//       Maybe rename types.versions.<version>.validation() to ...additionalValidation()
+
+// TODO: A-3 Refactor to require the version number in the url unless you are hitting the /versions (or similar "static") endpoint
+//       This means we should probably search the path segments for the first instance of a match to a durable object idString using
+//       the regex in [[path]].js. Make [[path]].js more generic as per the TODO in that file.
+
+// TODO: A-4 Add a GET /versions endpoint that returns the versions (including the schema) for the type
+//       This won't be super efficient because it'll have to stand up a dummy durable object every time but
+//       I will only hit it when the single-page app starts up.
 
 // TODO: B Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
@@ -55,7 +63,8 @@ const cborSC = new Encoder({ structuredClone: true })
 //       stop being supported at some point. Even if there exists an appropriate downgrade migration, the client might want to know that the
 //       version they are using is not the latest so they can plan to upgrade their code.
 
-// TODO: C OpenAPI documentation
+// TODO: C OpenAPI documentation. Create top-level schemas for PUT and PATCH requests but don't use them for validation because I want to
+//       keep doing that in code because I like my error messages. It's only for documentation. Create schemas for responses.
 
 // TODO: C Get Debug() working
 
@@ -234,10 +243,9 @@ export class TemporalEntityBase {
     '***test-dag***': {
       versions: {
         v1: {  // 'v1' is the default when no version is specified
-          validate(value) {
+          schema: testDagSchemaV1,
+          additionalValidation(value) {
             utils.throwIfNotDag(value.dag)
-            const result = testSchemaValidator.validate(value)
-            utils.throwUnless(result.valid, `Schema validation failed. Error(s):\n${JSON.stringify(result.errors, null, 2)}`)
           },
         },
       },
@@ -493,7 +501,13 @@ export class TemporalEntityBase {
 
     const { versions } = this.#typeConfig
     if (versions) {
-      versions[this.#version]?.validate(value)
+      const schema = versions[this.#version]?.schema
+      if (schema) {
+        const schemaValidator = new JsonSchemaValidator(schema)
+        const result = schemaValidator.validate(value)
+        utils.throwUnless(result.valid, `Schema validation failed. Error(s):\n${JSON.stringify(result.errors, null, 2)}`)
+      }
+      versions[this.#version]?.additionalValidation(value)
     }
 
     // Process eTag header

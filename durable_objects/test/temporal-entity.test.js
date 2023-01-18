@@ -231,6 +231,7 @@ test('TemporalEntity DAG', async (t) => {
       response = await te.put(value, 'userW')
       t.pass('should not throw')
     } catch (e) {
+      console.log(e.message)
       t.fail('a valid DAG should not throw')
     }
 

@@ -12,25 +12,25 @@ export async function onRequest({ request, env, params }) {
   Debug.enable(env.DEBUG)
   debug('onRequest() called')
 
-  // If there is no id in the URL, then we randomly generate one. So, you might worry that this will create orphaned durable objects.
-  // However, keep in mind, if a durable object has no stored data, it ceases to exist as soon as it leaves memory.
+  // If there is no id in the URL, then we randomly generate one. You needn't worry that this will create orphaned durable objects
+  // because if a durable object has no stored data, it ceases to exist as soon as it leaves memory.
   // So, if the call is malformed or doesn't store anything, then the orphaned durable object will be short lived.
-  // Good practice is to do all of your validation and only store data once you are certain it's a valid request. For instance,
-  // POST is often the only method that will use the randomly generated id, so code your DO so it fails on an invalid POST before storing anything.
-  // PATCH should fail before it even attempts to store anything because there is no prior value when an id is randomly generated.
-  // GET should generally never try to store anything because it's a read-only operation. Etc.
+  // Good practice is to do all of your validation and only store data once you are certain it's a valid request.
   debug('request.url: %O', request.url)
   debug('params: %O', params)
 
+  // TODO: make the below code more generic. Make no assumptions about the path. Simply search for the first segment that matches
+  //       the idString regex. If there is no match, then generate a new id. If there is a match, then use that id.
+  //       regardless of the position in the path of the idString, pass the entire path to the durable object. This will
+  //       require a change to the durable object code. It'll have to do the same sort of searching for the idString.
+  //       It'll also have to be able to handle paths that have no idString because we won't add that to the path.
+
   const newPathArray = []
-  // first path segment is the entity type
-  if (!params?.path?.[0]) {
-    return new Response('Required type segment in the path is missing', { status: 404 })  // TODO: Use my errorResponse() function from durable-object/src/utils.js
-  }
+
   const type = params.path.shift()
   newPathArray.push(type)
 
-  // if the second path segment is not a 64 character hex string, then generate a new id
+  // if the next path segment is not a 64 character hex string, then generate a new id
   const idString = params.path.shift()
   let id
   if (idString && /^[a-fA-F0-9]{64}$$/.test(idString)) {  // second path segment is a 64 character hex string
@@ -49,14 +49,12 @@ export async function onRequest({ request, env, params }) {
   const url = newPathArray.join('/')
   debug('url to pass to durable object: %O', url)
 
-  // return new Response('Got here', { status: 200 })  // TODO: remove this line')
-
   const entityStub = env.TEMPORAL_ENTITY.get(id)
   const response = await entityStub.fetch(url, request)  // TODO: upgrade this to pass the rest along to the durable object
   if (response.status !== 200) {
     debug('DURABLE_OBJECT.fetch() to %O failed with status: %O', url, response.status)  // TODO: replace 'DURABLE_OBJECT' with the durable object's name
     const responseClone = response.clone()
-    debug('response.text(): %O', await responseClone.text())
+    debug('response.text(): %O', await responseClone.text())  // TODO: CBOR decode the response body if the Content-Type is application/cbor or cbor-sc
   }
   return response
 }
