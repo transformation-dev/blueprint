@@ -36,9 +36,6 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-2 Refactor to have an explicit schema section in types.versions.<version> and do validation against that schema
-//       Maybe rename types.versions.<version>.validation() to ...additionalValidation()
-
 // TODO: A-3 Refactor to require the version number in the url unless you are hitting the /versions (or similar "static") endpoint
 //       This means we should probably search the path segments for the first instance of a match to a durable object idString using
 //       the regex in [[path]].js. Make [[path]].js more generic as per the TODO in that file.
@@ -234,11 +231,14 @@ export class TemporalEntityBase {
 
   static types = {
     '*': {  // default type
-      'supressPreviousValues': false,
-      'granularity': 3600000,  // 1 hour
+      supressPreviousValues: false,
+      granularity: 3600000,  // 1 hour
     },
     '***test-supress-previous-values***': {
-      'supressPreviousValues': true,
+      supressPreviousValues: true,
+    },
+    '***test-granularity***': {
+      granularity: 'second',
     },
     '***test-dag***': {
       versions: {
@@ -249,9 +249,6 @@ export class TemporalEntityBase {
           },
         },
       },
-    },
-    '***test-granularity***': {
-      'granularity': 'second',
     },
   }
 
