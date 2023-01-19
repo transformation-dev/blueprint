@@ -6,7 +6,7 @@
 
 import { diff } from 'deep-object-diff'
 import { Encoder } from 'cbor-x'
-// TODO: consider switching nanoid out for Crypto.randomUUID() if available in cloudflare
+// TODO: consider switching nanoid out for crypto.randomUUID(). Right now, it doesn't seem to be available
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'  // should be fine to use the non-secure version since we are only using this for eTags
 // import { nanoid } from 'nanoid'
 import { parse as yamlParse } from 'yaml'
@@ -319,6 +319,12 @@ export class TemporalEntityBase {
     this.#hydrated = true
   }
 
+  #getUUID() {
+    if (this.env.crypto?.randomUUID) return this.env.crypto.randomUUID()
+    if (crypto?.randomUUID) return crypto.randomUUID()
+    else return utils.throwIf(true, 'crypto.randomUUID() not in the environment', 500)
+  }
+
   #getResponse(body, status = 200, statusText = undefined) {
     const headers = new Headers({ 'Content-Type': 'application/cbor-sc' })
     headers.set('Content-ID', this.#id)
@@ -433,7 +439,7 @@ export class TemporalEntityBase {
       previousValues,
       validFrom,
       validTo: this.constructor.END_OF_TIME,
-      eTag: nanoidNonSecure(),
+      eTag: this.#getUUID(),
     }
     if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
 
@@ -468,7 +474,7 @@ export class TemporalEntityBase {
       previousValues,
       validFrom,
       validTo: this.constructor.END_OF_TIME,
-      eTag: nanoidNonSecure(),
+      eTag: this.#getUUID(),
       // id: this.#id,
       deleted: true,
     }
@@ -554,7 +560,7 @@ export class TemporalEntityBase {
       userID,
       validFrom,
       validTo: this.constructor.END_OF_TIME,
-      eTag: nanoidNonSecure(),
+      eTag: this.#getUUID(),
       // id: this.#id,
     }
     if (!this.#typeConfig.supressPreviousValues) this.#current.meta.previousValues = previousValues

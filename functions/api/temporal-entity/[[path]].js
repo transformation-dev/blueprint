@@ -1,5 +1,5 @@
 import Debug from 'debug'
-import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'  // TODO: Consider switching to Crypto.randomUUID() if it's available in Cloudflare
+// import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'  // TODO: Consider switching to crypto.randomUUID()
 // import { customAlphabet } from 'nanoid/non-secure'
 // import { nanoid } from 'nanoid'
 
@@ -37,7 +37,7 @@ export async function onRequest({ request, env, params }) {
     id = env.TEMPORAL_ENTITY.idFromString(idString)
     newPathArray.push(idString)
   } else {
-    id = ['production', 'preview'].includes(env.CF_ENV) ? env.TEMPORAL_ENTITY.newUniqueId() : env.TEMPORAL_ENTITY.idFromName(nanoidNonSecure()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
+    id = ['production', 'preview'].includes(env.CF_ENV) ? env.TEMPORAL_ENTITY.newUniqueId() : env.TEMPORAL_ENTITY.idFromName(crypto.randomUUID()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
     newPathArray.push(id.toString())
     if (idString) newPathArray.push(idString)  // push the non-hex string onto newPathArray as the third segment
   }
