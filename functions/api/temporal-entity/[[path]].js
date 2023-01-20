@@ -1,12 +1,16 @@
 import Debug from 'debug'
-// import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'  // TODO: Consider switching to crypto.randomUUID()
-// import { customAlphabet } from 'nanoid/non-secure'
-// import { nanoid } from 'nanoid'
-
 import { getDebug } from '../../_utils'
 
 const debug = getDebug('blueprint:api:temporal-entity')
-// const nanoidNonSecure = customAlphabet('1234567890abcdef', 64) // to mimick durable object id.toString()
+
+function findFirstID(pathArray) {  // TODO: Get this from utils.js once we move TemporalEntityBase to it's own project
+  for (const segment of pathArray) {
+    if (/^[a-fA-F0-9]{64}$$/.test(segment)) {
+      return segment
+    }
+  }
+  return null
+}
 
 export async function onRequest({ request, env, params }) {
   Debug.enable(env.DEBUG)
@@ -25,28 +29,17 @@ export async function onRequest({ request, env, params }) {
   //       require a change to the durable object code. It'll have to do the same sort of searching for the idString.
   //       It'll also have to be able to handle paths that have no idString because we won't add that to the path.
 
-  const newPathArray = []
+  const idString = findFirstID(params.path)
 
-  const type = params.path.shift()
-  newPathArray.push(type)
-
-  // if the next path segment is not a 64 character hex string, then generate a new id
-  const idString = params.path.shift()
   let id
-  if (idString && /^[a-fA-F0-9]{64}$$/.test(idString)) {  // second path segment is a 64 character hex string
+  if (idString) {
     id = env.TEMPORAL_ENTITY.idFromString(idString)
-    newPathArray.push(idString)
   } else {
     id = ['production', 'preview'].includes(env.CF_ENV) ? env.TEMPORAL_ENTITY.newUniqueId() : env.TEMPORAL_ENTITY.idFromName(crypto.randomUUID()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
-    newPathArray.push(id.toString())
-    if (idString) newPathArray.push(idString)  // push the non-hex string onto newPathArray as the third segment
   }
 
-  // concatenate any remaining path segments to the newPathArray
-  newPathArray.push(...params.path)
-
   // build the url to be passed to the durable object
-  const url = newPathArray.join('/')
+  const url = `/${params.path.join('/')}`
   debug('url to pass to durable object: %O', url)
 
   const entityStub = env.TEMPORAL_ENTITY.get(id)

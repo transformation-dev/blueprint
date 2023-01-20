@@ -1,14 +1,8 @@
-/* eslint-disable no-irregular-whitespace */
-/* eslint-disable no-use-before-define */
-/* eslint-disable quote-props */
-/* eslint-disable no-param-reassign */
-/* eslint-disable object-curly-newline */
+/* eslint-disable no-param-reassign */  // safe because durable objects are airgapped so to speak
+/* eslint-disable no-irregular-whitespace */  // because I use non-breaking spaces in comments
 
 import { diff } from 'deep-object-diff'
 import { Encoder } from 'cbor-x'
-// TODO: consider switching nanoid out for crypto.randomUUID(). Right now, it doesn't seem to be available
-import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'  // should be fine to use the non-secure version since we are only using this for eTags
-// import { nanoid } from 'nanoid'
 import { parse as yamlParse } from 'yaml'
 import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 
@@ -36,13 +30,18 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-3 Refactor to require the version number in the url unless you are hitting the /versions (or similar "static") endpoint
-//       This means we should probably search the path segments for the first instance of a match to a durable object idString using
-//       the regex in [[path]].js. Make [[path]].js more generic as per the TODO in that file.
+// TODO: A-0 Upgrade HTTPError to include the stack trace, but only when not in production
+
+// TODO: A-1 Decode and print CBOR-SC in the response in the cypress tests. Now, simply prints .text()
+
+// TODO: A-2 Move basic configuration params like granularity and suppressPreviousValues down into versions. This means that when create typeConfig
+//       I'll have to merge defaults from types['*'].versions['*'] rather than from just types['*'].
 
 // TODO: A-4 Add a GET /versions endpoint that returns the versions (including the schema) for the type
 //       This won't be super efficient because it'll have to stand up a dummy durable object every time but
 //       I will only hit it when the single-page app starts up.
+
+// TODO: A-5 Add a GET /types endpoint that returns all the types.  Later, we may allow this to be open-id format requested maybe with Accept header
 
 // TODO: B Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
@@ -72,29 +71,6 @@ const cborSC = new Encoder({ structuredClone: true })
 // TODO: C Specify the Vary header in the response to let caching know what headers were used in content negotiation.
 
 // TODO: C Add a HEAD method that returns the same headers as GET but no body.
-
-function apply(obj, d) {
-  for (const key of Object.keys(d)) {
-    if (d[key] instanceof Object) {
-      // eslint-disable-next-line no-param-reassign
-      obj[key] = apply(obj[key] ?? {}, d[key])
-    } else if (d[key] === undefined) {
-      // eslint-disable-next-line no-param-reassign
-      delete obj[key]
-    } else {
-      // eslint-disable-next-line no-param-reassign
-      obj[key] = d[key]
-    }
-  }
-  return obj
-}
-
-function extractETag(request) {
-  let eTag = request.headers.get('If-Match')
-  if (!eTag) eTag = request.headers.get('If-None-Match')
-  if (eTag === 'undefined' || eTag === 'null') return undefined
-  return eTag
-}
 
 /**
  * # TemporalEntityBase
@@ -231,7 +207,11 @@ export class TemporalEntityBase {
 
   static types = {
     '*': {  // default type
-      supressPreviousValues: false,
+      versions: {
+        '*': {  // default version
+        },
+      },
+      supressPreviousValues: false,  // TODO: Move this into versions
       granularity: 3600000,  // 1 hour
     },
     '***test-supress-previous-values***': {
@@ -256,9 +236,11 @@ export class TemporalEntityBase {
 
   #type
 
+  #typeConfig
+
   #version
 
-  #typeConfig
+  #versionConfig
 
   #entityMeta  // Metadata for the entity { timeline, eTags, type, version }
 
@@ -272,8 +254,9 @@ export class TemporalEntityBase {
     this.#hydrated = false
     if (type) {  // TODO: add a check that confirms we are not in production or preview since this is only for unit tests
       this.#type = type
+      utils.throwUnless(this.#type, 'Entity type is required', 404)
     }
-    this.#version ??= version ?? 'v1'
+    this.#version ??= version || 'v1' // only needed for unit testing
     // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
   }
 
@@ -281,7 +264,7 @@ export class TemporalEntityBase {
     if (this.#hydrated) return
 
     // validation
-    utils.throwUnless(this.state?.id?.toString() === this.#id, `Entity id mismatch. Url says ${this.#id} but this.state.id says ${this.state.id}.`, 500)
+    utils.throwIf(this.#id && this.state?.id?.toString() !== this.#id, `Entity id mismatch. Url says ${this.#id} but this.state.id says ${this.state.id}.`, 500)
     utils.throwUnless(this.constructor.types[this.#type], `Entity type, ${this.#type}, not found`, 404)
 
     // hydrate #entityMeta
@@ -332,10 +315,11 @@ export class TemporalEntityBase {
       headers.set('Status-Text', statusText)
     }
     if (body && typeof body === 'object') {
-      body.id = this.#id
-      body.type = this.#type
-      body.version = this.#version
-      return new Response(cborSC.encode(body), { status, headers })
+      const newBody = structuredClone(body)
+      newBody.id = this.#id
+      newBody.type = this.#type
+      newBody.version = this.#version
+      return new Response(cborSC.encode(newBody), { status, headers })
     }
     return new Response(undefined, { status, headers })
   }
@@ -381,9 +365,24 @@ export class TemporalEntityBase {
       const url = new URL(request.url)
       const pathArray = url.pathname.split('/')
       if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
+
       this.#type = pathArray.shift()
-      this.#version = 'v1'  // TODO: support multiple versions by optionally expecting it in the path segment right after the type
-      this.#id = pathArray.shift()
+      if (this.#type === 'types') {
+        // return GETTypes(request)  // TODO: Create GETTypes() method. Make it static if possible
+      }
+      this.#typeConfig = this.constructor.types[this.#type]
+      utils.throwUnless(this.#typeConfig, `Unrecognized type ${this.#type}`, 404)
+
+      this.#version = pathArray.shift()
+      if (this.#type === '*') utils.throwUnless(this.#version === '*', 'The type * can only be used with version *', 404)
+      this.#versionConfig = this.#typeConfig.versions?.[this.#version]
+      utils.throwUnless(this.#versionConfig, `Unrecognized version ${this.#version}`, 404)
+
+      if (utils.isIDString(pathArray[0])) {
+        this.#id = pathArray.shift()  // remove the ID
+      } else {
+        this.#id = this.state?.id?.toString()
+      }
 
       const restOfPath = `/${pathArray.join('/')}`
 
@@ -510,7 +509,10 @@ export class TemporalEntityBase {
         const result = schemaValidator.validate(value)
         utils.throwUnless(result.valid, `Schema validation failed. Error(s):\n${JSON.stringify(result.errors, null, 2)}`)
       }
-      versions[this.#version]?.additionalValidation(value)
+      const additionalValidation = versions[this.#version]?.additionalValidation
+      if (additionalValidation) {
+        additionalValidation(value)
+      }
     }
 
     // Process eTag header
@@ -581,7 +583,7 @@ export class TemporalEntityBase {
     try {
       utils.throwIfMediaTypeHeaderInvalid(request)
       const options = await utils.decodeCBORSC(request)
-      const eTag = extractETag(request)
+      const eTag = utils.extractETag(request)
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
       return this.#getResponse(current)
     } catch (e) {
@@ -611,7 +613,7 @@ export class TemporalEntityBase {
 
     const newValue = structuredClone(this.#current.value)
 
-    apply(newValue, delta)
+    utils.apply(newValue, delta)
 
     return this.put(newValue, userID, validFrom, impersonatorID, eTag)
   }
@@ -620,7 +622,7 @@ export class TemporalEntityBase {
     try {
       utils.throwIfMediaTypeHeaderInvalid(request)
       const options = await utils.decodeCBORSC(request)
-      const eTag = extractETag(request)
+      const eTag = utils.extractETag(request)
       const current = await this.patch(options, eTag)
       return this.#getResponse(current)
     } catch (e) {
@@ -638,7 +640,7 @@ export class TemporalEntityBase {
   async GET(request) {
     try {
       utils.throwIfAcceptHeaderInvalid(request)
-      const eTag = extractETag(request)
+      const eTag = utils.extractETag(request)
       const [current, status] = await this.get(eTag)
       if (status === 304) return this.#getStatusOnlyResponse(status)
       return this.#getResponse(current)
@@ -657,7 +659,7 @@ export class TemporalEntityBase {
   async GETEntityMeta(request) {
     try {
       utils.throwIfAcceptHeaderInvalid(request)
-      const eTag = extractETag(request)
+      const eTag = utils.extractETag(request)
       const [entityMeta, status] = await this.getEntityMeta(eTag)
       if (status === 304) return this.#getStatusOnlyResponse(304)
       return this.#getResponse(entityMeta)

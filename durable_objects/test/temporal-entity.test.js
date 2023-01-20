@@ -120,9 +120,9 @@ test('TemporalEntity validation for invalid or missing type', async (t) => {
 
   t.test('unknown type', async (t) => {
     const state = getStateMock()
-    const te = new TemporalEntity(state, env, '***unknown***')
 
     try {
+      const te = new TemporalEntity(state, env, '***unknown***')
       await te.put({ a: 100 }, 'userX')
       t.fail('async thrower did not throw')
     } catch (e) {

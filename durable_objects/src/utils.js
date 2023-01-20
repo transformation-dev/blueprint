@@ -79,3 +79,41 @@ export function throwIfNotDag(o, currentPath = []) {
     throwUnless(new Set(siblings).size === siblings.length, `The children of ${o.id}, ${JSON.stringify(siblings)} contain duplicate ids`, 400)
   }
 }
+
+export const idStringRegExp = /^[a-fA-F0-9]{64}$$/
+
+export function isIDString(s) {
+  return typeof s === 'string' && idStringRegExp.test(s)
+}
+
+export function findFirstID(pathArray) {
+  for (const segment of pathArray) {
+    if (isIDString(segment)) {
+      return segment
+    }
+  }
+  return null
+}
+
+export function apply(obj, d) {
+  for (const key of Object.keys(d)) {
+    if (d[key] instanceof Object) {
+      // eslint-disable-next-line no-param-reassign
+      obj[key] = apply(obj[key] ?? {}, d[key])
+    } else if (d[key] === undefined) {
+      // eslint-disable-next-line no-param-reassign
+      delete obj[key]
+    } else {
+      // eslint-disable-next-line no-param-reassign
+      obj[key] = d[key]
+    }
+  }
+  return obj
+}
+
+export function extractETag(request) {
+  let eTag = request.headers.get('If-Match')
+  if (!eTag) eTag = request.headers.get('If-None-Match')
+  if (eTag === 'undefined' || eTag === 'null') return undefined
+  return eTag
+}

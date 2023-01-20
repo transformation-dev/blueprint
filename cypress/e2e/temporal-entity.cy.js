@@ -44,7 +44,7 @@ context('TemporalEntity', () => {
     }
 
     cy.wrap(null).then(async () => {
-      const response = await encodeFetchAndDecode('/api/temporal-entity/*', options)
+      const response = await encodeFetchAndDecode('/api/temporal-entity/*/*', options)
       expect(response.status).to.eq(415)
     })
   })
@@ -52,7 +52,7 @@ context('TemporalEntity', () => {
   it('should respond with 406 on PUT with Accept header "application/json"', () => {
     const options = {
       method: 'PUT',
-      url: '/api/temporal-entity/*',
+      url: '/api/temporal-entity/*/*',
       body: { a: 1 },
       failOnStatusCode: false,
       headers: {
@@ -69,7 +69,7 @@ context('TemporalEntity', () => {
   it('should respond with 415 because the content was not encoded in cbor-sc', () => {
     const options = {
       method: 'PUT',
-      url: '/api/temporal-entity/*',
+      url: '/api/temporal-entity/*/*',
       body: { a: 1 },
       failOnStatusCode: false,
       headers: {
@@ -97,7 +97,7 @@ context('TemporalEntity', () => {
     }
 
     cy.wrap(null).then(async () => {
-      const response = await encodeFetchAndDecode('/api/temporal-entity/*', options)
+      const response = await encodeFetchAndDecode('/api/temporal-entity/*/*', options)
       expect(response.status).to.eq(200)
       expect(response.headers.get('Content-Type')).to.eq('application/cbor-sc')
 
@@ -114,7 +114,7 @@ context('TemporalEntity', () => {
       expect(o).to.deep.eq({
         "id": id,
         "type": "*",
-        "version": "v1",
+        "version": "*",
         "meta": {
           "previousValues": { a: undefined, b: undefined },
           "userID": "1",
@@ -142,7 +142,7 @@ context('TemporalEntity', () => {
       }
 
       cy.wrap(null).then(async () => {
-        const response = await encodeFetchAndDecode(`/api/temporal-entity/*/${id}`, options2)
+        const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options2)
         expect(response.status).to.eq(200)
 
         const o = response.CBOR_SC
@@ -157,7 +157,7 @@ context('TemporalEntity', () => {
         expect(o).to.deep.eq({
           "id": id,
           "type": "*",
-          "version": "v1",
+          "version": "*",
           "meta": {
             "previousValues": { a: 1, b: 2 },
             "userID": "2",
@@ -176,7 +176,7 @@ context('TemporalEntity', () => {
         }
 
         cy.wrap(null).then(async () => {
-          const response = await encodeAndFetch(`/api/temporal-entity/*/${id}`, options)
+          const response = await encodeAndFetch(`/api/temporal-entity/*/*/${id}`, options)
           expect(response.status).to.eq(204)
 
           const options3 = {
@@ -184,7 +184,7 @@ context('TemporalEntity', () => {
           }
 
           cy.wrap(null).then(async () => {
-            const response = await encodeFetchAndDecode(`/api/temporal-entity/*/${id}`, options3)
+            const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options3)
             expect(response.status).to.eq(404)
 
             const o = response.CBOR_SC
@@ -197,7 +197,7 @@ context('TemporalEntity', () => {
             }
 
             cy.wrap(null).then(async () => {
-              const response = await encodeFetchAndDecode(`/api/temporal-entity/*/${id}/entity-meta`, options4)
+              const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}/entity-meta`, options4)
               expect(response.status).to.eq(200)
 
               const o = response.CBOR_SC
@@ -210,7 +210,7 @@ context('TemporalEntity', () => {
               }
 
               cy.wrap(null).then(async () => {
-                const response = await encodeFetchAndDecode(`/api/temporal-entity/*/${id}`, options5)
+                const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options5)
                 expect(response.status).to.eq(404)
 
                 const options6 = {
@@ -222,7 +222,7 @@ context('TemporalEntity', () => {
                 }
 
                 cy.wrap(null).then(async () => {
-                  const response = await encodeFetchAndDecode(`/api/temporal-entity/*/${id}`, options6)
+                  const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options6)
                   expect(response.status).to.eq(200)
                 })
               })
@@ -243,7 +243,7 @@ context('TemporalEntity', () => {
     }
 
     cy.wrap(null).then(async () => {
-      const response = await encodeFetchAndDecode(`/api/temporal-entity/*`, options)
+      const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*`, options)
       expect(response.status, '1st PUT').to.eq(200)
       const o5 = response.CBOR_SC
       const id = o5.id
@@ -256,7 +256,7 @@ context('TemporalEntity', () => {
         }
       }
       
-      const response2 = await encodeFetchAndDecode(`/api/temporal-entity/*/${id}`, options4)
+      const response2 = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options4)
       expect(response2.status, '2nd PUT with missing If-Match').to.eq(428)
       const o2 = response2.CBOR_SC
       expect(response2.headers.get('Status-Text')).to.eq(o2.error.message)
@@ -280,7 +280,7 @@ context('TemporalEntity', () => {
     }
 
     cy.wrap(null).then(async () => {
-      const response = await encodeFetchAndDecode(`/api/temporal-entity/*`, options)
+      const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*`, options)
       expect(response.status, '1st call to fetch() to set date far into future').to.eq(200)
       const eTagFromHeaders = response.headers.get('ETag')
       const o5 = response.CBOR_SC
@@ -299,7 +299,7 @@ context('TemporalEntity', () => {
         },
       }
 
-      const response2 = await encodeFetchAndDecode(`/api/temporal-entity/*/${id}`, options4)
+      const response2 = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options4)
       expect(response2.status, '2nd call to fetch() to confirm validFrom is 1ms later').to.eq(200)
       const o = response2.CBOR_SC
       expect(o.meta.validFrom).to.eq(newValidFromISOString)
