@@ -33,7 +33,7 @@ const cborSC = new Encoder({ structuredClone: true })
 // TODO: A-2 Move basic configuration params like granularity and suppressPreviousValues down into versions. This means that when create typeConfig
 //       I'll have to merge defaults from types['*'].versions['*'] rather than from just types['*'].
 
-// TODO: A-5 Add a GET /types endpoint that returns all the types.  Later, we may allow this to be open-id format requested maybe with Accept header
+// TODO: A-5 Add a GET /types endpoint that returns all the types.
 
 // TODO: B Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js
@@ -42,12 +42,12 @@ const cborSC = new Encoder({ structuredClone: true })
 
 // TODO: B Replace cbor-sc with cbor once we get an answer on the GitHub cbor-x discussion board https://github.com/kriszyp/cbor-x/discussions/65
 
-// TODO: C Add migrations to type registry. Use simple integer versioning v1, v2, in the URL right after the type segment.
+// TODO: B Add migrations to type registry. Use simple integer versioning v1, v2, in the URL right after the type segment.
 //       Migrations can be provided for both directions (upgrade and downgrade). Look in the types.migrations object for the
 //       desired from and to version and if no migration is found we'll throw an error (406, I think). We should also add a warnings property
 //       to all requests where the user asks for an older version. Maybe even a stronger warning for versions specified as deprecated.
 
-// TODO: C Add the ability to return a body.warnings array in the response. This would be useful for things like deprecated versions that might
+// TODO: B Add the ability to return a body.warnings array in the response. This would be useful for things like deprecated versions that might
 //       stop being supported at some point. Even if there exists an appropriate downgrade migration, the client might want to know that the
 //       version they are using is not the latest so they can plan to upgrade their code.
 
