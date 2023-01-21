@@ -30,37 +30,34 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-2 Move basic configuration params like granularity and suppressPreviousValues down into versions. This means that when create typeConfig
-//       I'll have to merge defaults from types['*'].versions['*'] rather than from just types['*'].
+// TODO: A-0 Get Debug() working
 
-// TODO: A-5 Add a GET /types endpoint that returns all the types.
+// TODO: A-1 Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
+//       https://github.com/crcn/sift.js. Support a query parameter to include soft-deleted items in the query but default to not including them.
 
-// TODO: B Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
-//       https://github.com/crcn/sift.js
+// TODO: A-2 Implement query against all snapshots using npm module sift. Include an option to include soft-deleted items in the query.
+//       Update the error message for GET.
 
-// TODO: B Implement query against all snapshots using npm module sift
+// TODO: A-3 When there is an enum in the schema, use that order for $gt, $gte, $lt, and $lte. Fork sift or convert the query if the left side of $gt, etc. is the fieldname of an enum.
+//       Make this work for the value but not entityMeta for now since that has no enum types at the moment.
 
-// TODO: B Replace cbor-sc with cbor once we get an answer on the GitHub cbor-x discussion board https://github.com/kriszyp/cbor-x/discussions/65
+// TODO: B Replace cbor-sc with cbor once we get an answer on the GitHub cbor-x discussion board https://github.com/kriszyp/cbor-x/issues/66
 
-// TODO: B Add migrations to type registry. Use simple integer versioning v1, v2, in the URL right after the type segment.
-//       Migrations can be provided for both directions (upgrade and downgrade). Look in the types.migrations object for the
-//       desired from and to version and if no migration is found we'll throw an error (406, I think). We should also add a warnings property
-//       to all requests where the user asks for an older version. Maybe even a stronger warning for versions specified as deprecated.
+// TODO: B Add migrations to type registry.
+//       Migrations can be provided for both directions (upgrade and downgrade). If there is no continuous upgrade or downgrade path from the current
+//       version to the desired on, throw an error (406, I think).
 
 // TODO: B Add the ability to return a body.warnings array in the response. This would be useful for things like deprecated versions that might
 //       stop being supported at some point. Even if there exists an appropriate downgrade migration, the client might want to know that the
 //       version they are using is not the latest so they can plan to upgrade their code.
 
+// TODO: C Add a GET /types endpoint that returns all the types and/or...
 // TODO: C OpenAPI documentation. Create top-level schemas for PUT and PATCH requests but don't use them for validation because I want to
 //       keep doing that in code because I like my error messages. It's only for documentation. Create schemas for responses.
-
-// TODO: C Get Debug() working
 
 // TODO: C Implement ticks
 
 // TODO: C Move TemporalEntity to its own package.
-
-// TODO: C Specify the Vary header in the response to let caching know what headers were used in content negotiation.
 
 // TODO: C Add a HEAD method that returns the same headers as GET but no body.
 
@@ -73,29 +70,31 @@ const cborSC = new Encoder({ structuredClone: true })
  * snapshot is set to a date ~8000 years in the future, 9999-01-01T00:00:00.000Z. This makes queries for a particular
  * moment in time or a range include the current snapshot.
  *
- * ## Inheriting from TemporalEntity
+ * ## Inheriting from TemporalEntityBase
  *
- * You can use TemporalEntity as-is with the '*' default type. However, the recommended approach is to inherit from
- * TemporalEntity. You don't need to do this seperately for each type you desire, but you could. Rather, the recommended approach
- * is to import types.js in your inherited class where you specify the types. The main reason why inheriting sepearetly for
- * each type is not recommended is because you'll have to specify each as a separate binding in your wrangler.toml. With the
- * recommended approach, you can specify a single inherited class (e.g. Entity) as the binding and then specify your various
- * types in types.js.
+ * You can use TemporalEntityBase as-is with the '*' default type. However, you almost certainly want to subclass TemporalEntityBase.
+ * Even then, there are two approaches that you can mix and match:
+ *   1. Create a generic subclass (e.g. Entity) and use types.js to specify schemas, migrations, and other configuration for
+ *      each type and live with the provided endpoints/methods and their configured behavior. These type specifications are quite
+ *      flexible and the configurable behavior of the endpoints/methods allow you to do just about anything you would want so this
+ *      approach is sufficient for the vast majority of use cases.
+ *   2. However, for "types" where you want to modify the behavior of the existing endpoints or add new endpoints, you have the option
+ *      to create a subclass and specify each subclass as a separate binding in your wrangler.toml.
  *
  * ## Granularity and debouncing
  *
  * If the same user makes multiple updates to the same entity within the time period specified by the granularity
  * (default: 1 hour), the updates are merged into a single snapshot, aka debounced. This prevents the history from growing too
  * rapidly in the now common pattern of saving changes in the UI as they are made rather than waiting until the user clicks on
- * a save button. The granularity can be specified as a string (e.g. 'hour'). The most coarse granularity you'll probably ever
- * want is 'day' so that's the coarsest you can specify with a string but you can specify any number of milliseconds by using
+ * a save button. The granularity can be specified as a string ('day', 'hour', etc.). The most coarse granularity you'll probably
+ * ever want is 'day' so that's the coarsest you can specify with a string but you can specify any number of milliseconds by using
  * as an integer rather than a string.
  *
  * ## Using previousValues and when to supress them
  *
  * The meta.previousValues property is used to find or count particular state transitions by only looking at one snapshot at
- * a time. Let's say, you want to know the throughput of a lean/agile development team for a particular two-week sprint. Let's assume
- * the following states for stories: 'To Do', 'In Progress', 'Accepted', and 'Shipped'. You could write a query like this:
+ * a time. Let's say, you want to know the throughput of stories "Accepted" by a lean/agile development team for a particular
+ * two-week sprint.  You could write a query like this:
  *
  *     meta.validFrom >= '2020-01-01' AND
  *     meta.validFrom < '2020-01-15' AND
@@ -103,26 +102,29 @@ const cborSC = new Encoder({ structuredClone: true })
  *     meta.previousValues.storyState < 'Accepted'
  *
  * To accomplish the same thing without previousValues, you would have to use a query with only the first three conditions and then
- * retrieve the snapshot immediately prior to those by 1st doing a lookup in the timeline and then making another round trip to storage.
- * You'd then have to post-process the results. At least 2x more expensive and perhaps 10x more complex.
+ * retrieve the snapshot immediately prior to those by 1st doing a lookup in the timeline and then making another round trip to storage
+ * for each result of your first query. You'd then have to post-process the results. It's potentially several orders of magnitude more
+ * expensive and it's signficantly more complex. PreviousValues is my (Larry Maccherone's) standing-on-the-shoulders-of-giants
+ * (giant = Richard Snodgrass) contribution.
  *
  * The cost of storing previousValues is negligible since it's only storing the diff which means only the fields that have changed.
- * The incremental cost of calculating the diff is zero since we calculate it anyway to determine idempotency. In theory, we could
- * have a short-circuited idempotency checker that would be more efficient but it's not worth the complexity especially since the
- * diff is calculated in memory with no I/O. So, you should only supress previousValues if you are sure you'll never want to analyze
- * state transitions and you expect them to be more expensive than normal, for instance for large entities that change frequently and
- * where almost the entire value is changing every update.
+ * The incremental cost of calculating the diff is zero since we calculate it anyway to determine idempotency. So, you should only
+ * use the supressPreviousValues configuration option if you are sure you'll never want to analyze state transitions and you expect
+ * them to be more expensive than normal, for instance for large entities that change frequently and where almost the entire value is
+ * changing every update.
  *
  * ## CBOR with structured clone extension encoding
  *
  * The entity value is encoded as CBOR with the structured clone extension using the npm package cbor-x. CBOR is the
  * IEC standardized form of MessagePack. Note, the encoding for plain CBOR seems to be incompatible with the encoding when structured
- * clone is enabled, so I considered using something like +cbor-sc in media type headers but RFC 6839 says that unregistered suffixes are not permitted.
+ * clone is enabled, so I considered using my own media type (application/cbor-sc) but RFC 6839 disallows that.
  * So, we'll just have to live with these docs and good error messages unless I can figure out a way to legitimately specify the structured
- * clone extension in the media type. I chose CBOR for the following reasons:
- *   1. With the structured clone extension, it allows you to encode JavaScript objects with directed acyclic graphs (DAGs)
- *      and circular references. The org tree for Transformation.dev Blueprint is a DAG and I needed a way to send
- *      that over the wire so I had to use something like this for at least the transmission of the org tree.
+ * clone extension in the media type.
+ *
+ * I chose CBOR for the following reasons:
+ *   1. With the structured clone extension, it allows you to encode JavaScript objects with directed acyclic graphs (DAGs). The org tree
+ *      for Transformation.dev Blueprint is a DAG and I needed a way to send that over the wire so I had to use something like this for at
+ *      least the transmission of the org tree.
  *   2. It supports essentially all JavaScript types including Dates, Maps, Sets, etc.
  *   3. It's an official standard unlike MessagePack, which is merely a defacto standard, although switching to MessagePack
  *      would be trivial since cbor-x package is derived from the msgpackr package by the same author which is likewise
@@ -130,12 +132,12 @@ const cborSC = new Encoder({ structuredClone: true })
  *   4. It's faster (at least with cbor-x) for encoding and decoding than anything else (avsc, protobuf, etc.) including native JSON
  *   5. Since it's a binary format, it's more compact than JSON which makes transmission faster and cheaper.
  *      Also, if you have a "sequence" (aka Array) with rows in the same object format, it can be an order of magnitude more compact than JSON,
- *      although that does slow down encoding and that is a different media type suffix, +cbor-seq
+ *      although that does slow down encoding and that is a different media type, application/cbor-seq
  *
  * ## Soft delete and undelete
  *
  * Deletes are always soft meaning that they simply create a new snapshot and set meta.deleted to true. Attempts to GET, PUT,
- * or PATCH with a body.delta field against a soft-deleted entity will result in a 404.
+ * or PATCH against a soft-deleted entity will result in a 404.
  *
  * You can retrieve a soft-deleted entity by POSTing a query with the includeDeleted option set to true.
  *
@@ -146,42 +148,76 @@ const cborSC = new Encoder({ structuredClone: true })
  *
  * TemporalEntity uses optimistic concurrancy using ETags, If-Match, and If-None-Match headers
  * (see: https://en.wikipedia.org/wiki/HTTP_ETag). The ETag header is sent back for all requests and it will always match the
- * body.meta.eTag so feel free to that latter that if it's more convenient. Note, the ETag is not a hash of the value but rather
- * it is a globally unique random value generated using nanoid (non-secure). I did this because it accomplishes the same goal and
- * I believe that generating a hash of the value would cost more CPU cycles.
+ * body.meta.eTag so feel free to use the latter that if it's more convenient. Note, our ETag is not a hash of the value but rather
+ * it is a UUID. I did this because it accomplishes the same goal and I believe that generating a hash of the value would cost more
+ * CPU cycles.
  *
  * ## Deviations from pure REST APIs
  *
  * The default behavior of TemporalEntity might deviate from your expectations for a pure REST API in these ways:
  *   1. PUT behaves like an UPSERT. If there is no prior value, it will create the entity.
  *   2. As such, there is no need for a POST method. A PUT without a prior ID will behave like you would expect a POST to behave
- *   3. Response.statusText is hard-coded to the HTTP status code message. I believe this is a new requirement with HTTP/2. So,
- *      we return details about the nature of the error in two other ways:
- *      a. using a custom header, Status-Text, which is a human readable message. I'm unaware if this breaks any HTTP rules and
- *         would be willing to revert this if someone can point me to a reference that says it's a bad idea.
- *      b. using the body.error.message field encoded with cbor-sc. This is the same human readable message as the Status-Text header.
- *   4. Every response includes a Content-ID header eventhough I'm unsure if this is an appropriate use of that header which seems
- *      to be intended for email. This Content-ID header is the id of the entity. If the response has a body, the Content-ID header
- *      will be the same as body.id. If the response has no body, the Content-ID header is the only way to get the id of the entity.
- *      So, I recommend that all clients always use the Content-ID header because it'll be present even on status-only responses
- *      like 204, and 304. I also don't use the format <id@domain>. Rather, it's just the id without the "<", "@domain", or ">". In my defense,
- *      GMail also just supplies the id. This should be safe since our ids are globally unique. GMail and I assume the "@domain" is
- *      there for cases where the id is not globally unique, like if it was an auto-incrementing counter.
+ *   3. Unlike HTTP/1.1, HTTP/2 infrastructure and/or libraries tend to overwrite Status-Text to match the Status code. So,
+ *      while we attempt to supply a more useful Status-Text in the header, error responses also include a body with an error
+ *      field which in turn has a useful message field. Error bodies are also encoded with cbor using the structured clone extension.
  *
- * ## Types
+ * ## Types and versions
  *
- * You must specify a type in the first path segment of the URL after the base URL for the temporal-entity proxy
- * (e.g. https://api/temporal-entity/<type>/<id>/...).
+ * You must specify a type and version in the first two path segments after the base URL
+ * (e.g. https://api/temporal-entity/<type>/<version>/<id>/...).
  *
- * The convention is to use the types.js file to specify the type but you could do it right in your inherited class. Regardless, it must
- * provide a types object where the key is the name of the type (ie <type> in our example above). The type can have these properrties:
+ * Look in the source code for an example but types are defined as follows:
+ *
+ *     import { TemporalEntityBase, utils } from '@transformation-dev/temporal-entity'
+ *     import { parse as yamlParse } from 'yaml'
+ *
+ *     import widgetSchemaV1String from './schemas/widget.v1.yaml'  // example of an external schema in YAML
+ *     const widgetSchemaV1 = yamlParse(widgetSchemaV1String)
+ *
+ *     export class Entity extends TemporalEntityBase {
+ *
+ *       static types = {
+ *         ...super.types,  // required if you want the defaults which are used by type='*', version='*'
+ *         'widget': {
+ *           versions: {
+ *             v1: {  // each version must start with 'v' but you can use anything after that
+ *               supressPreviousValues: true,     // defaults to false if not specified
+ *               granularity: 'minute',           // defaults to 'hour' if not specified
+ *               schema: widgetSchema,
+ *               additionalValidation(value) {
+ *                 utils.throwIfNotDag(value.dag)
+ *               },
+ *             },
+ *             v2: {  // the order rather than the integer is significant for upgrades and downgrades
+ *               ...
+ *               upgrade: (priorVersionValueAndMeta) => {...},  // returns the upgraded from v1 { value, meta }
+ *               downgrade: (currentVersionValueAndMeta) => {...},  // returns the downgraded to v1 { value, meta }
+ *             },
+ *           },
+ *         },
+ *         'zorch': {
+ *           versions: {
+ *             v1: {
+ *               schema: {  // example of inline schema
+ *                 type: 'object',
+ *                 properties: {
+ *                   foo: { type: 'string' },
+ *                 },
+ *               },
+ *             },
+ *           },
+ *         },
+ *       }
+ *
+ *     }
+ *
  *   1. supressPreviousValues (default: false)
  *   2. granularity (default: 'hour') - 'second' or 'sec', 'minute' or 'min', 'hour' or 'hr', or 'day' are supported.
  *      You can also just specify an integer number of milliseconds.
  *   3. validation which is javascript code so you can chose to use JSON Schema or utils.throwIfNotDag. Failing validation should throw
  *      an error with utils.HTTPError()
- *   4. warnings (TBD)
- *   5. migrations (TBD)
+ *   4. warnings (Not yet implemented)
+ *   5. migrations (Not yet implemented)
  *
  * ### Default type
  *
@@ -200,21 +236,29 @@ export class TemporalEntityBase {
   static types = {
     '*': {  // default type
       versions: {
-        '*': {  // default version
+        '*': {  // only allowed version with default version
+          supressPreviousValues: false,
+          granularity: 3600000,  // 1 hour
         },
       },
-      supressPreviousValues: false,  // TODO: Move this into versions
-      granularity: 3600000,  // 1 hour
     },
     '***test-supress-previous-values***': {
-      supressPreviousValues: true,
+      versions: {
+        v1: {
+          supressPreviousValues: true,
+        },
+      },
     },
     '***test-granularity***': {
-      granularity: 'second',
+      versions: {
+        v1: {
+          granularity: 'second',
+        },
+      },
     },
     '***test-dag***': {
       versions: {
-        v1: {  // 'v1' is the default when no version is specified
+        v1: {
           schema: testDagSchemaV1,
           additionalValidation(value) {
             utils.throwIfNotDag(value.dag)
@@ -228,11 +272,11 @@ export class TemporalEntityBase {
 
   #type
 
-  #typeConfig
+  // #typeConfig
 
   #version
 
-  #versionConfig
+  #typeVersionConfig
 
   #entityMeta  // Metadata for the entity { timeline, eTags, type, version }
 
@@ -248,7 +292,7 @@ export class TemporalEntityBase {
       this.#type = type
       utils.throwUnless(this.#type, 'Entity type is required', 404)
     }
-    this.#version ??= version || 'v1' // only needed for unit testing
+    this.#version ??= version || this.#type === '*' ? '*' : 'v1' // only needed for unit testing
     // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
   }
 
@@ -269,17 +313,18 @@ export class TemporalEntityBase {
     }
 
     // hydrate #type. We don't save typeConfig in entityMeta which allows for the values to be changed over time
-    const defaultType = this.constructor.types['*']
-    const lookedUpType = this.constructor.types[this.#type]  // this.#type is normally set in the fetch handler, but can be set in the constructor for unit tests
-    this.#typeConfig = {}
-    for (const key of Reflect.ownKeys(defaultType).concat(Reflect.ownKeys(lookedUpType))) {
-      this.#typeConfig[key] = lookedUpType[key] ?? defaultType[key]
-      if (key === 'granularity' && typeof this.#typeConfig.granularity === 'string') {
-        if (['sec', 'second'].includes(this.#typeConfig.granularity)) this.#typeConfig.granularity = 1000
-        else if (['min', 'minute'].includes(this.#typeConfig.granularity)) this.#typeConfig.granularity = 60000
-        else if (['hr', 'hour'].includes(this.#typeConfig.granularity)) this.#typeConfig.granularity = 3600000
-        else if (this.#typeConfig.granularity === 'day') this.#typeConfig.granularity = 86400000
-        else utils.throwIf(true, `Unsupported granularity: ${this.#typeConfig.granularity}`, 500)
+    const defaultTypeVersionConfig = this.constructor.types['*'].versions['*']
+    const lookedUpTypeVersionConfig = this.constructor.types[this.#type].versions[this.#version]  // this.#type is normally set in the fetch handler, but can be set in the constructor for unit tests
+    this.#typeVersionConfig = {}
+    const keys = new Set([...Reflect.ownKeys(defaultTypeVersionConfig), ...Reflect.ownKeys(lookedUpTypeVersionConfig)])
+    for (const key of keys) {
+      this.#typeVersionConfig[key] = lookedUpTypeVersionConfig[key] ?? defaultTypeVersionConfig[key]
+      if (key === 'granularity' && typeof this.#typeVersionConfig.granularity === 'string') {
+        if (['sec', 'second'].includes(this.#typeVersionConfig.granularity)) this.#typeVersionConfig.granularity = 1000
+        else if (['min', 'minute'].includes(this.#typeVersionConfig.granularity)) this.#typeVersionConfig.granularity = 60000
+        else if (['hr', 'hour'].includes(this.#typeVersionConfig.granularity)) this.#typeVersionConfig.granularity = 3600000
+        else if (this.#typeVersionConfig.granularity === 'day') this.#typeVersionConfig.granularity = 86400000
+        else utils.throwIf(true, `Unsupported granularity: ${this.#typeVersionConfig.granularity}`, 500)
       }
     }
 
@@ -361,13 +406,13 @@ export class TemporalEntityBase {
       if (this.#type === 'types') {
         // return GETTypes(request)  // TODO: Create GETTypes() method. Make it static if possible
       }
-      this.#typeConfig = this.constructor.types[this.#type]
-      utils.throwUnless(this.#typeConfig, `Unrecognized type ${this.#type}`, 404)
+      const typeConfig = this.constructor.types[this.#type]
+      utils.throwUnless(typeConfig, `Unrecognized type ${this.#type}`, 404)
 
       this.#version = pathArray.shift()
       if (this.#type === '*') utils.throwUnless(this.#version === '*', 'The type * can only be used with version *', 404)
-      this.#versionConfig = this.#typeConfig.versions?.[this.#version]
-      utils.throwUnless(this.#versionConfig, `Unrecognized version ${this.#version}`, 404)
+      this.#typeVersionConfig = typeConfig.versions?.[this.#version]
+      utils.throwUnless(this.#typeVersionConfig, `Unrecognized version ${this.#version}`, 404)
 
       if (utils.isIDString(pathArray[0])) {
         this.#id = pathArray.shift()  // remove the ID
@@ -492,18 +537,15 @@ export class TemporalEntityBase {
 
     await this.#hydrate()
 
-    const { versions } = this.#typeConfig
-    if (versions) {
-      const schema = versions[this.#version]?.schema
-      if (schema) {
-        const schemaValidator = new JsonSchemaValidator(schema)
-        const result = schemaValidator.validate(value)
-        utils.throwUnless(result.valid, `Schema validation failed. Error(s):\n${JSON.stringify(result.errors, null, 2)}`)
-      }
-      const additionalValidation = versions[this.#version]?.additionalValidation
-      if (additionalValidation) {
-        additionalValidation(value)
-      }
+    const { schema } = this.#typeVersionConfig
+    if (schema) {
+      const schemaValidator = new JsonSchemaValidator(schema)
+      const result = schemaValidator.validate(value)
+      utils.throwUnless(result.valid, `Schema validation failed. Error(s):\n${JSON.stringify(result.errors, null, 2)}`)
+    }
+    const { additionalValidation } = this.#typeVersionConfig
+    if (additionalValidation) {
+      additionalValidation(value)
     }
 
     // Process eTag header
@@ -523,7 +565,7 @@ export class TemporalEntityBase {
       oldCurrent = structuredClone(this.#current)
       if (
         userID === this.#current?.meta?.userID
-        && validFromDate - new Date(this.#current.meta.validFrom) < this.#typeConfig.granularity
+        && validFromDate - new Date(this.#current.meta.validFrom) < this.#typeVersionConfig.granularity
       ) {
         debounce = true
         // Make oldCurrent and validFrom be from -2 (or { value: {} }) because we're going to replace the -1 with the new value
@@ -554,7 +596,7 @@ export class TemporalEntityBase {
       type: this.#type,  // I'm putting this here rather than entityMeta on the off chance that a migration changes the type
       version: this.#version,
     }
-    if (!this.#typeConfig.supressPreviousValues) this.#current.meta.previousValues = previousValues
+    if (!this.#typeVersionConfig.supressPreviousValues) this.#current.meta.previousValues = previousValues
     if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
     this.#current.value = value
     if (debounce) {

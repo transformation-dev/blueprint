@@ -45,7 +45,7 @@ test('TemporalEntity END_OF_TIME', async (t) => {
 
 test('TemporalEntity put(), patch(), and rehydrate', async (t) => {
   const state = getStateMock()
-  const te = new TemporalEntity(state, env, '*')
+  const te = new TemporalEntity(state, env, '*', '*')
 
   t.test('put() with only value and userID', async (t) => {
     await te.put({ a: 1, b: 2 }, 'user1')
