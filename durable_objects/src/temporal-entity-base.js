@@ -30,16 +30,8 @@ const cborSC = new Encoder({ structuredClone: true })
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-0 Upgrade HTTPError to include the stack trace, but only when not in production
-
-// TODO: A-1 Decode and print CBOR-SC in the response in the cypress tests. Now, simply prints .text()
-
 // TODO: A-2 Move basic configuration params like granularity and suppressPreviousValues down into versions. This means that when create typeConfig
 //       I'll have to merge defaults from types['*'].versions['*'] rather than from just types['*'].
-
-// TODO: A-4 Add a GET /versions endpoint that returns the versions (including the schema) for the type
-//       This won't be super efficient because it'll have to stand up a dummy durable object every time but
-//       I will only hit it when the single-page app starts up.
 
 // TODO: A-5 Add a GET /types endpoint that returns all the types.  Later, we may allow this to be open-id format requested maybe with Accept header
 
@@ -317,8 +309,6 @@ export class TemporalEntityBase {
     if (body && typeof body === 'object') {
       const newBody = structuredClone(body)
       newBody.id = this.#id
-      newBody.type = this.#type
-      newBody.version = this.#version
       return new Response(cborSC.encode(newBody), { status, headers })
     }
     return new Response(undefined, { status, headers })
@@ -327,6 +317,7 @@ export class TemporalEntityBase {
   #getErrorResponse(e) {
     if (!e.body) e.body = {}
     e.body.error = { message: e.message, status: e.status }
+    if (this.env.CF_ENV !== 'production') e.body.error.stack = e.stack
     return this.#getResponse(e.body, e.status ?? 500, e.message)
   }
 
@@ -560,7 +551,8 @@ export class TemporalEntityBase {
       validFrom,
       validTo: this.constructor.END_OF_TIME,
       eTag: this.#getUUID(),
-      // id: this.#id,
+      type: this.#type,  // I'm putting this here rather than entityMeta on the off chance that a migration changes the type
+      version: this.#version,
     }
     if (!this.#typeConfig.supressPreviousValues) this.#current.meta.previousValues = previousValues
     if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID

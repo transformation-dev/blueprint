@@ -113,12 +113,12 @@ context('TemporalEntity', () => {
       delete o.meta.eTag
       expect(o).to.deep.eq({
         "id": id,
-        "type": "*",
-        "version": "*",
         "meta": {
           "previousValues": { a: undefined, b: undefined },
           "userID": "1",
-          "validTo": "9999-01-01T00:00:00.000Z"
+          "validTo": "9999-01-01T00:00:00.000Z",
+          "type": "*",
+          "version": "*",
         },
         "value": { "a": 1, "b": 2, }
       })
@@ -156,14 +156,14 @@ context('TemporalEntity', () => {
         delete o.meta.eTag
         expect(o).to.deep.eq({
           "id": id,
-          "type": "*",
-          "version": "*",
           "meta": {
             "previousValues": { a: 1, b: 2 },
             "userID": "2",
             "validFrom": newValidFromISOString,
             "impersonatorID": "impersonator1",
             "validTo": "9999-01-01T00:00:00.000Z",
+            "type": "*",
+            "version": "*",
           },
           "value": { "a": 10 }
         })

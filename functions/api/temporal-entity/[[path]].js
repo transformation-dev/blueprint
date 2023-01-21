@@ -1,7 +1,9 @@
 import Debug from 'debug'
+import { Encoder } from 'cbor-x'
 import { getDebug } from '../../_utils'
 
 const debug = getDebug('blueprint:api:temporal-entity')
+const cborSC = new Encoder({ structuredClone: true })
 
 function findFirstID(pathArray) {  // TODO: Get this from utils.js once we move TemporalEntityBase to it's own project
   for (const segment of pathArray) {
@@ -44,10 +46,19 @@ export async function onRequest({ request, env, params }) {
 
   const entityStub = env.TEMPORAL_ENTITY.get(id)
   const response = await entityStub.fetch(url, request)  // TODO: upgrade this to pass the rest along to the durable object
-  if (response.status !== 200) {
+  if (response.status >= 400) {
     debug('DURABLE_OBJECT.fetch() to %O failed with status: %O', url, response.status)  // TODO: replace 'DURABLE_OBJECT' with the durable object's name
     const responseClone = response.clone()
-    debug('response.text(): %O', await responseClone.text())  // TODO: CBOR decode the response body if the Content-Type is application/cbor or cbor-sc
+    if (responseClone.headers.get('Content-Type') === 'application/cbor-sc') {
+      const ab = await responseClone.arrayBuffer()
+      if (ab) {
+        const u8a = new Uint8Array(ab)
+        const o = cborSC.decode(u8a)
+        debug('Error body:\n%O', o)
+      }
+    } else if (responseClone.headers.get('Content-Type') === 'application/json') {
+      debug('Error body:\n%O', await responseClone.text())
+    }
   }
   return response
 }
