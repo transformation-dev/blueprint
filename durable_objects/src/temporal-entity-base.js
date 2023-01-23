@@ -1,17 +1,22 @@
 /* eslint-disable no-param-reassign */  // safe because durable objects are airgapped so to speak
 /* eslint-disable no-irregular-whitespace */  // because I use non-breaking spaces in comments
 
+// 3rd party imports
+import Debug from 'debug'
 import { diff } from 'deep-object-diff'
 import { Encoder } from 'cbor-x'
 import { parse as yamlParse } from 'yaml'
 import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 
+// local imports
+import { getDebug } from './utils'
 import * as utils from './utils.js'
 import testDagSchemaV1String from './schemas/***test-dag***.v1.yaml'
 
-const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
-
+// initialize imports
 const cborSC = new Encoder({ structuredClone: true })
+const debug = getDebug('blueprint:temporal-entity')
+const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 
 // The DurableObject storage API has no way to list just the keys so we have to keep track of all the
 // validFrom dates manually and store them under a key entityMeta.timeline
@@ -29,8 +34,6 @@ const cborSC = new Encoder({ structuredClone: true })
 // https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/capitalization-conventions
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
-
-// TODO: A-0 Get Debug() working
 
 // TODO: A-1 Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
 //       https://github.com/crcn/sift.js. Support a query parameter to include soft-deleted items in the query but default to not including them.
@@ -64,22 +67,34 @@ const cborSC = new Encoder({ structuredClone: true })
 /**
  * # TemporalEntityBase
  *
- * TemporalEntity retains its history in a timeline of snapshots. Each snapshot is a copy of the entity's value.
- * validFrom and validTo define the time range for which the snapshot is valid. This approach was invented by
- * Richard Snodgrass (see https://en.wikipedia.org/wiki/Valid_time). The validTo for the current
- * snapshot is set to a date ~8000 years in the future, 9999-01-01T00:00:00.000Z. This makes queries for a particular
- * moment in time or a range include the current snapshot.
+ * Instances of TemporalEntityBase retain their history in a timeline of snapshots. Each snapshot has a complete a copy of the entity's
+ * value for that moment in time along with meta like validFrom and validTo. validFrom and validTo define the time range for which the
+ * snapshot is... well... valid. This approach was invented by Richard Snodgrass and his doctoral student
+ * (see https://en.wikipedia.org/wiki/Valid_time).
  *
  * ## Inheriting from TemporalEntityBase
  *
- * You can use TemporalEntityBase as-is with the '*' default type. However, you almost certainly want to subclass TemporalEntityBase.
- * Even then, there are two approaches that you can mix and match:
- *   1. Create a generic subclass (e.g. Entity) and use types.js to specify schemas, migrations, and other configuration for
- *      each type and live with the provided endpoints/methods and their configured behavior. These type specifications are quite
- *      flexible and the configurable behavior of the endpoints/methods allow you to do just about anything you would want so this
- *      approach is sufficient for the vast majority of use cases.
- *   2. However, for "types" where you want to modify the behavior of the existing endpoints or add new endpoints, you have the option
- *      to create a subclass and specify each subclass as a separate binding in your wrangler.toml.
+ * You can play around with TemporalEntityBase as-is with the default type, '*', and version, also '*'
+ * (e.g. https://api/temporal-entity/*​/*​/<id>/...). However, you almost certainly want to subclass TemporalEntityBase. Even then,
+ * there are two possible approaches:
+ *   1. Create a generic subclass (e.g. TemporalEntity) and provide schemas, migrations, and other specifications for each type. These type
+ *      specifications are quite flexible and the configurable behavior of the endpoints/methods address all use cases I can think
+ *      of, but you never know so...
+ *   2. If the unforseen happens and you want a "type" with additional endpoints/methods or different behavior for the existing ones,
+ *      you can extend TemporalEntityBase and add or override at will. Remember to specify your subclass as a separate binding in
+ *      your wrangler.toml file.
+ *
+ * ### Q: Why didn't I just use a dependency injection approach rather than this inheritance approach?
+ *
+ * Several reasons:
+ *   1. You need to upload your durable objects to Cloudflare as a JavaScript Class anyway.
+ *   2. Mechanisms I thought of to inject types after it's already in Cloudflare as a class all struck me as unecessary complexity
+ *      for my personal needs. The trickiest aspect is injecting functions that are used for migrations and additionalValidation (see below).
+ *      I would have to upload those separately as Cloudflare Workers and make an over-the-wire call to them which would have a performance
+ *      penalty. That said, if I ever want to offer this as a backend-as-a-service (BaaS), I'll need to do something like that,
+ *      maybe using Cloudflare Workers for Platforms.
+ *   3. This inheritence approach allows you to add additional endpoints/methods or override the behavior of the existing ones
+ *      (approach #2 above). That said, I'm not sure if anyone ever needs to do that so this might not turn out to be a reason in the end.
  *
  * ## Granularity and debouncing
  *
@@ -94,7 +109,7 @@ const cborSC = new Encoder({ structuredClone: true })
  *
  * The meta.previousValues property is used to find or count particular state transitions by only looking at one snapshot at
  * a time. Let's say, you want to know the throughput of stories "Accepted" by a lean/agile development team for a particular
- * two-week sprint.  You could write a query like this:
+ * two-week sprint. You could write a query like this:
  *
  *     meta.validFrom >= '2020-01-01' AND
  *     meta.validFrom < '2020-01-15' AND
@@ -105,7 +120,7 @@ const cborSC = new Encoder({ structuredClone: true })
  * retrieve the snapshot immediately prior to those by 1st doing a lookup in the timeline and then making another round trip to storage
  * for each result of your first query. You'd then have to post-process the results. It's potentially several orders of magnitude more
  * expensive and it's signficantly more complex. PreviousValues is my (Larry Maccherone's) standing-on-the-shoulders-of-giants
- * (giant = Richard Snodgrass) contribution.
+ * contribution, where the giants are Richard Snodgrass and his doctoral student.
  *
  * The cost of storing previousValues is negligible since it's only storing the diff which means only the fields that have changed.
  * The incremental cost of calculating the diff is zero since we calculate it anyway to determine idempotency. So, you should only
@@ -148,25 +163,22 @@ const cborSC = new Encoder({ structuredClone: true })
  *
  * TemporalEntity uses optimistic concurrancy using ETags, If-Match, and If-None-Match headers
  * (see: https://en.wikipedia.org/wiki/HTTP_ETag). The ETag header is sent back for all requests and it will always match the
- * body.meta.eTag so feel free to use the latter that if it's more convenient. Note, our ETag is not a hash of the value but rather
+ * body.meta.eTag so feel free to use the latter that if it's more convenient. Note, our ETag is not the usual hash of the value but rather
  * it is a UUID. I did this because it accomplishes the same goal and I believe that generating a hash of the value would cost more
  * CPU cycles.
  *
  * ## Deviations from pure REST APIs
  *
- * The default behavior of TemporalEntity might deviate from your expectations for a pure REST API in these ways:
+ * The REST-like behavior of TemporalEntityBase might deviate from your expectations for a pure REST API in these ways:
  *   1. PUT behaves like an UPSERT. If there is no prior value, it will create the entity.
- *   2. As such, there is no need for a POST method. A PUT without a prior ID will behave like you would expect a POST to behave
+ *   2. As such, POST is not used to create new objects. A PUT without a prior ID will behave like you would expect a POST to behave
  *   3. Unlike HTTP/1.1, HTTP/2 infrastructure and/or libraries tend to overwrite Status-Text to match the Status code. So,
  *      while we attempt to supply a more useful Status-Text in the header, error responses also include a body with an error
- *      field which in turn has a useful message field. Error bodies are also encoded with cbor using the structured clone extension.
+ *      field which in turn has a useful message field. Error bodies are also encoded in CBOR using the structured clone extension.
  *
  * ## Types and versions
  *
- * You must specify a type and version in the first two path segments after the base URL
- * (e.g. https://api/temporal-entity/<type>/<version>/<id>/...).
- *
- * Look in the source code for an example but types are defined as follows:
+ * Here is an example of subclassing TemporalEntityBase and specifying types and versions:
  *
  *     import { TemporalEntityBase, utils } from '@transformation-dev/temporal-entity'
  *     import { parse as yamlParse } from 'yaml'
@@ -177,7 +189,7 @@ const cborSC = new Encoder({ structuredClone: true })
  *     export class Entity extends TemporalEntityBase {
  *
  *       static types = {
- *         ...super.types,  // required if you want the defaults which are used by type='*', version='*'
+ *         ...super.types,  // required if you want the defaults identified by type='*', version='*'
  *         'widget': {
  *           versions: {
  *             v1: {  // each version must start with 'v' but you can use anything after that
@@ -211,19 +223,11 @@ const cborSC = new Encoder({ structuredClone: true })
  *
  *     }
  *
- *   1. supressPreviousValues (default: false)
- *   2. granularity (default: 'hour') - 'second' or 'sec', 'minute' or 'min', 'hour' or 'hr', or 'day' are supported.
- *      You can also just specify an integer number of milliseconds.
- *   3. validation which is javascript code so you can chose to use JSON Schema or utils.throwIfNotDag. Failing validation should throw
- *      an error with utils.HTTPError()
- *   4. warnings (Not yet implemented)
- *   5. migrations (Not yet implemented)
+ * ## Using the @transformation-dev/cloudflare-do-proxy
  *
- * ### Default type
+ * You must specify a type and version in the first two path segments after the base URL
+ * (e.g. https://api/temporal-entity/<type>/<version>/<id>/...).
  *
- * You can specify a default type by using '*' (e.g. https://api/temporal-entity/*​/<id>/...). You can override the defaults for the default
- * type by specifying a type named '*' in your types.js file and not including ...super.types or just super.types[*] in the constructor
- * of your inherited class.
  *
  * @constructor
  * @param {DurableObjectState} state
@@ -285,6 +289,7 @@ export class TemporalEntityBase {
   #hydrated
 
   constructor(state, env, type, version) {  // type and version are only used in unit tests. Cloudflare only passes in two parameters
+    Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
     this.#hydrated = false
@@ -297,6 +302,7 @@ export class TemporalEntityBase {
   }
 
   async #hydrate() {
+    debug('#hydrate')
     if (this.#hydrated) return
 
     // validation

@@ -1,8 +1,13 @@
+// 3rd party imports
 import { Encoder } from 'cbor-x'
+import Debug from 'debug'
 
+// mono-repo imports
 import Accept from '@transformation-dev/accept'
 
+// iniialize imports
 const cborSC = new Encoder({ structuredClone: true })
+
 const MEDIA_TYPES_SUPPORTED = ['application/cbor-sc']  // cbor-sc is my name for cbor with structuredClone extension
 
 export class HTTPError extends Error {
@@ -116,4 +121,23 @@ export function extractETag(request) {
   if (!eTag) eTag = request.headers.get('If-None-Match')
   if (eTag === 'undefined' || eTag === 'null') return undefined
   return eTag
+}
+
+export const getDebug = (name, delay = 50) => {
+  const debugRaw = Debug(name)
+  let quiescent = true
+  let theTimeout
+  const theFunction = function debug(...values) {
+    clearTimeout(theTimeout)
+    theTimeout = setTimeout(() => {
+      quiescent = true
+    }, delay)
+    if (quiescent) {
+      // eslint-disable-next-line no-console
+      console.error('')
+      quiescent = false
+    }
+    debugRaw(...values)
+  }
+  return theFunction
 }

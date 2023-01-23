@@ -2,14 +2,15 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-shadow */
 import test from 'tape'
-// import { TemporalEntity } from '../src/temporal-entity.js'
 import { TemporalEntity } from '../index.mjs'
 
 let crypto
-let env
+const env = {}
+env.DEBUG = 'blueprint:*'  // uncomment to see debug output
+env.DEBUG_COLORS = 1
 try {
   crypto = await import('crypto')
-  env = { crypto }
+  env.crypto = crypto
 } catch (err) {
   throw new Error('crypto support not available!')
 }
@@ -32,11 +33,11 @@ function getStateMock(initialData = {}) {
   return { storage: new StorageMock(initialData), id: undefined }  // id must be undefined for unit tests to pass due to the validation that state.id match the id in the url
 }
 
-test('TemporalEntity END_OF_TIME', async (t) => {
-  t.test('END_OF_TIME', (t) => {
+test('TemporalEntity accessing static properties in subclass', async (t) => {  // TODO: this test needs to move to the blueprint suite once TemporalEntityBase is in a package
+  t.test('Subclass types', (t) => {
     t.true(
       TemporalEntity.types['***test-type-in-subclass***']['***test-property-in-type-in-subclass***'],
-      'should have property from subclass',
+      'should have bogus property from subclass',
     )
 
     t.end()
