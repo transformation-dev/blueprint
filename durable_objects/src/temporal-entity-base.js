@@ -324,14 +324,11 @@ export class TemporalEntityBase {
     Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
-    this.#hydrated = false
+    this.#type = type
+    this.#version = version
     this.#idString = idString
-    if (type) {
-      this.#type = type
-      utils.throwUnless(this.#type, 'Entity type is required', 404)
-    }
-    this.#version ??= version || this.#type === '*' ? '*' : 'v1' // only needed for unit testing  // TODO: Fix the tests that require this
-    // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
+
+    this.#hydrated = false  // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
   }
 
   async #hydrate() {
@@ -339,21 +336,17 @@ export class TemporalEntityBase {
     if (this.#hydrated) return
 
     // validation
-    utils.throwIf(this.#idString && this.state?.id?.toString() !== this.#idString, `Entity id mismatch. Url says ${this.#idString} but this.state.id says ${this.state.id}.`, 500)
     utils.throwUnless(this.constructor.types[this.#type], `Entity type, ${this.#type}, not found`, 404)
+    utils.throwUnless(this.#idString, 'Entity id is required', 404)
+    utils.throwIf(this.state?.id && this.state?.id?.toString() !== this.#idString, `Entity id mismatch. Url says ${this.#idString} but this.state.id says ${this.state?.id}.`, 500)
 
     // hydrate #entityMeta
-    this.#entityMeta = await this.state.storage.get('entityMeta')
-    if (this.#entityMeta) {
-      utils.throwUnless(this.#entityMeta.type === this.#type, `Entity type mismatch. Url says ${this.#type} but entityMeta says ${this.#entityMeta.type}.`, 500)
-      utils.throwUnless(this.#entityMeta.version === this.#version, `Entity version mismatch. Url/default says ${this.#version} but entityMeta says ${this.#entityMeta.version}.`, 500)
-    } else {
-      this.#entityMeta = { timeline: [], eTags: [], type: this.#type, version: this.#version }
-    }
+    this.#entityMeta = await this.state.storage.get('entityMeta') || { timeline: [], eTags: [] }
 
-    // hydrate #type. We don't save typeConfig in entityMeta which allows for the values to be changed over time
+    // hydrate #type. We don't store typeVersionConfig which allows for the values to be changed over time
     const defaultTypeVersionConfig = this.constructor.types['*'].versions['*']
-    const lookedUpTypeVersionConfig = this.constructor.types[this.#type].versions[this.#version]  // this.#type is normally set in the fetch handler, but can be set in the constructor for unit tests
+    const lookedUpTypeVersionConfig = this.constructor.types[this.#type].versions[this.#version]
+    utils.throwUnless(lookedUpTypeVersionConfig, `Entity version, ${this.#version}, not found for type, ${this.#type}`, 404)
     this.#typeVersionConfig = {}
     const keys = new Set([...Reflect.ownKeys(defaultTypeVersionConfig), ...Reflect.ownKeys(lookedUpTypeVersionConfig)])
     for (const key of keys) {
