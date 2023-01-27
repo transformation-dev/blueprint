@@ -1,11 +1,12 @@
 /// <reference types="Cypress" />
 
-import { Encoder } from 'cbor-x'
+import { Encoder, encode, decode } from 'cbor-x'
 const cborSC = new Encoder({ structuredClone: true })
 
 async function encodeAndFetch(url, options) {
   if (options.body) {
     const u8a = cborSC.encode(options.body)
+    // const u8a = encode(options.body)  // using this seems to fail regardless of how I decode
     options.body = u8a
   }
 
@@ -27,12 +28,15 @@ async function encodeFetchAndDecode(url, options) {
   if (ab) {
     const u8a = new Uint8Array(ab)
     const o = cborSC.decode(u8a)
+    // const o = decode(u8a)  // on the other hand, this works regardless of how I encode
     response.CBOR_SC = o
   }
   return response
 }
 
 context('TemporalEntity', () => {
+
+  // TODO: Test to confirm that for DAGs the nodes that are referenced twice are actually the same object; === rather than just deep.eq
   
   it('should respond with 415 on PUT with Content-Type header application/json', () => {
     const options = {
@@ -86,11 +90,6 @@ context('TemporalEntity', () => {
   // Using fetch() instead of cy.request() because I couldn't get cy.request() to work for binary data
   // Had to merge four tests into one so this test would be independent of the others
   it('should allow PUT, PATCH delta, GET, DELETE, PATCH undelete, and GET entity-meta', () => {
-    let id
-    let t1
-    let t2
-    let oAfterPatch
-
     const options = {
       method: 'PUT',
       body: { value: { a: 1, b: 2 }, userID: '1' },
@@ -106,8 +105,8 @@ context('TemporalEntity', () => {
       expect(o.meta.validFrom).to.be.a('string')
       expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
 
-      id = o.id
-      t1 = o.meta.validFrom
+      const id = o.id
+      const t1 = o.meta.validFrom
       const eTag1 = o.meta.eTag
       delete o.meta.validFrom
       delete o.meta.eTag
@@ -149,9 +148,6 @@ context('TemporalEntity', () => {
 
         expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
 
-        oAfterPatch = structuredClone(o)
-
-        t2 = o.meta.validFrom
         const eTag2 = o.meta.eTag
         delete o.meta.eTag
         expect(o).to.deep.eq({

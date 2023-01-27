@@ -17,6 +17,7 @@ function findFirstID(pathArray) {  // TODO: Get this from utils.js once we move 
 export async function onRequest({ request, env, params }) {
   Debug.enable(env.DEBUG)
   debug('onRequest() called')
+  debug('%s %s', request.method, request.url)
 
   // If there is no id in the URL, then we randomly generate one. You needn't worry that this will create orphaned durable objects
   // because if a durable object has no stored data, it ceases to exist as soon as it leaves memory.

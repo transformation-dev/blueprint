@@ -35,34 +35,61 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A-1 Implement query using npm module sift. Include an option to include soft-deleted items in the query. Update the error message for GET
-//       https://github.com/crcn/sift.js. Support a query parameter to include soft-deleted items in the query but default to not including them.
+// TODO: A. Refactor so the keys that go to storage include the idString in addition to snapshot and validFrom
+//       This will allow TemporalEntity to be used in composition
 
-// TODO: A-2 Implement query against all snapshots using npm module sift. Include an option to include soft-deleted items in the query.
+// TODO: A. Create a new DO named Tree
+//       The main state of the tree will essentially be the DAG with id, label, and children.
+//       The nodes will all be TemporalEntity instances in composition which means we'll need to generate an idString
+//       for each node and it won't be a valid DO idString. It could be a UUID since they are only 16 bytes and
+//       the key can be up to 2048 bytes long.
+
+// TODO: A. Implement add/remove meta.references on TreeNode as a PATCH operation.
+//       Use Set<idString> to store the references.
+//       { references: [{ operation, idString }] }; where operation is add or remove.
+
+// TODO: A. Implement add/remove meta.treeNodeReferences on TreeNode as a PATCH operation.
+//       Upgrade static types to include allowedTreeNodeReferenceTypes. Org to System. People is not a tree
+//       Use Set<treeNodeIdString> to store the references.
+//       Override this.patch in the subclass and call super.patch() if the patch is not a tree reference operation.
+//       { treeNodeReferences: [{ operation, treeNodeIdString }] }; where operation is add or remove.
+
+// TODO: A. Create People DO. A Person is a just a TemporalEntity but the People DO is not temporal. It'll store the list of people
+//       in a single storage object under the key 1 for now but later we can spread it out over multiple storage objects, 
+//       People batches 2 thru n if you will.
+
+// TODO: A. Implement query using npm module sift https://github.com/crcn/sift.js.
+//       Support a query parameter to include soft-deleted items in the query but default to not including them.
 //       Update the error message for GET.
 
-// TODO: A-3 When there is an enum in the schema, use that order for $gt, $gte, $lt, and $lte. Fork sift or convert the query if the left side of $gt, etc. is the fieldname of an enum.
+// TODO: A. Cause queries to go down recursively into children of the DAG as well as meta.attachments of the entity
+
+// TODO: B. Timeline
+
+// TODO: B. Implement query against all snapshots that intersect with a Timeline.
+
+// TODO: B. When there is an enum in the schema, use that order for $gt, $gte, $lt, and $lte. Fork sift or convert the query if the left side of $gt, etc. is the fieldname of an enum.
 //       Make this work for the value but not entityMeta for now since that has no enum types at the moment.
 
-// TODO: B Replace cbor-sc with cbor once we get an answer on the GitHub cbor-x discussion board https://github.com/kriszyp/cbor-x/issues/66
+// TODO: B. Replace cbor-sc with cbor once we get an answer on the GitHub cbor-x discussion board https://github.com/kriszyp/cbor-x/issues/66
 
-// TODO: B Add migrations to type registry.
+// TODO: B. Add migrations to type registry.
 //       Migrations can be provided for both directions (upgrade and downgrade). If there is no continuous upgrade or downgrade path from the current
 //       version to the desired on, throw an error (406, I think).
 
-// TODO: B Add the ability to return a body.warnings array in the response. This would be useful for things like deprecated versions that might
+// TODO: B. Add the ability to return a body.warnings array in the response. This would be useful for things like deprecated versions that might
 //       stop being supported at some point. Even if there exists an appropriate downgrade migration, the client might want to know that the
 //       version they are using is not the latest so they can plan to upgrade their code.
 
-// TODO: C Add a GET /types endpoint that returns all the types and/or...
-// TODO: C OpenAPI documentation. Create top-level schemas for PUT and PATCH requests but don't use them for validation because I want to
+// TODO: C. Add a GET /types endpoint that returns all the types and/or...
+// TODO: C. OpenAPI documentation. Create top-level schemas for PUT and PATCH requests but don't use them for validation because I want to
 //       keep doing that in code because I like my error messages. It's only for documentation. Create schemas for responses.
 
-// TODO: C Implement ticks
+// TODO: C. Implement ticks
 
-// TODO: C Move TemporalEntity to its own package.
+// TODO: C. Move TemporalEntity to its own package.
 
-// TODO: C Add a HEAD method that returns the same headers as GET but no body.
+// TODO: C. Add a HEAD method that returns the same headers as GET but no body.
 
 /**
  * # TemporalEntityBase
@@ -89,7 +116,7 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
  * Several reasons:
  *   1. You need to upload your durable objects to Cloudflare as a JavaScript Class anyway.
  *   2. Mechanisms I thought of to inject types after it's already in Cloudflare as a class all struck me as unecessary complexity
- *      for my personal needs. The trickiest aspect is injecting functions that are used for migrations and additionalValidation (see below).
+ *      for my current needs. The trickiest aspect is injecting functions that are used for migrations and additionalValidation (see below).
  *      I would have to upload those separately as Cloudflare Workers and make an over-the-wire call to them which would have a performance
  *      penalty. That said, if I ever want to offer this as a backend-as-a-service (BaaS), I'll need to do something like that,
  *      maybe using Cloudflare Workers for Platforms.
@@ -170,9 +197,14 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
  * ## Deviations from pure REST APIs
  *
  * The REST-like behavior of TemporalEntityBase might deviate from your expectations for a pure REST API in these ways:
- *   1. PUT behaves like an UPSERT. If there is no prior value, it will create the entity.
+ *   1. PUT behaves like an UPSERT. If called with a prior id, it will replace the value of the entity with the new value.
+ *      If called without a prior id, it will create a new entity with a new id. Note, the latter deviates from RFC 7231's requirement
+ *      that PUT be idempotent.
  *   2. As such, POST is not used to create new objects. A PUT without a prior ID will behave like you would expect a POST to behave
- *   3. Unlike HTTP/1.1, HTTP/2 infrastructure and/or libraries tend to overwrite Status-Text to match the Status code. So,
+ *      POST is reserved for queries.
+ *   3. PATCH is our Jack of all trades method. As expected, when a delta field is provided, it will partially update an entity
+ *      but it is also used to undelete and add/remove "meta.children" references.
+ *   4. Unlike HTTP/1.1, HTTP/2 infrastructure and/or libraries tend to overwrite Status-Text to match the Status code. So,
  *      while we attempt to supply a more useful Status-Text in the header, error responses also include a body with an error
  *      field which in turn has a useful message field. Error bodies are also encoded in CBOR using the structured clone extension.
  *
@@ -288,16 +320,16 @@ export class TemporalEntityBase {
 
   #hydrated
 
-  constructor(state, env, type, version) {  // type and version are only used in unit tests. Cloudflare only passes in two parameters
+  constructor(state, env, type, version, idString) {  // type, version, and idString are only used in unit tests and composition. Cloudflare only passes in two parameters.
     Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
     this.#hydrated = false
-    if (type) {  // TODO: add a check that confirms we are not in production or preview since this is only for unit tests
+    if (type) {
       this.#type = type
       utils.throwUnless(this.#type, 'Entity type is required', 404)
     }
-    this.#version ??= version || this.#type === '*' ? '*' : 'v1' // only needed for unit testing
+    this.#version ??= version || this.#type === '*' ? '*' : 'v1' // only needed for unit testing  // TODO: Fix the tests that require this
     // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
   }
 
@@ -403,6 +435,7 @@ export class TemporalEntityBase {
   // The body and return is always a CBOR-SC object
   // eslint-disable-next-line consistent-return
   async fetch(request) {
+    debug('%s %s', request.method, request.url)
     try {
       const url = new URL(request.url)
       const pathArray = url.pathname.split('/')
@@ -452,41 +485,6 @@ export class TemporalEntityBase {
     } catch (e) {
       return this.#getErrorResponse(e)
     }
-  }
-
-  async undelete(userID, validFrom, impersonatorID) {
-    utils.throwUnless(userID, 'userID required by TemporalEntity UNDELETE is missing')
-
-    await this.#hydrate()
-
-    utils.throwUnless(this.#current?.meta?.deleted, 'Cannot undelete a TemporalEntity is not deleted')
-
-    validFrom = this.#deriveValidFrom(validFrom).validFrom
-
-    // Update and save the old current
-    const oldCurrent = structuredClone(this.#current)  // Should be {}
-    oldCurrent.meta.validTo = validFrom
-    this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
-
-    // Create the new current and save it
-    const validFromBeforeDelete = this.#entityMeta.timeline.at(-2)
-    this.#current = await this.state.storage.get(`snapshot-${validFromBeforeDelete}`)
-    const previousValues = diff(this.#current.value, oldCurrent.value)
-    this.#current.meta = {
-      userID,
-      previousValues,
-      validFrom,
-      validTo: this.constructor.END_OF_TIME,
-      eTag: this.#getUUID(),
-    }
-    if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
-
-    this.#entityMeta.timeline.push(validFrom)
-    this.#entityMeta.eTags.push(this.#current.meta.eTag)
-    this.state.storage.put('entityMeta', this.#entityMeta)
-    this.state.storage.put(`snapshot-${validFrom}`, this.#current)
-
-    return this.#current
   }
 
   async delete(userID, validFrom, impersonatorID) {
@@ -631,10 +629,41 @@ export class TemporalEntityBase {
     }
   }
 
-  // delta is in the form of a diff from npm package deep-object-diff
-  // If you want to delete a key send in a delta with that key set to undefined
-  // To add a key, just include it in delta
-  // To change a value for one key, just set it to the new value in the delta
+  async undelete(userID, validFrom, impersonatorID) {
+    utils.throwUnless(userID, 'userID required by TemporalEntity UNDELETE is missing')
+
+    await this.#hydrate()
+
+    utils.throwUnless(this.#current?.meta?.deleted, 'Cannot undelete a TemporalEntity is not deleted')
+
+    validFrom = this.#deriveValidFrom(validFrom).validFrom
+
+    // Update and save the old current
+    const oldCurrent = structuredClone(this.#current)  // Should be {}
+    oldCurrent.meta.validTo = validFrom
+    this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
+
+    // Create the new current and save it
+    const validFromBeforeDelete = this.#entityMeta.timeline.at(-2)
+    this.#current = await this.state.storage.get(`snapshot-${validFromBeforeDelete}`)
+    const previousValues = diff(this.#current.value, oldCurrent.value)
+    this.#current.meta = {
+      userID,
+      previousValues,
+      validFrom,
+      validTo: this.constructor.END_OF_TIME,
+      eTag: this.#getUUID(),
+    }
+    if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
+
+    this.#entityMeta.timeline.push(validFrom)
+    this.#entityMeta.eTags.push(this.#current.meta.eTag)
+    this.state.storage.put('entityMeta', this.#entityMeta)
+    this.state.storage.put(`snapshot-${validFrom}`, this.#current)
+
+    return this.#current
+  }
+
   async patch(options, eTag) {
     const { delta, undelete, userID, validFrom, impersonatorID } = options
     utils.throwUnless(delta || undelete, 'body.delta or body.undelete required by TemporalEntity PATCH is missing')
@@ -644,6 +673,11 @@ export class TemporalEntityBase {
       return this.undelete(userID, validFrom, impersonatorID)
     }
 
+    // The rest of this function is for a delta patch
+    // delta is in the form of a diff from npm package deep-object-diff
+    // If you want to delete a key send in a delta with that key set to undefined
+    // To add a key, just include it in delta
+    // To change a value for one key, just set it to the new value in the delta
     await this.#hydrate()
 
     utils.throwUnless(this.#entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity PATCH when there is no prior value')
