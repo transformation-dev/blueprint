@@ -101,17 +101,17 @@ context('TemporalEntity', () => {
       expect(response.headers.get('Content-Type')).to.eq('application/cbor-sc')
 
       const o = response.CBOR_SC
-      expect(o.id).to.be.a('string')
+      expect(o.idString).to.be.a('string')
       expect(o.meta.validFrom).to.be.a('string')
       expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
 
-      const id = o.id
+      const idString = o.idString
       const t1 = o.meta.validFrom
       const eTag1 = o.meta.eTag
       delete o.meta.validFrom
       delete o.meta.eTag
       expect(o).to.deep.eq({
-        "id": id,
+        "idString": idString,
         "meta": {
           "previousValues": { a: undefined, b: undefined },
           "userID": "1",
@@ -141,7 +141,7 @@ context('TemporalEntity', () => {
       }
 
       cy.wrap(null).then(async () => {
-        const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options2)
+        const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${idString}`, options2)
         expect(response.status).to.eq(200)
 
         const o = response.CBOR_SC
@@ -151,7 +151,7 @@ context('TemporalEntity', () => {
         const eTag2 = o.meta.eTag
         delete o.meta.eTag
         expect(o).to.deep.eq({
-          "id": id,
+          "idString": idString,
           "meta": {
             "previousValues": { a: 1, b: 2 },
             "userID": "2",
@@ -172,7 +172,7 @@ context('TemporalEntity', () => {
         }
 
         cy.wrap(null).then(async () => {
-          const response = await encodeAndFetch(`/api/temporal-entity/*/*/${id}`, options)
+          const response = await encodeAndFetch(`/api/temporal-entity/*/*/${idString}`, options)
           expect(response.status).to.eq(204)
 
           const options3 = {
@@ -180,7 +180,7 @@ context('TemporalEntity', () => {
           }
 
           cy.wrap(null).then(async () => {
-            const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options3)
+            const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${idString}`, options3)
             expect(response.status).to.eq(404)
 
             const o = response.CBOR_SC
@@ -193,7 +193,7 @@ context('TemporalEntity', () => {
             }
 
             cy.wrap(null).then(async () => {
-              const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}/entity-meta`, options4)
+              const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${idString}/entity-meta`, options4)
               expect(response.status).to.eq(200)
 
               const o = response.CBOR_SC
@@ -206,7 +206,7 @@ context('TemporalEntity', () => {
               }
 
               cy.wrap(null).then(async () => {
-                const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options5)
+                const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${idString}`, options5)
                 expect(response.status).to.eq(404)
 
                 const options6 = {
@@ -218,7 +218,7 @@ context('TemporalEntity', () => {
                 }
 
                 cy.wrap(null).then(async () => {
-                  const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options6)
+                  const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${idString}`, options6)
                   expect(response.status).to.eq(200)
                 })
               })
@@ -242,7 +242,7 @@ context('TemporalEntity', () => {
       const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*`, options)
       expect(response.status, '1st PUT').to.eq(200)
       const o5 = response.CBOR_SC
-      const id = o5.id
+      const idString = o5.idString
 
       const options4 = {
         method: 'PUT',
@@ -252,7 +252,7 @@ context('TemporalEntity', () => {
         }
       }
       
-      const response2 = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options4)
+      const response2 = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${idString}`, options4)
       expect(response2.status, '2nd PUT with missing If-Match').to.eq(428)
       const o2 = response2.CBOR_SC
       expect(response2.headers.get('Status-Text')).to.eq(o2.error.message)
@@ -280,7 +280,7 @@ context('TemporalEntity', () => {
       expect(response.status, '1st call to fetch() to set date far into future').to.eq(200)
       const eTagFromHeaders = response.headers.get('ETag')
       const o5 = response.CBOR_SC
-      const id = o5.id
+      const idString = o5.idString
       const eTagFromMeta = o5.meta.eTag
       expect(eTagFromHeaders).to.eq(eTagFromMeta)
 
@@ -295,7 +295,7 @@ context('TemporalEntity', () => {
         },
       }
 
-      const response2 = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${id}`, options4)
+      const response2 = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${idString}`, options4)
       expect(response2.status, '2nd call to fetch() to confirm validFrom is 1ms later').to.eq(200)
       const o = response2.CBOR_SC
       expect(o.meta.validFrom).to.eq(newValidFromISOString)

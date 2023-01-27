@@ -55,7 +55,7 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 //       { treeNodeReferences: [{ operation, treeNodeIdString }] }; where operation is add or remove.
 
 // TODO: A. Create People DO. A Person is a just a TemporalEntity but the People DO is not temporal. It'll store the list of people
-//       in a single storage object under the key 1 for now but later we can spread it out over multiple storage objects, 
+//       in a single storage object under the key 1 for now but later we can spread it out over multiple storage objects,
 //       People batches 2 thru n if you will.
 
 // TODO: A. Implement query using npm module sift https://github.com/crcn/sift.js.
@@ -304,7 +304,7 @@ export class TemporalEntityBase {
     },
   }
 
-  #id
+  #idString
 
   #type
 
@@ -325,6 +325,7 @@ export class TemporalEntityBase {
     this.state = state
     this.env = env
     this.#hydrated = false
+    this.#idString = idString
     if (type) {
       this.#type = type
       utils.throwUnless(this.#type, 'Entity type is required', 404)
@@ -338,7 +339,7 @@ export class TemporalEntityBase {
     if (this.#hydrated) return
 
     // validation
-    utils.throwIf(this.#id && this.state?.id?.toString() !== this.#id, `Entity id mismatch. Url says ${this.#id} but this.state.id says ${this.state.id}.`, 500)
+    utils.throwIf(this.#idString && this.state?.id?.toString() !== this.#idString, `Entity id mismatch. Url says ${this.#idString} but this.state.id says ${this.state.id}.`, 500)
     utils.throwUnless(this.constructor.types[this.#type], `Entity type, ${this.#type}, not found`, 404)
 
     // hydrate #entityMeta
@@ -382,7 +383,7 @@ export class TemporalEntityBase {
 
   #getResponse(body, status = 200, statusText = undefined) {
     const headers = new Headers({ 'Content-Type': 'application/cbor-sc' })
-    headers.set('Content-ID', this.#id)
+    headers.set('Content-ID', this.#idString)
     if (this.#current?.meta?.eTag) {
       headers.set('ETag', this.#current?.meta?.eTag)
     }
@@ -391,7 +392,7 @@ export class TemporalEntityBase {
     }
     if (body && typeof body === 'object') {
       const newBody = structuredClone(body)
-      newBody.id = this.#id
+      newBody.idString = this.#idString
       return new Response(cborSC.encode(newBody), { status, headers })
     }
     return new Response(undefined, { status, headers })
@@ -454,9 +455,9 @@ export class TemporalEntityBase {
       utils.throwUnless(this.#typeVersionConfig, `Unrecognized version ${this.#version}`, 404)
 
       if (utils.isIDString(pathArray[0])) {
-        this.#id = pathArray.shift()  // remove the ID
+        this.#idString = pathArray.shift()  // remove the ID
       } else {
-        this.#id = this.state?.id?.toString()
+        this.#idString = this.state?.id?.toString()
       }
 
       const restOfPath = `/${pathArray.join('/')}`
@@ -511,7 +512,7 @@ export class TemporalEntityBase {
       validFrom,
       validTo: this.constructor.END_OF_TIME,
       eTag: this.#getUUID(),
-      // id: this.#id,
+      // id: this.#idString,
       deleted: true,
     }
     if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
