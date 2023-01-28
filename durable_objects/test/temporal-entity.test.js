@@ -6,7 +6,7 @@ import { TemporalEntity } from '../index.mjs'
 
 let crypto
 const env = {}
-env.DEBUG = 'blueprint:*'  // uncomment to see debug output
+// env.DEBUG = 'blueprint:*'  // uncomment to see debug output
 env.DEBUG_COLORS = 1
 try {
   crypto = await import('crypto')

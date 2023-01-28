@@ -4,18 +4,16 @@
 // 3rd party imports
 import Debug from 'debug'
 import { diff } from 'deep-object-diff'
-import { Encoder } from 'cbor-x'
 import { parse as yamlParse } from 'yaml'
 import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 
 // local imports
-import { getDebug } from './utils'
 import * as utils from './utils.js'
+import responseMixin from './response-mixin.js'
 import testDagSchemaV1String from './schemas/***test-dag***.v1.yaml'
 
 // initialize imports
-const cborSC = new Encoder({ structuredClone: true })
-const debug = getDebug('blueprint:temporal-entity')
+const debug = utils.getDebug('blueprint:temporal-entity')
 const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 
 // The DurableObject storage API has no way to list just the keys so we have to keep track of all the
@@ -37,10 +35,6 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 
 // TODO: A. Refactor so the keys that go to storage include the idString in addition to snapshot and validFrom
 //       This will allow TemporalEntity to be used in composition
-
-// TODO: A. Refactor so there are no private members or methods. I need this to implement mixins.
-
-// TODO: A. Move getResponse, getErrorReponse, and getStatusOnlyResponse to a mixin. This should eventually get into the package.
 
 // TODO: A. Create a new DO named Tree
 //       The main state of the tree will essentially be the DAG with id, label, and children.
@@ -308,22 +302,6 @@ export class TemporalEntityBase {
     },
   }
 
-  #idString
-
-  #type
-
-  // #typeConfig
-
-  #version
-
-  #typeVersionConfig
-
-  #entityMeta  // Metadata for the entity { timeline, eTags, type, version }
-
-  #current  // { value, meta }
-
-  #hydrated
-
   constructor(state, env, type, version, idString) {  // type, version, and idString are only used in unit tests and composition. Cloudflare only passes in two parameters.
     Debug.enable(env.DEBUG)
     this.state = state
@@ -331,6 +309,8 @@ export class TemporalEntityBase {
     this.type = type
     this.version = version
     this.idString = idString
+
+    Object.assign(this, responseMixin)
 
     this.hydrated = false  // using this.hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.hydrate.bind(this))
   }
@@ -344,10 +324,7 @@ export class TemporalEntityBase {
     utils.throwUnless(this.idString, 'Entity id is required', 404)
     utils.throwIf(this.state?.id && this.state?.id?.toString() !== this.idString, `Entity id mismatch. Url says ${this.idString} but this.state.id says ${this.state?.id}.`, 500)
 
-    // hydrate #entityMeta
-    this.entityMeta = await this.state.storage.get('entityMeta') || { timeline: [], eTags: [] }
-
-    // hydrate #type. We don't store typeVersionConfig which allows for the values to be changed over time
+    // hydrate #typeVerionConfig. We don't store typeVersionConfig which allows for the values to be changed over time
     const defaultTypeVersionConfig = this.constructor.types['*'].versions['*']
     const lookedUpTypeVersionConfig = this.constructor.types[this.type].versions[this.version]
     utils.throwUnless(lookedUpTypeVersionConfig, `Entity version, ${this.version}, not found for type, ${this.type}`, 404)
@@ -364,6 +341,9 @@ export class TemporalEntityBase {
       }
     }
 
+    // hydrate #entityMeta
+    this.entityMeta = await this.state.storage.get('entityMeta') || { timeline: [], eTags: [] }
+
     // hydrate #current
     if (this.entityMeta.timeline.length > 0) {
       this.current = await this.state.storage.get(`snapshot-${this.entityMeta.timeline.at(-1)}`)
@@ -376,35 +356,6 @@ export class TemporalEntityBase {
     if (this.env.crypto?.randomUUID) return this.env.crypto.randomUUID()
     if (crypto?.randomUUID) return crypto.randomUUID()
     else return utils.throwIf(true, 'crypto.randomUUID() not in the environment', 500)
-  }
-
-  getResponse(body, status = 200, statusText = undefined) {
-    const headers = new Headers({ 'Content-Type': 'application/cbor-sc' })
-    headers.set('Content-ID', this.idString)
-    if (this.current?.meta?.eTag) {
-      headers.set('ETag', this.current?.meta?.eTag)
-    }
-    if (statusText) {
-      headers.set('Status-Text', statusText)
-    }
-    if (body && typeof body === 'object') {
-      const newBody = structuredClone(body)
-      newBody.idString = this.idString
-      return new Response(cborSC.encode(newBody), { status, headers })
-    }
-    return new Response(undefined, { status, headers })
-  }
-
-  getErrorResponse(e) {
-    if (!e.body) e.body = {}
-    e.body.error = { message: e.message, status: e.status }
-    if (this.env.CF_ENV !== 'production') e.body.error.stack = e.stack
-    return this.getResponse(e.body, e.status ?? 500, e.message)
-  }
-
-  // eslint-disable-next-line class-methods-use-this
-  getStatusOnlyResponse(status, statusText = undefined) {
-    return this.getResponse(undefined, status, statusText)
   }
 
   deriveValidFrom(validFrom) {
@@ -440,16 +391,13 @@ export class TemporalEntityBase {
       if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
 
       this.type = pathArray.shift()
-      if (this.type === 'types') {
-        // return GETTypes(request)  // TODO: Create GETTypes() method. Make it static if possible
-      }
       const typeConfig = this.constructor.types[this.type]
       utils.throwUnless(typeConfig, `Unrecognized type ${this.type}`, 404)
 
       this.version = pathArray.shift()
       if (this.type === '*') utils.throwUnless(this.version === '*', 'The type * can only be used with version *', 404)
-      this.typeVersionConfig = typeConfig.versions?.[this.version]
-      utils.throwUnless(this.typeVersionConfig, `Unrecognized version ${this.version}`, 404)
+      const typeVersionConfig = typeConfig.versions?.[this.version]
+      utils.throwUnless(typeVersionConfig, `Unrecognized version ${this.version}`, 404)
 
       if (utils.isIDString(pathArray[0])) {
         this.idString = pathArray.shift()  // remove the ID
@@ -461,19 +409,15 @@ export class TemporalEntityBase {
 
       switch (restOfPath) {
         case '/':
-          utils.throwUnless(
-            ['PUT', 'PATCH', 'GET', 'DELETE'].includes(request.method),
-            `Unrecognized HTTP method ${request.method} for ${url.pathname}`,
-            405,
-          )
-          return this[request.method](request)
+          if (this[request.method]) return this[request.method](request)
+          return utils.throwIf(true, `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
 
         case '/ticks':
           // Not yet implemented
           utils.throwIf(true, '/ticks not implemented yet', 404)
           return this.getStatusOnlyResponse(500)  // this just here temporarily because every case needs to end with a break or return
 
-        case '/entity-meta':
+        case '/entity-meta':  // This doesn't require type or version but this.hydrate does and this needs this.hydrate
           utils.throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
           return this.GETEntityMeta(request)
 
@@ -501,7 +445,7 @@ export class TemporalEntityBase {
     this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
 
     // Create the new current and save it
-    this.current = { value: {} }
+    this.current = { value: {} }  // TODO: Should we leave the value as is? Or should we set it to {}?
     const previousValues = oldCurrent.value  // I'm pretty sure we don't need to use diff here because the new value is {}
     this.current.meta = {
       userID,
@@ -509,7 +453,8 @@ export class TemporalEntityBase {
       validFrom,
       validTo: this.constructor.END_OF_TIME,
       eTag: this.getUUID(),
-      // id: this.idString,
+      type: this.type,  // I'm putting this here rather than entityMeta on the off chance that a migration changes the type
+      version: this.version,
       deleted: true,
     }
     if (impersonatorID) this.current.meta.impersonatorID = impersonatorID
@@ -651,6 +596,8 @@ export class TemporalEntityBase {
       validFrom,
       validTo: this.constructor.END_OF_TIME,
       eTag: this.getUUID(),
+      type: this.type,  // I'm putting this here rather than entityMeta on the off chance that a migration changes the type
+      version: this.version,
     }
     if (impersonatorID) this.current.meta.impersonatorID = impersonatorID
 
