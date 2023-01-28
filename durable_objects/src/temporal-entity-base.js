@@ -33,9 +33,6 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A. Refactor so the keys that go to storage include the idString in addition to snapshot and validFrom
-//       This will allow TemporalEntity to be used in composition
-
 // TODO: A. Create a new DO named Tree
 //       The main state of the tree will essentially be the DAG with id, label, and children.
 //       The nodes will all be TemporalEntity instances in composition which means we'll need to generate an idString
@@ -346,7 +343,7 @@ export class TemporalEntityBase {
 
     // hydrate #current
     if (this.entityMeta.timeline.length > 0) {
-      this.current = await this.state.storage.get(`snapshot-${this.entityMeta.timeline.at(-1)}`)
+      this.current = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}`)
     }
 
     this.hydrated = true
@@ -442,7 +439,7 @@ export class TemporalEntityBase {
     // Update and save the old current
     const oldCurrent = structuredClone(this.current)
     oldCurrent.meta.validTo = validFrom
-    this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
+    this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
 
     // Create the new current and save it
     this.current = { value: {} }  // TODO: Should we leave the value as is? Or should we set it to {}?
@@ -462,7 +459,7 @@ export class TemporalEntityBase {
     this.entityMeta.timeline.push(validFrom)
     this.entityMeta.eTags.push(this.current.meta.eTag)
     this.state.storage.put('entityMeta', this.entityMeta)
-    this.state.storage.put(`snapshot-${validFrom}`, this.current)
+    this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
     return 204
   }
@@ -516,7 +513,7 @@ export class TemporalEntityBase {
       ) {
         debounce = true
         // Make oldCurrent and validFrom be from -2 (or { value: {} }) because we're going to replace the -1 with the new value
-        oldCurrent = await this.state.storage.get(`snapshot-${this.entityMeta.timeline.at(-2)}`) ?? { value: {} }
+        oldCurrent = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-2)}`) ?? { value: {} }
         validFrom = this.current.meta.validFrom
       }
     }
@@ -530,7 +527,7 @@ export class TemporalEntityBase {
     // Update the old current and save it
     if (!debounce && this.current) {
       oldCurrent.meta.validTo = validFrom
-      this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
+      this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
     }
 
     // Create the new current and save it
@@ -554,7 +551,7 @@ export class TemporalEntityBase {
       this.entityMeta.eTags.push(this.current.meta.eTag)
     }
     this.state.storage.put('entityMeta', this.entityMeta)
-    this.state.storage.put(`snapshot-${validFrom}`, this.current)
+    this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
     // return the new current
     return this.current
@@ -584,11 +581,11 @@ export class TemporalEntityBase {
     // Update and save the old current
     const oldCurrent = structuredClone(this.current)  // Should be {}
     oldCurrent.meta.validTo = validFrom
-    this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
+    this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
 
     // Create the new current and save it
     const validFromBeforeDelete = this.entityMeta.timeline.at(-2)
-    this.current = await this.state.storage.get(`snapshot-${validFromBeforeDelete}`)
+    this.current = await this.state.storage.get(`${this.idString}/snapshot/${validFromBeforeDelete}`)
     const previousValues = diff(this.current.value, oldCurrent.value)
     this.current.meta = {
       userID,
@@ -604,7 +601,7 @@ export class TemporalEntityBase {
     this.entityMeta.timeline.push(validFrom)
     this.entityMeta.eTags.push(this.current.meta.eTag)
     this.state.storage.put('entityMeta', this.entityMeta)
-    this.state.storage.put(`snapshot-${validFrom}`, this.current)
+    this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
     return this.current
   }

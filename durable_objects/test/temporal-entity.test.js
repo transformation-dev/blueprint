@@ -391,9 +391,9 @@ test('TemporalEntity delete and undelete', async (t) => {
     const validFrom1 = data.entityMeta.timeline[0]
     const validFrom2 = data.entityMeta.timeline[1]
     const validFrom3 = data.entityMeta.timeline[2]
-    const snapshot1 = data[`snapshot-${validFrom1}`]
-    const snapshot2 = data[`snapshot-${validFrom2}`]
-    const snapshot3 = data[`snapshot-${validFrom3}`]
+    const snapshot1 = data[`testIDString/snapshot/${validFrom1}`]
+    const snapshot2 = data[`testIDString/snapshot/${validFrom2}`]
+    const snapshot3 = data[`testIDString/snapshot/${validFrom3}`]
 
     t.equal(snapshot1.meta.validTo, snapshot2.meta.validFrom, 'second snapshot should start where first snapshot ends')
     t.equal(snapshot2.meta.validTo, snapshot3.meta.validFrom, 'third snapshot should start where second snapshot ends')
@@ -410,9 +410,9 @@ test('TemporalEntity delete and undelete', async (t) => {
     const validFrom2 = data.entityMeta.timeline[1]
     const validFrom3 = data.entityMeta.timeline[2]
     const validFrom4 = data.entityMeta.timeline[3]
-    const snapshot2 = data[`snapshot-${validFrom2}`]
-    const snapshot3 = data[`snapshot-${validFrom3}`]
-    const snapshot4 = data[`snapshot-${validFrom4}`]
+    const snapshot2 = data[`testIDString/snapshot/${validFrom2}`]
+    const snapshot3 = data[`testIDString/snapshot/${validFrom3}`]
+    const snapshot4 = data[`testIDString/snapshot/${validFrom4}`]
 
     t.equal(snapshot3.meta.validTo, snapshot4.meta.validFrom, 'fourth snapshot should start where third snapshot ends')
     t.deepEqual(snapshot4.value, snapshot2.value, 'the value after undelete should equal the value before delete')
