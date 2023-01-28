@@ -38,6 +38,10 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 // TODO: A. Refactor so the keys that go to storage include the idString in addition to snapshot and validFrom
 //       This will allow TemporalEntity to be used in composition
 
+// TODO: A. Refactor so there are no private members or methods. I need this to implement mixins.
+
+// TODO: A. Move getResponse, getErrorReponse, and getStatusOnlyResponse to a mixin. This should eventually get into the package.
+
 // TODO: A. Create a new DO named Tree
 //       The main state of the tree will essentially be the DAG with id, label, and children.
 //       The nodes will all be TemporalEntity instances in composition which means we'll need to generate an idString
@@ -324,96 +328,96 @@ export class TemporalEntityBase {
     Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
-    this.#type = type
-    this.#version = version
-    this.#idString = idString
+    this.type = type
+    this.version = version
+    this.idString = idString
 
-    this.#hydrated = false  // using this.#hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.#hydrate.bind(this))
+    this.hydrated = false  // using this.hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.hydrate.bind(this))
   }
 
-  async #hydrate() {
+  async hydrate() {
     debug('#hydrate')
-    if (this.#hydrated) return
+    if (this.hydrated) return
 
     // validation
-    utils.throwUnless(this.constructor.types[this.#type], `Entity type, ${this.#type}, not found`, 404)
-    utils.throwUnless(this.#idString, 'Entity id is required', 404)
-    utils.throwIf(this.state?.id && this.state?.id?.toString() !== this.#idString, `Entity id mismatch. Url says ${this.#idString} but this.state.id says ${this.state?.id}.`, 500)
+    utils.throwUnless(this.constructor.types[this.type], `Entity type, ${this.type}, not found`, 404)
+    utils.throwUnless(this.idString, 'Entity id is required', 404)
+    utils.throwIf(this.state?.id && this.state?.id?.toString() !== this.idString, `Entity id mismatch. Url says ${this.idString} but this.state.id says ${this.state?.id}.`, 500)
 
     // hydrate #entityMeta
-    this.#entityMeta = await this.state.storage.get('entityMeta') || { timeline: [], eTags: [] }
+    this.entityMeta = await this.state.storage.get('entityMeta') || { timeline: [], eTags: [] }
 
     // hydrate #type. We don't store typeVersionConfig which allows for the values to be changed over time
     const defaultTypeVersionConfig = this.constructor.types['*'].versions['*']
-    const lookedUpTypeVersionConfig = this.constructor.types[this.#type].versions[this.#version]
-    utils.throwUnless(lookedUpTypeVersionConfig, `Entity version, ${this.#version}, not found for type, ${this.#type}`, 404)
-    this.#typeVersionConfig = {}
+    const lookedUpTypeVersionConfig = this.constructor.types[this.type].versions[this.version]
+    utils.throwUnless(lookedUpTypeVersionConfig, `Entity version, ${this.version}, not found for type, ${this.type}`, 404)
+    this.typeVersionConfig = {}
     const keys = new Set([...Reflect.ownKeys(defaultTypeVersionConfig), ...Reflect.ownKeys(lookedUpTypeVersionConfig)])
     for (const key of keys) {
-      this.#typeVersionConfig[key] = lookedUpTypeVersionConfig[key] ?? defaultTypeVersionConfig[key]
-      if (key === 'granularity' && typeof this.#typeVersionConfig.granularity === 'string') {
-        if (['sec', 'second'].includes(this.#typeVersionConfig.granularity)) this.#typeVersionConfig.granularity = 1000
-        else if (['min', 'minute'].includes(this.#typeVersionConfig.granularity)) this.#typeVersionConfig.granularity = 60000
-        else if (['hr', 'hour'].includes(this.#typeVersionConfig.granularity)) this.#typeVersionConfig.granularity = 3600000
-        else if (this.#typeVersionConfig.granularity === 'day') this.#typeVersionConfig.granularity = 86400000
-        else utils.throwIf(true, `Unsupported granularity: ${this.#typeVersionConfig.granularity}`, 500)
+      this.typeVersionConfig[key] = lookedUpTypeVersionConfig[key] ?? defaultTypeVersionConfig[key]
+      if (key === 'granularity' && typeof this.typeVersionConfig.granularity === 'string') {
+        if (['sec', 'second'].includes(this.typeVersionConfig.granularity)) this.typeVersionConfig.granularity = 1000
+        else if (['min', 'minute'].includes(this.typeVersionConfig.granularity)) this.typeVersionConfig.granularity = 60000
+        else if (['hr', 'hour'].includes(this.typeVersionConfig.granularity)) this.typeVersionConfig.granularity = 3600000
+        else if (this.typeVersionConfig.granularity === 'day') this.typeVersionConfig.granularity = 86400000
+        else utils.throwIf(true, `Unsupported granularity: ${this.typeVersionConfig.granularity}`, 500)
       }
     }
 
     // hydrate #current
-    if (this.#entityMeta.timeline.length > 0) {
-      this.#current = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-1)}`)
+    if (this.entityMeta.timeline.length > 0) {
+      this.current = await this.state.storage.get(`snapshot-${this.entityMeta.timeline.at(-1)}`)
     }
 
-    this.#hydrated = true
+    this.hydrated = true
   }
 
-  #getUUID() {
+  getUUID() {
     if (this.env.crypto?.randomUUID) return this.env.crypto.randomUUID()
     if (crypto?.randomUUID) return crypto.randomUUID()
     else return utils.throwIf(true, 'crypto.randomUUID() not in the environment', 500)
   }
 
-  #getResponse(body, status = 200, statusText = undefined) {
+  getResponse(body, status = 200, statusText = undefined) {
     const headers = new Headers({ 'Content-Type': 'application/cbor-sc' })
-    headers.set('Content-ID', this.#idString)
-    if (this.#current?.meta?.eTag) {
-      headers.set('ETag', this.#current?.meta?.eTag)
+    headers.set('Content-ID', this.idString)
+    if (this.current?.meta?.eTag) {
+      headers.set('ETag', this.current?.meta?.eTag)
     }
     if (statusText) {
       headers.set('Status-Text', statusText)
     }
     if (body && typeof body === 'object') {
       const newBody = structuredClone(body)
-      newBody.idString = this.#idString
+      newBody.idString = this.idString
       return new Response(cborSC.encode(newBody), { status, headers })
     }
     return new Response(undefined, { status, headers })
   }
 
-  #getErrorResponse(e) {
+  getErrorResponse(e) {
     if (!e.body) e.body = {}
     e.body.error = { message: e.message, status: e.status }
     if (this.env.CF_ENV !== 'production') e.body.error.stack = e.stack
-    return this.#getResponse(e.body, e.status ?? 500, e.message)
+    return this.getResponse(e.body, e.status ?? 500, e.message)
   }
 
   // eslint-disable-next-line class-methods-use-this
-  #getStatusOnlyResponse(status, statusText = undefined) {
-    return this.#getResponse(undefined, status, statusText)
+  getStatusOnlyResponse(status, statusText = undefined) {
+    return this.getResponse(undefined, status, statusText)
   }
 
-  #deriveValidFrom(validFrom) {
+  deriveValidFrom(validFrom) {
     let validFromDate
     if (validFrom) {
-      if (this.#entityMeta?.timeline?.length > 0) {
-        utils.throwIf(validFrom <= this.#entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
+      if (this.entityMeta?.timeline?.length > 0) {
+        utils.throwIf(validFrom <= this.entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
       }
       validFromDate = new Date(validFrom)
     } else {
       validFromDate = new Date()
-      if (this.#entityMeta?.timeline?.length > 0) {
-        const lastTimelineDate = new Date(this.#entityMeta.timeline.at(-1))
+      if (this.entityMeta?.timeline?.length > 0) {
+        const lastTimelineDate = new Date(this.entityMeta.timeline.at(-1))
         if (validFromDate <= lastTimelineDate) {
           validFromDate = new Date(lastTimelineDate.getTime() + 1)
         }
@@ -435,22 +439,22 @@ export class TemporalEntityBase {
       const pathArray = url.pathname.split('/')
       if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
 
-      this.#type = pathArray.shift()
-      if (this.#type === 'types') {
+      this.type = pathArray.shift()
+      if (this.type === 'types') {
         // return GETTypes(request)  // TODO: Create GETTypes() method. Make it static if possible
       }
-      const typeConfig = this.constructor.types[this.#type]
-      utils.throwUnless(typeConfig, `Unrecognized type ${this.#type}`, 404)
+      const typeConfig = this.constructor.types[this.type]
+      utils.throwUnless(typeConfig, `Unrecognized type ${this.type}`, 404)
 
-      this.#version = pathArray.shift()
-      if (this.#type === '*') utils.throwUnless(this.#version === '*', 'The type * can only be used with version *', 404)
-      this.#typeVersionConfig = typeConfig.versions?.[this.#version]
-      utils.throwUnless(this.#typeVersionConfig, `Unrecognized version ${this.#version}`, 404)
+      this.version = pathArray.shift()
+      if (this.type === '*') utils.throwUnless(this.version === '*', 'The type * can only be used with version *', 404)
+      this.typeVersionConfig = typeConfig.versions?.[this.version]
+      utils.throwUnless(this.typeVersionConfig, `Unrecognized version ${this.version}`, 404)
 
       if (utils.isIDString(pathArray[0])) {
-        this.#idString = pathArray.shift()  // remove the ID
+        this.idString = pathArray.shift()  // remove the ID
       } else {
-        this.#idString = this.state?.id?.toString()
+        this.idString = this.state?.id?.toString()
       }
 
       const restOfPath = `/${pathArray.join('/')}`
@@ -467,7 +471,7 @@ export class TemporalEntityBase {
         case '/ticks':
           // Not yet implemented
           utils.throwIf(true, '/ticks not implemented yet', 404)
-          return this.#getStatusOnlyResponse(500)  // this just here temporarily because every case needs to end with a break or return
+          return this.getStatusOnlyResponse(500)  // this just here temporarily because every case needs to end with a break or return
 
         case '/entity-meta':
           utils.throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
@@ -477,43 +481,43 @@ export class TemporalEntityBase {
           utils.throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
       }
     } catch (e) {
-      return this.#getErrorResponse(e)
+      return this.getErrorResponse(e)
     }
   }
 
   async delete(userID, validFrom, impersonatorID) {
     utils.throwUnless(userID, 'userID required by TemporalEntity DELETE is missing')
 
-    await this.#hydrate()
+    await this.hydrate()
 
-    utils.throwIf(this.#current?.meta?.deleted, 'Cannot delete a TemporalEntity that is already deleted', 404)
-    utils.throwUnless(this.#entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity DELETE when there is no prior value')
+    utils.throwIf(this.current?.meta?.deleted, 'Cannot delete a TemporalEntity that is already deleted', 404)
+    utils.throwUnless(this.entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity DELETE when there is no prior value')
 
-    validFrom = this.#deriveValidFrom(validFrom).validFrom
+    validFrom = this.deriveValidFrom(validFrom).validFrom
 
     // Update and save the old current
-    const oldCurrent = structuredClone(this.#current)
+    const oldCurrent = structuredClone(this.current)
     oldCurrent.meta.validTo = validFrom
     this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
 
     // Create the new current and save it
-    this.#current = { value: {} }
+    this.current = { value: {} }
     const previousValues = oldCurrent.value  // I'm pretty sure we don't need to use diff here because the new value is {}
-    this.#current.meta = {
+    this.current.meta = {
       userID,
       previousValues,
       validFrom,
       validTo: this.constructor.END_OF_TIME,
-      eTag: this.#getUUID(),
-      // id: this.#idString,
+      eTag: this.getUUID(),
+      // id: this.idString,
       deleted: true,
     }
-    if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
+    if (impersonatorID) this.current.meta.impersonatorID = impersonatorID
 
-    this.#entityMeta.timeline.push(validFrom)
-    this.#entityMeta.eTags.push(this.#current.meta.eTag)
-    this.state.storage.put('entityMeta', this.#entityMeta)
-    this.state.storage.put(`snapshot-${validFrom}`, this.#current)
+    this.entityMeta.timeline.push(validFrom)
+    this.entityMeta.eTags.push(this.current.meta.eTag)
+    this.state.storage.put('entityMeta', this.entityMeta)
+    this.state.storage.put(`snapshot-${validFrom}`, this.current)
 
     return 204
   }
@@ -523,9 +527,9 @@ export class TemporalEntityBase {
       utils.throwIfContentTypeHeaderInvalid(request)
       const options = await utils.decodeCBORSC(request)
       const status = await this.delete(options.userID, options.validFrom, options.impersonatorID)
-      return this.#getStatusOnlyResponse(status)
+      return this.getStatusOnlyResponse(status)
     } catch (e) {
-      return this.#getErrorResponse(e)
+      return this.getErrorResponse(e)
     }
   }
 
@@ -533,82 +537,82 @@ export class TemporalEntityBase {
     utils.throwUnless(value, 'body.value field required by TemporalEntity PUT is missing')
     utils.throwUnless(userID, 'userID required by TemporalEntity operation is missing')
 
-    await this.#hydrate()
+    await this.hydrate()
 
-    const { schema } = this.#typeVersionConfig
+    const { schema } = this.typeVersionConfig
     if (schema) {
       const schemaValidator = new JsonSchemaValidator(schema)
       const result = schemaValidator.validate(value)
       utils.throwUnless(result.valid, `Schema validation failed. Error(s):\n${JSON.stringify(result.errors, null, 2)}`)
     }
-    const { additionalValidation } = this.#typeVersionConfig
+    const { additionalValidation } = this.typeVersionConfig
     if (additionalValidation) {
       additionalValidation(value)
     }
 
     // Process eTag header
-    utils.throwIf(this.#entityMeta.eTags.length > 0 && !eTag, 'required ETag header for TemporalEntity PUT is missing', 428, this.#current)
-    utils.throwIf(eTag && eTag !== this.#current?.meta?.eTag, 'If-Match does not match this TemporalEntity\'s current ETag', 412, this.#current)
+    utils.throwIf(this.entityMeta.eTags.length > 0 && !eTag, 'required ETag header for TemporalEntity PUT is missing', 428, this.current)
+    utils.throwIf(eTag && eTag !== this.current?.meta?.eTag, 'If-Match does not match this TemporalEntity\'s current ETag', 412, this.current)
 
-    utils.throwIf(this.#current?.meta?.deleted, 'PUT on deleted TemporalEntity not allowed', 404)
+    utils.throwIf(this.current?.meta?.deleted, 'PUT on deleted TemporalEntity not allowed', 404)
 
     // Set validFrom and validFromDate
     let validFromDate
-    ({ validFrom, validFromDate } = this.#deriveValidFrom(validFrom))
+    ({ validFrom, validFromDate } = this.deriveValidFrom(validFrom))
 
     // Determine if this update should be debounced and set oldCurrent
     let debounce = false
     let oldCurrent = { value: {} }
-    if (this.#current) {
-      oldCurrent = structuredClone(this.#current)
+    if (this.current) {
+      oldCurrent = structuredClone(this.current)
       if (
-        userID === this.#current?.meta?.userID
-        && validFromDate - new Date(this.#current.meta.validFrom) < this.#typeVersionConfig.granularity
+        userID === this.current?.meta?.userID
+        && validFromDate - new Date(this.current.meta.validFrom) < this.typeVersionConfig.granularity
       ) {
         debounce = true
         // Make oldCurrent and validFrom be from -2 (or { value: {} }) because we're going to replace the -1 with the new value
-        oldCurrent = await this.state.storage.get(`snapshot-${this.#entityMeta.timeline.at(-2)}`) ?? { value: {} }
-        validFrom = this.#current.meta.validFrom
+        oldCurrent = await this.state.storage.get(`snapshot-${this.entityMeta.timeline.at(-2)}`) ?? { value: {} }
+        validFrom = this.current.meta.validFrom
       }
     }
 
     // Calculate the previousValues diff and check for idempotency
     const previousValues = diff(value, oldCurrent.value)
     if (Object.keys(previousValues).length === 0) {  // idempotent
-      return this.#current
+      return this.current
     }
 
     // Update the old current and save it
-    if (!debounce && this.#current) {
+    if (!debounce && this.current) {
       oldCurrent.meta.validTo = validFrom
       this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
     }
 
     // Create the new current and save it
-    this.#current = {}
-    this.#current.meta = {
+    this.current = {}
+    this.current.meta = {
       userID,
       validFrom,
       validTo: this.constructor.END_OF_TIME,
-      eTag: this.#getUUID(),
-      type: this.#type,  // I'm putting this here rather than entityMeta on the off chance that a migration changes the type
-      version: this.#version,
+      eTag: this.getUUID(),
+      type: this.type,  // I'm putting this here rather than entityMeta on the off chance that a migration changes the type
+      version: this.version,
     }
-    if (!this.#typeVersionConfig.supressPreviousValues) this.#current.meta.previousValues = previousValues
-    if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
-    this.#current.value = value
+    if (!this.typeVersionConfig.supressPreviousValues) this.current.meta.previousValues = previousValues
+    if (impersonatorID) this.current.meta.impersonatorID = impersonatorID
+    this.current.value = value
     if (debounce) {
-      // this.#entityMeta.timeline doesn't change
-      this.#entityMeta.eTags[this.#entityMeta.eTags.length - 1] = this.#current.meta.eTag
+      // this.entityMeta.timeline doesn't change
+      this.entityMeta.eTags[this.entityMeta.eTags.length - 1] = this.current.meta.eTag
     } else {
-      this.#entityMeta.timeline.push(validFrom)
-      this.#entityMeta.eTags.push(this.#current.meta.eTag)
+      this.entityMeta.timeline.push(validFrom)
+      this.entityMeta.eTags.push(this.current.meta.eTag)
     }
-    this.state.storage.put('entityMeta', this.#entityMeta)
-    this.state.storage.put(`snapshot-${validFrom}`, this.#current)
+    this.state.storage.put('entityMeta', this.entityMeta)
+    this.state.storage.put(`snapshot-${validFrom}`, this.current)
 
     // return the new current
-    return this.#current
+    return this.current
   }
 
   async PUT(request) {
@@ -617,45 +621,45 @@ export class TemporalEntityBase {
       const options = await utils.decodeCBORSC(request)
       const eTag = utils.extractETag(request)
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
-      return this.#getResponse(current)
+      return this.getResponse(current)
     } catch (e) {
-      return this.#getErrorResponse(e)
+      return this.getErrorResponse(e)
     }
   }
 
   async undelete(userID, validFrom, impersonatorID) {
     utils.throwUnless(userID, 'userID required by TemporalEntity UNDELETE is missing')
 
-    await this.#hydrate()
+    await this.hydrate()
 
-    utils.throwUnless(this.#current?.meta?.deleted, 'Cannot undelete a TemporalEntity is not deleted')
+    utils.throwUnless(this.current?.meta?.deleted, 'Cannot undelete a TemporalEntity is not deleted')
 
-    validFrom = this.#deriveValidFrom(validFrom).validFrom
+    validFrom = this.deriveValidFrom(validFrom).validFrom
 
     // Update and save the old current
-    const oldCurrent = structuredClone(this.#current)  // Should be {}
+    const oldCurrent = structuredClone(this.current)  // Should be {}
     oldCurrent.meta.validTo = validFrom
     this.state.storage.put(`snapshot-${oldCurrent.meta.validFrom}`, oldCurrent)
 
     // Create the new current and save it
-    const validFromBeforeDelete = this.#entityMeta.timeline.at(-2)
-    this.#current = await this.state.storage.get(`snapshot-${validFromBeforeDelete}`)
-    const previousValues = diff(this.#current.value, oldCurrent.value)
-    this.#current.meta = {
+    const validFromBeforeDelete = this.entityMeta.timeline.at(-2)
+    this.current = await this.state.storage.get(`snapshot-${validFromBeforeDelete}`)
+    const previousValues = diff(this.current.value, oldCurrent.value)
+    this.current.meta = {
       userID,
       previousValues,
       validFrom,
       validTo: this.constructor.END_OF_TIME,
-      eTag: this.#getUUID(),
+      eTag: this.getUUID(),
     }
-    if (impersonatorID) this.#current.meta.impersonatorID = impersonatorID
+    if (impersonatorID) this.current.meta.impersonatorID = impersonatorID
 
-    this.#entityMeta.timeline.push(validFrom)
-    this.#entityMeta.eTags.push(this.#current.meta.eTag)
-    this.state.storage.put('entityMeta', this.#entityMeta)
-    this.state.storage.put(`snapshot-${validFrom}`, this.#current)
+    this.entityMeta.timeline.push(validFrom)
+    this.entityMeta.eTags.push(this.current.meta.eTag)
+    this.state.storage.put('entityMeta', this.entityMeta)
+    this.state.storage.put(`snapshot-${validFrom}`, this.current)
 
-    return this.#current
+    return this.current
   }
 
   async patch(options, eTag) {
@@ -672,14 +676,14 @@ export class TemporalEntityBase {
     // If you want to delete a key send in a delta with that key set to undefined
     // To add a key, just include it in delta
     // To change a value for one key, just set it to the new value in the delta
-    await this.#hydrate()
+    await this.hydrate()
 
-    utils.throwUnless(this.#entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity PATCH when there is no prior value')
-    utils.throwUnless(eTag, 'ETag header required for TemporalEntity PATCH is missing', 428, this.#current)
-    utils.throwIf(this.#current?.meta?.deleted, 'PATCH with delta on deleted TemporalEntity not allowed', 404)
-    utils.throwIf(eTag && eTag !== this.#current?.meta?.eTag, 'If-Match does not match this TemporalEntity\'s current ETag', 412, this.#current)
+    utils.throwUnless(this.entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity PATCH when there is no prior value')
+    utils.throwUnless(eTag, 'ETag header required for TemporalEntity PATCH is missing', 428, this.current)
+    utils.throwIf(this.current?.meta?.deleted, 'PATCH with delta on deleted TemporalEntity not allowed', 404)
+    utils.throwIf(eTag && eTag !== this.current?.meta?.eTag, 'If-Match does not match this TemporalEntity\'s current ETag', 412, this.current)
 
-    const newValue = structuredClone(this.#current.value)
+    const newValue = structuredClone(this.current.value)
 
     utils.apply(newValue, delta)
 
@@ -692,17 +696,17 @@ export class TemporalEntityBase {
       const options = await utils.decodeCBORSC(request)
       const eTag = utils.extractETag(request)
       const current = await this.patch(options, eTag)
-      return this.#getResponse(current)
+      return this.getResponse(current)
     } catch (e) {
-      return this.#getErrorResponse(e)  // TODO: add e2e test for the body of the response
+      return this.getErrorResponse(e)  // TODO: add e2e test for the body of the response
     }
   }
 
   async get(eTag) {
-    await this.#hydrate()
-    utils.throwIf(this.#current?.meta?.deleted, 'GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true', 404)
-    if (eTag && eTag === this.#current?.meta?.eTag) return [undefined, 304]  // e2e test for this. Be sure to also look for Content-ID header.
-    return [this.#current, 200]
+    await this.hydrate()
+    utils.throwIf(this.current?.meta?.deleted, 'GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true', 404)
+    if (eTag && eTag === this.current?.meta?.eTag) return [undefined, 304]  // e2e test for this. Be sure to also look for Content-ID header.
+    return [this.current, 200]
   }
 
   async GET(request) {
@@ -710,18 +714,18 @@ export class TemporalEntityBase {
       utils.throwIfAcceptHeaderInvalid(request)
       const eTag = utils.extractETag(request)
       const [current, status] = await this.get(eTag)
-      if (status === 304) return this.#getStatusOnlyResponse(status)
-      return this.#getResponse(current)
+      if (status === 304) return this.getStatusOnlyResponse(status)
+      return this.getResponse(current)
     } catch (e) {
-      return this.#getErrorResponse(e)
+      return this.getErrorResponse(e)
     }
   }
 
   async getEntityMeta(eTag) {
-    await this.#hydrate()
+    await this.hydrate()
     // Note, we don't check for deleted here because we want to be able to get the entityMeta even if the entity is deleted
-    if (eTag && eTag === this.#current?.meta?.eTag) return [undefined, 304]
-    return [this.#entityMeta, 200]
+    if (eTag && eTag === this.current?.meta?.eTag) return [undefined, 304]
+    return [this.entityMeta, 200]
   }
 
   async GETEntityMeta(request) {
@@ -729,10 +733,10 @@ export class TemporalEntityBase {
       utils.throwIfAcceptHeaderInvalid(request)
       const eTag = utils.extractETag(request)
       const [entityMeta, status] = await this.getEntityMeta(eTag)
-      if (status === 304) return this.#getStatusOnlyResponse(304)
-      return this.#getResponse(entityMeta)
+      if (status === 304) return this.getStatusOnlyResponse(304)
+      return this.getResponse(entityMeta)
     } catch (e) {
-      return this.#getErrorResponse(e)
+      return this.getErrorResponse(e)
     }
   }
 }
