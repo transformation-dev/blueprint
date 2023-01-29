@@ -33,11 +33,17 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
+// TODO: A. Prefix entityMeta with the idString
+
 // TODO: A. Create a new DO named Tree
-//       The main state of the tree will essentially be the DAG with id, label, and children.
-//       The nodes will all be TemporalEntity instances in composition which means we'll need to generate an idString
-//       for each node and it won't be a valid DO idString. It could be a UUID since they are only 16 bytes and
-//       the key can be up to 2048 bytes long.
+//       The main state of a Tree will essentially be the DAG with id, label, and children.
+//       The nodes will all be TemporalEntity instances via composition which means we'll need to generate an idString.
+//       Use `${idStringOfTree}/${generatedUUID}` as the idString of the node.
+//       Any request to a Tree with a compound idString like above will be forwarded to the tree node.
+//       Create the root node when the Tree is created. Store the idString of the root in the Tree state.
+//       The root node will have a parent of null.
+
+// TODO: A. Implement new node endpoint on Tree DO. Takes a body with the value for the new node and the parent node.
 
 // TODO: A. Implement add/remove meta.references on TreeNode as a PATCH operation.
 //       Use Set<idString> to store the references.
