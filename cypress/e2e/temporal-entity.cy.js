@@ -38,9 +38,9 @@ context('TemporalEntity', () => {
 
   // TODO: Test to confirm that for DAGs the nodes that are referenced twice are actually the same object; === rather than just deep.eq
   
-  it('should respond with 415 on PUT with Content-Type header application/json', () => {
+  it('should respond with 415 on POST with Content-Type header application/json', () => {
     const options = {
-      method: 'PUT',
+      method: 'POST',
       body: { value: { a: 1, b: 2 }, userID: '1' },
       headers: {
         'Content-Type': 'application/json',
@@ -53,9 +53,9 @@ context('TemporalEntity', () => {
     })
   })
 
-  it('should respond with 406 on PUT with Accept header "application/json"', () => {
+  it('should respond with 406 on POST with Accept header "application/json"', () => {
     const options = {
-      method: 'PUT',
+      method: 'POST',
       url: '/api/temporal-entity/*/*',
       body: { a: 1 },
       failOnStatusCode: false,
@@ -72,7 +72,7 @@ context('TemporalEntity', () => {
 
   it('should respond with 415 because the content was not encoded in cbor-sc', () => {
     const options = {
-      method: 'PUT',
+      method: 'POST',
       url: '/api/temporal-entity/*/*',
       body: { a: 1 },
       failOnStatusCode: false,
@@ -91,7 +91,7 @@ context('TemporalEntity', () => {
   // Had to merge four tests into one so this test would be independent of the others
   it('should allow PUT, PATCH delta, GET, DELETE, PATCH undelete, and GET entity-meta', () => {
     const options = {
-      method: 'PUT',
+      method: 'PUT',  // Normally, you'd want to use POST for the original but PUT and POST are equivalent when there is no prior version
       body: { value: { a: 1, b: 2 }, userID: '1' },
     }
 
@@ -229,9 +229,9 @@ context('TemporalEntity', () => {
     })
   })
 
-  it('should fail with 428 on a second PUT without an If-Match header (the second fetch() below)', () => {
+  it('should fail with 428 on a PUT after POST without an If-Match header (the second fetch() below)', () => {
     const options = {
-      method: 'PUT',
+      method: 'POST',
       body: {
         value: { c: 100 },
         userID: '1',
@@ -240,7 +240,7 @@ context('TemporalEntity', () => {
 
     cy.wrap(null).then(async () => {
       const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*`, options)
-      expect(response.status, '1st PUT').to.eq(200)
+      expect(response.status, 'Original POST').to.eq(200)
       const o5 = response.CBOR_SC
       const idString = o5.idString
 
@@ -267,7 +267,7 @@ context('TemporalEntity', () => {
     const newValidFromISOString = newValidFromDate.toISOString()
 
     const options = {
-      method: 'PUT',
+      method: 'POST',
       body: {
         value: { c: 100 },
         userID: '1',

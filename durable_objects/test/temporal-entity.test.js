@@ -398,8 +398,8 @@ test('TemporalEntity delete and undelete', async (t) => {
     t.equal(snapshot1.meta.validTo, snapshot2.meta.validFrom, 'second snapshot should start where first snapshot ends')
     t.equal(snapshot2.meta.validTo, snapshot3.meta.validFrom, 'third snapshot should start where second snapshot ends')
     t.equal(snapshot3.meta.validTo, TemporalEntity.END_OF_TIME, 'third snapshot should end at the end of time')
-    t.deepEqual(snapshot3.value, { }, 'the value of the last snapshot should be an empty object')
-    t.deepEqual(snapshot3.meta.previousValues, snapshot2.value, 'the previousValues should be the value of the snapshot before the delete')
+    t.deepEqual(snapshot3.value, snapshot2.value, 'the value of the last snapshot should be the old value')
+    t.deepEqual(snapshot3.meta.previousValues, {}, 'the previousValues should be {}')
 
     t.end()
   })
@@ -416,7 +416,7 @@ test('TemporalEntity delete and undelete', async (t) => {
 
     t.equal(snapshot3.meta.validTo, snapshot4.meta.validFrom, 'fourth snapshot should start where third snapshot ends')
     t.deepEqual(snapshot4.value, snapshot2.value, 'the value after undelete should equal the value before delete')
-    t.deepEqual(snapshot4.meta.previousValues, { a: undefined }, 'the previousValues should be the diff with the current value')
+    t.deepEqual(snapshot4.meta.previousValues, {}, 'the previousValues should be {} because nothing changes except meta.deleted')
 
     t.end()
   })

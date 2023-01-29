@@ -33,25 +33,65 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A. Create a new DO named Tree
-//       The main state of a Tree will essentially be the DAG with id, label, and children.
-//       The nodes will all be TemporalEntity instances via composition which means we'll need to generate an idString.
-//       Use `${idStringOfTree}/${generatedUUID}` as the idString of the node.
-//       Any request to a Tree with a compound idString like above will be forwarded to the tree node.
-//       Create the root node when the Tree is created. Store the idString of the root in the Tree state.
-//       The root node will have a parent of null.
+// TODO: A. Implement hasChildren and hasParents flags in TemporalEntityBase. children and parents go in the meta field
 
-// TODO: A. Implement new node endpoint on Tree DO. Takes a body with the value for the new node and the parent node.
+// TODO: A. PATCH addParent. Also changes the children field of the parent. Errors unless hasParents is true
+
+// TODO: A. PATCH removeParent. Also changes the children field of the parent. Changes to a delete if last parent. Errors unless hasParents is true
+
+// TODO: A. PATCH move. Sugar for removeParent and addParent
+
+// TODO: A. Create a new DO named Tree
+//       The nodes will all be TemporalEntity instances via composition which means we'll call the lowercase get, put, patch, etc. methods and need to generate an idString
+//       Create the root node when the Tree is created (POST). Store the idString of the root in the Tree state.
+//       The root node will not have a meta.parents field.
+
+// TODO: A. Tree.POST .../[parentType]/[parentVersion]/[parentIDString]/[childType]/[childVersion] without an idString will create a new child
+
+/*
+
+org-tree: {  // Tree w/ org-tree type
+  rootNode: compoundIdString,
+}
+
+org-tree-root-node: {  // TemporalEntity w/ org-tree-root-node type. Add a flag in TemporalEntity type for hasChildren
+  value: {
+    label: string,
+    emailDomains: [string],
+  },
+  meta: { children: [compoundIdString] },
+}
+
+org-tree-node: {  // TemporalEntity w/ org-tree-node type. Add a flag in TemporalEntity type for hasParents
+  value: { label: string },
+  meta: {
+    children: [compoundIdString],
+    parents: [compoundIdString],
+  },
+}
+
+/org-tree/v1/<treeIDString>
+  PUT - creates the tree with the root node as the value from the body
+  GET - returns the DAG with just labels and children
+
+/org-tree/v1/<treeIDString>/aggregate
+  POST - alias for /aggregate against the root node
+
+/org-tree/v1/<treeIdString>/org-node/v1/<nodeIDString>
+  POST creates a new child of nodeIDString. Body is the value for the new node. This is done by Tree not TemporalEntity
+  GET, PUT, PATCH delta/undelete, and DELETE just like a TemporalEntity
+  PATCH with { addParent: { parent: compoundIDString } }
+  PATCH with { removeParent: { parent: compoundIDString } }
+  PATCH with { move: { currentParent: compoundIDString, newParent: compoundIDString } }
+
+/org-tree/v1/<treeIdString>/org-node/v1/<nodeIDString>/aggregate
+  POST - execute the aggregation. First version just gathers all matching nodes.
+
+*/
 
 // TODO: A. Implement add/remove meta.references on TreeNode as a PATCH operation.
 //       Use Set<idString> to store the references.
 //       { references: [{ operation, idString }] }; where operation is add or remove.
-
-// TODO: A. Implement add/remove meta.treeNodeReferences on TreeNode as a PATCH operation.
-//       Upgrade static types to include allowedTreeNodeReferenceTypes. Org to System. People is not a tree
-//       Use Set<treeNodeIdString> to store the references.
-//       Override this.patch in the subclass and call super.patch() if the patch is not a tree reference operation.
-//       { treeNodeReferences: [{ operation, treeNodeIdString }] }; where operation is add or remove.
 
 // TODO: A. Create People DO. A Person is a just a TemporalEntity but the People DO is not temporal. It'll store the list of people
 //       in a single storage object under the key 1 for now but later we can spread it out over multiple storage objects,
@@ -196,14 +236,9 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
  * ## Deviations from pure REST APIs
  *
  * The REST-like behavior of TemporalEntityBase might deviate from your expectations for a pure REST API in these ways:
- *   1. PUT behaves like an UPSERT. If called with a prior id, it will replace the value of the entity with the new value.
- *      If called without a prior id, it will create a new entity with a new id. Note, the latter deviates from RFC 7231's requirement
- *      that PUT be idempotent.
- *   2. As such, POST is not used to create new objects. A PUT without a prior ID will behave like you would expect a POST to behave
- *      POST is reserved for queries.
- *   3. PATCH is our Jack of all trades method. As expected, when a delta field is provided, it will partially update an entity
- *      but it is also used to undelete and add/remove "meta.children" references.
- *   4. Unlike HTTP/1.1, HTTP/2 infrastructure and/or libraries tend to overwrite Status-Text to match the Status code. So,
+ *   1. PATCH is our Jack of all trades method. As expected, when a delta field is provided, it will partially update an entity
+ *      but it is also used to undelete as well as manipulate parents and children.
+ *   2. Unlike HTTP/1.1, HTTP/2 infrastructure and/or libraries tend to overwrite Status-Text to match the Status code. So,
  *      while we attempt to supply a more useful Status-Text in the header, error responses also include a body with an error
  *      field which in turn has a useful message field. Error bodies are also encoded in CBOR using the structured clone extension.
  *
@@ -445,12 +480,9 @@ export class TemporalEntityBase {
     oldCurrent.meta.validTo = validFrom
     this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
 
-    // Create the new current and save it
-    this.current = { value: {} }  // TODO: Should we leave the value as is? Or should we set it to {}?
-    const previousValues = oldCurrent.value  // I'm pretty sure we don't need to use diff here because the new value is {}
     this.current.meta = {
       userID,
-      previousValues,
+      previousValues: {},  // Nothing changes in the value so previousValues is empty
       validFrom,
       validTo: this.constructor.END_OF_TIME,
       eTag: this.getUUID(),
@@ -564,6 +596,7 @@ export class TemporalEntityBase {
   async PUT(request) {
     try {
       utils.throwIfMediaTypeHeaderInvalid(request)
+      utils.throwUnless(this.idString, 'Cannot PUT when there is no prior value')
       const options = await utils.decodeCBORSC(request)
       const eTag = utils.extractETag(request)
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
@@ -571,6 +604,10 @@ export class TemporalEntityBase {
     } catch (e) {
       return this.getErrorResponse(e)
     }
+  }
+
+  async POST(request) {  // I originally wrote PUT as an UPSERT but it's better to have a separate POST
+    return this.PUT(request)
   }
 
   async undelete(userID, validFrom, impersonatorID) {
@@ -583,7 +620,7 @@ export class TemporalEntityBase {
     validFrom = this.deriveValidFrom(validFrom).validFrom
 
     // Update and save the old current
-    const oldCurrent = structuredClone(this.current)  // Should be {}
+    const oldCurrent = structuredClone(this.current)
     oldCurrent.meta.validTo = validFrom
     this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
 
