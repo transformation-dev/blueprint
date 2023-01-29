@@ -65,7 +65,7 @@ test('TemporalEntity put(), patch(), and rehydrate', async (t) => {
   })
 
   t.test('patch() with validFrom and impersonatorID (note, this also tests put())', async (t) => {
-    const lastValidFromISOString = state.storage.data.entityMeta.timeline.at(-1)
+    const lastValidFromISOString = state.storage.data['testIDString/entityMeta'].timeline.at(-1)
     const lastValidFromDate = new Date(lastValidFromISOString)
     const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
     const newValidFromISOString = newValidFromDate.toISOString()
@@ -83,9 +83,9 @@ test('TemporalEntity put(), patch(), and rehydrate', async (t) => {
     const [{ meta, value }, status] = await te.get()
     t.deepEqual(value, { b: 3, c: 4 }, 'should get back patched value (note, a was deleted)')
     t.equal(meta.impersonatorID, 'impersonator1', 'should get back impersonatorID')
-    t.equal(state.storage.data.entityMeta.timeline.at(-1), newValidFromISOString, 'should have new validFrom in timeline')
-    t.equal(state.storage.data.entityMeta.timeline.at(-2), lastValidFromISOString, 'should have old validFrom in timeline')
-    t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.at(-1), newValidFromISOString, 'should have new validFrom in timeline')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.at(-2), lastValidFromISOString, 'should have old validFrom in timeline')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 2, 'should have 2 entries in timeline')
 
     t.end()
   })
@@ -340,10 +340,10 @@ test('TemporalEntity supressPreviousValues', async (t) => {
     const te = new TemporalEntity(state, env, '***test-supress-previous-values***', 'v1', 'testIDString')
 
     let response = await te.put({ a: 1 }, 'userW')
-    t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 1, 'should have 1 entry in timeline after 1st put')
 
     response = await te.put({ a: 2 }, 'userX', undefined, undefined, response.meta.eTag)
-    t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 2nd put')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 2, 'should have 2 entries in timeline after 2nd put')
 
     t.equal(response.meta.previousValues, undefined, 'should not have previousValues in response')
 
@@ -357,16 +357,16 @@ test('TemporalEntity idempotency', async (t) => {
     const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
 
     let response = await te.put({ a: 1 }, 'userW')
-    t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 1, 'should have 1 entry in timeline after 1st put')
 
     response = await te.put({ a: 1 }, 'userX', undefined, undefined, response.meta.eTag)
-    t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should still have 1 entry in timeline after 2nd put with same value but different userID')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 1, 'should still have 1 entry in timeline after 2nd put with same value but different userID')
 
     response = await te.put({ a: 2 }, 'userY', undefined, undefined, response.meta.eTag)
-    t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 3rd put with different value')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 2, 'should have 2 entries in timeline after 3rd put with different value')
 
     await te.put({ a: 2 }, 'userZ', undefined, undefined, response.meta.eTag)
-    t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should still have 2 entries in timeline after 4th put')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 2, 'should still have 2 entries in timeline after 4th put')
 
     t.end()
   })
@@ -380,17 +380,17 @@ test('TemporalEntity delete and undelete', async (t) => {
 
   t.test('delete', async (t) => {
     response = await te.put({ a: 1 }, 'userW')
-    t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 1, 'should have 1 entry in timeline after 1st put')
 
     response = await te.put({ a: 2 }, 'userX', undefined, undefined, response.meta.eTag)
-    t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should now have 2 entries in timeline after 2nd put')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 2, 'should now have 2 entries in timeline after 2nd put')
 
     response = await te.delete('userY')
-    t.equal(state.storage.data.entityMeta.timeline.length, 3, 'should have 3 entries in timeline after delete')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 3, 'should have 3 entries in timeline after delete')
 
-    const validFrom1 = data.entityMeta.timeline[0]
-    const validFrom2 = data.entityMeta.timeline[1]
-    const validFrom3 = data.entityMeta.timeline[2]
+    const validFrom1 = data['testIDString/entityMeta'].timeline[0]
+    const validFrom2 = data['testIDString/entityMeta'].timeline[1]
+    const validFrom3 = data['testIDString/entityMeta'].timeline[2]
     const snapshot1 = data[`testIDString/snapshot/${validFrom1}`]
     const snapshot2 = data[`testIDString/snapshot/${validFrom2}`]
     const snapshot3 = data[`testIDString/snapshot/${validFrom3}`]
@@ -407,9 +407,9 @@ test('TemporalEntity delete and undelete', async (t) => {
   t.test('undelete', async (t) => {
     response = await te.undelete('userY')
 
-    const validFrom2 = data.entityMeta.timeline[1]
-    const validFrom3 = data.entityMeta.timeline[2]
-    const validFrom4 = data.entityMeta.timeline[3]
+    const validFrom2 = data['testIDString/entityMeta'].timeline[1]
+    const validFrom3 = data['testIDString/entityMeta'].timeline[2]
+    const validFrom4 = data['testIDString/entityMeta'].timeline[3]
     const snapshot2 = data[`testIDString/snapshot/${validFrom2}`]
     const snapshot3 = data[`testIDString/snapshot/${validFrom3}`]
     const snapshot4 = data[`testIDString/snapshot/${validFrom4}`]
@@ -509,7 +509,7 @@ test('TemporalEntity debouncing', async (t) => {
     const firstCurrent = await te.put({ a: 1 }, 'userY')
     const middleCurrent = await te.put({ a: 2 }, 'userY', undefined, undefined, firstCurrent.meta.eTag)
     t.equal(
-      state.storage.data.entityMeta.timeline.length,
+      state.storage.data['testIDString/entityMeta'].timeline.length,
       1,
       'should still have 1 entry in timeline after 2th put with different value and same userID',
     )
@@ -523,7 +523,7 @@ test('TemporalEntity debouncing', async (t) => {
     const secondCurrent = await te.put({ a: 3 }, 'userZ', undefined, undefined, middleCurrent.meta.eTag)
     await te.put({ a: 4 }, 'userZ', undefined, undefined, secondCurrent.meta.eTag)
     t.equal(
-      state.storage.data.entityMeta.timeline.length,
+      state.storage.data['testIDString/entityMeta'].timeline.length,
       2,
       'should have 2 entries in timeline after 3th put with a different userID',
     )
@@ -534,7 +534,7 @@ test('TemporalEntity debouncing', async (t) => {
     const newValidFromDate = new Date(new Date(newCurrent.meta.validFrom).getTime() + 61 * 60 * 1000) // 61 minutes later
     await te.put({ a: 5 }, 'userZ', newValidFromDate.toISOString(), undefined, newCurrent.meta.eTag)
     t.equal(
-      state.storage.data.entityMeta.timeline.length,
+      state.storage.data['testIDString/entityMeta'].timeline.length,
       3,
       'should have 3 entries after 4th put with same userID but 61 minutes in the future',
     )
@@ -554,7 +554,7 @@ test('TemporalEntity debouncing', async (t) => {
       let newValidFromDate = new Date(new Date(response.meta.validFrom).getTime() + 1500) // 1500 ms later
       response = await te.put({ a: 2 }, 'userX', newValidFromDate.toISOString(), undefined, response.meta.eTag)
       t.equal(
-        state.storage.data.entityMeta.timeline.length,
+        state.storage.data['testIDString/entityMeta'].timeline.length,
         2,
         'should have 2 entries after 2nd put with same userID but 1500 ms in the future',
       )
@@ -562,7 +562,7 @@ test('TemporalEntity debouncing', async (t) => {
       newValidFromDate = new Date(new Date(response.meta.validFrom).getTime() + 500) // 500 ms later
       response = await te.put({ a: 2 }, 'userX', newValidFromDate.toISOString(), undefined, response.meta.eTag)
       t.equal(
-        state.storage.data.entityMeta.timeline.length,
+        state.storage.data['testIDString/entityMeta'].timeline.length,
         2,
         'should still have 2 entries after 2nd put with same userID but only 500 ms in the future',
       )
@@ -577,10 +577,10 @@ test('TemporalEntity debouncing', async (t) => {
       const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
 
       const response3 = await te.put({ a: 1, b: 2, c: 3, d: 4 }, 'userY', '2200-01-01T00:00:00.000Z')
-      t.equal(state.storage.data.entityMeta.timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+      t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 1, 'should have 1 entry in timeline after 1st put')
 
       const response4 = await te.put({ a: 10, b: 2, c: 3, d: 4 }, 'userY', '2200-01-02T00:00:00.000Z', undefined, response3.meta.eTag)
-      t.equal(state.storage.data.entityMeta.timeline.length, 2, 'should have 2 entries in timeline after 2nd put')
+      t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 2, 'should have 2 entries in timeline after 2nd put')
 
       try {
         await te.put({ a: 1, b: 2, c: 25, d: 40 }, 'userY', '2200-01-05T00:00:00.000Z', undefined, response3.meta.eTag)

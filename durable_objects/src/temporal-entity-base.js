@@ -33,8 +33,6 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A. Prefix entityMeta with the idString
-
 // TODO: A. Create a new DO named Tree
 //       The main state of a Tree will essentially be the DAG with id, label, and children.
 //       The nodes will all be TemporalEntity instances via composition which means we'll need to generate an idString.
@@ -345,7 +343,7 @@ export class TemporalEntityBase {
     }
 
     // hydrate #entityMeta
-    this.entityMeta = await this.state.storage.get('entityMeta') || { timeline: [], eTags: [] }
+    this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { timeline: [], eTags: [] }
 
     // hydrate #current
     if (this.entityMeta.timeline.length > 0) {
@@ -464,7 +462,7 @@ export class TemporalEntityBase {
 
     this.entityMeta.timeline.push(validFrom)
     this.entityMeta.eTags.push(this.current.meta.eTag)
-    this.state.storage.put('entityMeta', this.entityMeta)
+    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
     return 204
@@ -556,7 +554,7 @@ export class TemporalEntityBase {
       this.entityMeta.timeline.push(validFrom)
       this.entityMeta.eTags.push(this.current.meta.eTag)
     }
-    this.state.storage.put('entityMeta', this.entityMeta)
+    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
     // return the new current
@@ -606,7 +604,7 @@ export class TemporalEntityBase {
 
     this.entityMeta.timeline.push(validFrom)
     this.entityMeta.eTags.push(this.current.meta.eTag)
-    this.state.storage.put('entityMeta', this.entityMeta)
+    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
     return this.current
