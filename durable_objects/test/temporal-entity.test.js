@@ -404,8 +404,8 @@ test('TemporalEntity delete and undelete', async (t) => {
     t.end()
   })
 
-  t.test('undelete', async (t) => {
-    response = await te.undelete('userY')
+  t.test('patchUndelete', async (t) => {
+    response = await te.patchUndelete({ userID: 'userY' })
 
     const validFrom2 = data['testIDString/entityMeta'].timeline[1]
     const validFrom3 = data['testIDString/entityMeta'].timeline[2]
@@ -445,6 +445,7 @@ test('deep object put and patch', async (t) => {
     const state = getStateMock()
     const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
     const o = { a: 2000, o: { a: 1, b: 2, children: [1, 'a', new Date()] } }
+    const o2 = structuredClone(o)
 
     const response = await te.put(o, 'userX')
     const [result, status] = await te.get()
@@ -458,10 +459,17 @@ test('deep object put and patch', async (t) => {
       },
       response.meta.eTag,
     )
-    const o2 = structuredClone(o)
+
     o2.o.a = 2
     o2.o.c = 3
     t.deepEqual(response2.value, o2, 'should get back deeply patched value')
+
+    const inner = Object.create(null)
+    inner.a = 1
+    inner.c = undefined
+    const pv = Object.create(null)
+    pv.o = inner
+    t.deepEqual(response2.meta.previousValues, pv, 'should get back previousValues')
 
     const response3 = await te.patch(
       {

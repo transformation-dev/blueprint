@@ -33,8 +33,6 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A. Implement hasChildren and hasParents flags in TemporalEntityBase. children and parents go in the meta field
-
 // TODO: A. PATCH addParent. Also changes the children field of the parent. Errors unless hasParents is true
 
 // TODO: A. PATCH removeParent. Also changes the children field of the parent. Changes to a delete if last parent. Errors unless hasParents is true
@@ -51,7 +49,8 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 /*
 
 org-tree: {  // Tree w/ org-tree type
-  rootNode: compoundIdString,
+  rootNode: idString,  // "0"
+  nodeIDCounter: number,  // start at 0
 }
 
 org-tree-root-node: {  // TemporalEntity w/ org-tree-root-node type. Add a flag in TemporalEntity type for hasChildren
@@ -59,14 +58,14 @@ org-tree-root-node: {  // TemporalEntity w/ org-tree-root-node type. Add a flag 
     label: string,
     emailDomains: [string],
   },
-  meta: { children: [compoundIdString] },
+  meta: { children: [idString] },
 }
 
 org-tree-node: {  // TemporalEntity w/ org-tree-node type. Add a flag in TemporalEntity type for hasParents
   value: { label: string },
   meta: {
-    children: [compoundIdString],
-    parents: [compoundIdString],
+    children: [idString],
+    parents: [idString],
   },
 }
 
@@ -80,9 +79,9 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Add a flag in Tempora
 /org-tree/v1/<treeIdString>/org-node/v1/<nodeIDString>
   POST creates a new child of nodeIDString. Body is the value for the new node. This is done by Tree not TemporalEntity
   GET, PUT, PATCH delta/undelete, and DELETE just like a TemporalEntity
-  PATCH with { addParent: { parent: compoundIDString } }
-  PATCH with { removeParent: { parent: compoundIDString } }
-  PATCH with { move: { currentParent: compoundIDString, newParent: compoundIDString } }
+  PATCH with { addParent: { parent: idString } }
+  PATCH with { removeParent: { parent: idString } }
+  PATCH with { move: { currentParent: idString, newParent: idString } }
 
 /org-tree/v1/<treeIdString>/org-node/v1/<nodeIDString>/aggregate
   POST - execute the aggregation. First version just gathers all matching nodes.
@@ -308,23 +307,17 @@ export class TemporalEntityBase {
       versions: {
         '*': {  // only allowed version with default version
           supressPreviousValues: false,
+          hasChildren: false,
+          hasParents: false,
           granularity: 3600000,  // 1 hour
         },
       },
     },
     '***test-supress-previous-values***': {
-      versions: {
-        v1: {
-          supressPreviousValues: true,
-        },
-      },
+      versions: { v1: { supressPreviousValues: true } },
     },
     '***test-granularity***': {
-      versions: {
-        v1: {
-          granularity: 'second',
-        },
-      },
+      versions: { v1: { granularity: 'second' } },
     },
     '***test-dag***': {
       versions: {
@@ -335,6 +328,12 @@ export class TemporalEntityBase {
           },
         },
       },
+    },
+    '***test-has-children-and-parents***': {
+      versions: { v1: { hasChildren: true, hasParents: true } },
+    },
+    '***test-has-children***': {
+      versions: { v1: { hasChildren: true } },
     },
   }
 
@@ -467,7 +466,7 @@ export class TemporalEntityBase {
     }
   }
 
-  async delete(userID, validFrom, impersonatorID) {
+  async deleteOld(userID, validFrom, impersonatorID) {
     utils.throwUnless(userID, 'userID required by TemporalEntity DELETE is missing')
 
     await this.hydrate()
@@ -499,6 +498,25 @@ export class TemporalEntityBase {
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
+    return 204
+  }
+
+  async delete(userID, validFrom, impersonatorID) {
+    utils.throwUnless(userID, 'userID required by TemporalEntity DELETE is missing')
+
+    await this.hydrate()
+
+    utils.throwIf(this.current?.meta?.deleted, 'Cannot delete a TemporalEntity that is already deleted', 404)
+    utils.throwUnless(this.entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity DELETE when there is no prior value')
+
+    const metaDelta = {
+      userID,
+      validFrom,
+      eTag: this.getUUID(),
+      deleted: true,
+    }
+    if (impersonatorID) metaDelta.impersonatorID = impersonatorID
+    this.patchMetaDelta(metaDelta)
     return 204
   }
 
@@ -558,6 +576,7 @@ export class TemporalEntityBase {
 
     // Calculate the previousValues diff and check for idempotency
     const previousValues = diff(value, oldCurrent.value)
+    debug('previousValues', previousValues)
     if (Object.keys(previousValues).length === 0) {  // idempotent
       return this.current
     }
@@ -613,53 +632,42 @@ export class TemporalEntityBase {
     return this.PUT(request)
   }
 
-  async undelete(userID, validFrom, impersonatorID) {
-    utils.throwUnless(userID, 'userID required by TemporalEntity UNDELETE is missing')
-
+  async patchUndelete({ userID, validFrom, impersonatorID }) {
     await this.hydrate()
 
-    utils.throwUnless(this.current?.meta?.deleted, 'Cannot undelete a TemporalEntity is not deleted')
+    utils.throwUnless(this.current?.meta?.deleted, 'Cannot undelete a TemporalEntity that is not deleted')
+    const metaDelta = {
+      userID,
+      validFrom,
+      eTag: this.getUUID(),
+      deleted: undefined,
+    }
+    if (impersonatorID) metaDelta.impersonatorID = impersonatorID
+    return this.patchMetaDelta(metaDelta)
+  }
 
-    validFrom = this.deriveValidFrom(validFrom).validFrom
+  async patchMetaDelta(metaDelta) {
+    await this.hydrate()
+
+    metaDelta.validFrom = this.deriveValidFrom(metaDelta.validFrom).validFrom
 
     // Update and save the old current
     const oldCurrent = structuredClone(this.current)
-    oldCurrent.meta.validTo = validFrom
+    oldCurrent.meta.validTo = metaDelta.validFrom
     this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
 
-    // Create the new current and save it
-    const validFromBeforeDelete = this.entityMeta.timeline.at(-2)
-    this.current = await this.state.storage.get(`${this.idString}/snapshot/${validFromBeforeDelete}`)
-    const previousValues = diff(this.current.value, oldCurrent.value)
-    this.current.meta = {
-      userID,
-      previousValues,
-      validFrom,
-      validTo: this.constructor.END_OF_TIME,
-      eTag: this.getUUID(),
-      type: this.type,  // I'm putting this here rather than entityMeta on the off chance that a migration changes the type
-      version: this.version,
-    }
-    if (impersonatorID) this.current.meta.impersonatorID = impersonatorID
-
-    this.entityMeta.timeline.push(validFrom)
+    // apply metaDelta to current.meta and save it
+    utils.apply(this.current.meta, metaDelta)
+    this.current.meta.previousValues = {}  // value never changes in a metaDelta
+    this.entityMeta.timeline.push(metaDelta.validFrom)
     this.entityMeta.eTags.push(this.current.meta.eTag)
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
-    this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
+    this.state.storage.put(`${this.idString}/snapshot/${metaDelta.validFrom}`, this.current)
 
     return this.current
   }
 
-  async patch(options, eTag) {
-    const { delta, undelete, userID, validFrom, impersonatorID } = options
-    utils.throwUnless(delta || undelete, 'body.delta or body.undelete required by TemporalEntity PATCH is missing')
-    utils.throwIf(delta && undelete, 'only one or the other of body.delta or body.undelete is allowed by TemporalEntity PATCH')
-
-    if (undelete) {
-      return this.undelete(userID, validFrom, impersonatorID)
-    }
-
-    // The rest of this function is for a delta patch
+  async patchDelta({ delta, userID, validFrom, impersonatorID }, eTag) {
     // delta is in the form of a diff from npm package deep-object-diff
     // If you want to delete a key send in a delta with that key set to undefined
     // To add a key, just include it in delta
@@ -675,7 +683,52 @@ export class TemporalEntityBase {
 
     utils.apply(newValue, delta)
 
+    debug('delta: %O', delta)
+    debug('newValue: %O', newValue)
+
     return this.put(newValue, userID, validFrom, impersonatorID, eTag)
+  }
+
+  async patchAddChild({ addChild, userID, validFrom, impersonatorID }) {
+    const { childID } = addChild
+
+    await this.hydrate()
+
+    utils.throwUnless(this.typeVersionConfig.hasChildren, `TemporalEntity of type ${this.type} does not support children`)
+
+    const children = structuredClone(this.current.meta.children ?? new Set())
+    children.add(childID)
+
+    const metaDelta = {
+      userID,
+      validFrom,
+      eTag: this.getUUID(),
+      children,
+    }
+    if (impersonatorID) metaDelta.impersonatorID = impersonatorID
+    this.patchMetaDelta(metaDelta)
+
+    // TODO: add this.idString to child's meta.parents
+    // if the childID is a durable object idString, then get the stub and patch from afar
+
+    // else instantiate a new TemporalEntity using this env and state and patch it locally
+
+    return this.current
+  }
+
+  async patch(options, eTag) {
+    utils.throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
+
+    if (options.undelete) return this.patchUndelete(options)  // does not use eTag
+    if (options.delta) return this.patchDelta(options, eTag)
+    if (options.addChild) return this.patchAddChild(options)
+    if (options.addParent) return this.patchAddParent(options)
+
+    return utils.throwIf(
+      true,
+      'Malformed PATCH on TemporalEntity. Body must include valid operation: delta, undelete, addParent, removeParent, or move',
+      400,
+    )
   }
 
   async PATCH(request) {
