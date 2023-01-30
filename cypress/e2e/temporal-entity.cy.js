@@ -97,7 +97,7 @@ context('TemporalEntity', () => {
 
     cy.wrap(null).then(async () => {
       const response = await encodeFetchAndDecode('/api/temporal-entity/*/*', options)
-      expect(response.status).to.eq(200)
+      expect(response.status).to.eq(201)
       expect(response.headers.get('Content-Type')).to.eq('application/cbor-sc')
 
       const o = response.CBOR_SC
@@ -240,7 +240,7 @@ context('TemporalEntity', () => {
 
     cy.wrap(null).then(async () => {
       const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*`, options)
-      expect(response.status, 'Original POST').to.eq(200)
+      expect(response.status, 'Original POST').to.eq(201)
       const o5 = response.CBOR_SC
       const idString = o5.idString
 
@@ -277,7 +277,7 @@ context('TemporalEntity', () => {
 
     cy.wrap(null).then(async () => {
       const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*`, options)
-      expect(response.status, '1st call to fetch() to set date far into future').to.eq(200)
+      expect(response.status, '1st call to fetch() to set date far into future').to.eq(201)
       const eTagFromHeaders = response.headers.get('ETag')
       const o5 = response.CBOR_SC
       const idString = o5.idString

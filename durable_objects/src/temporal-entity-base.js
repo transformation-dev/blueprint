@@ -421,6 +421,7 @@ export class TemporalEntityBase {
   // eslint-disable-next-line consistent-return
   async fetch(request) {
     debug('%s %s', request.method, request.url)
+    this.nextStatus = undefined
     try {
       const url = new URL(request.url)
       const pathArray = url.pathname.split('/')
@@ -439,6 +440,7 @@ export class TemporalEntityBase {
         this.idString = pathArray.shift()  // remove the ID
       } else {
         this.idString = this.state?.id?.toString()
+        this.nextStatus = 201  // This means that the entity was created on this PUT or POST
       }
 
       const restOfPath = `/${pathArray.join('/')}`
@@ -600,13 +602,14 @@ export class TemporalEntityBase {
       const options = await utils.decodeCBORSC(request)
       const eTag = utils.extractETag(request)
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
-      return this.getResponse(current)
+      return this.getResponse(current, this.nextStatus)
     } catch (e) {
       return this.getErrorResponse(e)
     }
   }
 
   async POST(request) {  // I originally wrote PUT as an UPSERT but it's better to have a separate POST
+    utils.throwUnless(this.nextStatus === 201, 'TemporalEntity POST is only allowed when there is no prior value')
     return this.PUT(request)
   }
 
