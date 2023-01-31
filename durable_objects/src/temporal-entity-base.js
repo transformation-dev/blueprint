@@ -33,8 +33,6 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A. Can we get rid of entityMeta.eTags array?
-
 // TODO: A. Refactor so all methods use destructuring on options/body for parameters
 
 // TODO: A. Implement add/remove meta.references on TreeNode as a PATCH operation.
@@ -332,7 +330,7 @@ export class TemporalEntityBase {
     )
 
     // hydrate #entityMeta
-    this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { timeline: [], eTags: [] }
+    this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { timeline: [] }
 
     // hydrate #current
     if (this.entityMeta.timeline.length > 0) {
@@ -473,7 +471,7 @@ export class TemporalEntityBase {
     }
 
     // Process eTag header
-    utils.throwIf(this.entityMeta.eTags.length > 0 && !eTag, 'required ETag header for TemporalEntity PUT is missing', 428, this.current)
+    utils.throwIf(this.entityMeta.timeline.length > 0 && !eTag, 'required ETag header for TemporalEntity PUT is missing', 428, this.current)
     utils.throwIf(eTag && eTag !== this.current?.meta?.eTag, 'If-Match does not match this TemporalEntity\'s current ETag', 412, this.current)
 
     utils.throwIf(this.current?.meta?.deleted, 'PUT on deleted TemporalEntity not allowed', 404)
@@ -524,14 +522,10 @@ export class TemporalEntityBase {
     if (!this.typeVersionConfig.supressPreviousValues) this.current.meta.previousValues = previousValues
     if (impersonatorID) this.current.meta.impersonatorID = impersonatorID
     this.current.value = value
-    if (debounce) {
-      // this.entityMeta.timeline doesn't change
-      this.entityMeta.eTags[this.entityMeta.eTags.length - 1] = this.current.meta.eTag
-    } else {
+    if (!debounce) {  // timeline only changes if not debounced
       this.entityMeta.timeline.push(validFrom)
-      this.entityMeta.eTags.push(this.current.meta.eTag)
+      this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     }
-    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
     // return the new current
@@ -606,7 +600,6 @@ export class TemporalEntityBase {
     utils.apply(this.current.meta, metaDelta)
     this.current.meta.previousValues = {}  // value never changes in a patchMetaDelta
     this.entityMeta.timeline.push(metaDelta.validFrom)
-    this.entityMeta.eTags.push(this.current.meta.eTag)
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     this.state.storage.put(`${this.idString}/snapshot/${metaDelta.validFrom}`, this.current)
 
