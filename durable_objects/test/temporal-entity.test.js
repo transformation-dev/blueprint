@@ -108,7 +108,7 @@ test('TemporalEntity END_OF_TIME', async (t) => {
 test('TemporalEntity validation for invalid or missing type', async (t) => {
   t.test('missing type', async (t) => {
     const state = getStateMock()
-    const te = new TemporalEntity(state, env)
+    const te = new TemporalEntity(state, env, undefined, 'v1', 'testIDString')
 
     try {
       await te.put({ a: 100 }, 'userX')
@@ -551,65 +551,65 @@ test('TemporalEntity debouncing', async (t) => {
 
     t.end()
   })
+})
 
-  test('TemporalEntity granularity', async (t) => {
-    t.test('granularity="sec"', async (t) => {
-      const state = getStateMock()
-      const te = new TemporalEntity(state, env, '***test-granularity***', 'v1', 'testIDString')
+test('TemporalEntity granularity', async (t) => {
+  t.test('granularity="sec"', async (t) => {
+    const state = getStateMock()
+    const te = new TemporalEntity(state, env, '***test-granularity***', 'v1', 'testIDString')
 
-      let response = await te.put({ a: 1 }, 'userX')
+    let response = await te.put({ a: 1 }, 'userX')
 
-      let newValidFromDate = new Date(new Date(response.meta.validFrom).getTime() + 1500) // 1500 ms later
-      response = await te.put({ a: 2 }, 'userX', newValidFromDate.toISOString(), undefined, response.meta.eTag)
-      t.equal(
-        state.storage.data['testIDString/entityMeta'].timeline.length,
-        2,
-        'should have 2 entries after 2nd put with same userID but 1500 ms in the future',
-      )
+    let newValidFromDate = new Date(new Date(response.meta.validFrom).getTime() + 1500) // 1500 ms later
+    response = await te.put({ a: 2 }, 'userX', newValidFromDate.toISOString(), undefined, response.meta.eTag)
+    t.equal(
+      state.storage.data['testIDString/entityMeta'].timeline.length,
+      2,
+      'should have 2 entries after 2nd put with same userID but 1500 ms in the future',
+    )
 
-      newValidFromDate = new Date(new Date(response.meta.validFrom).getTime() + 500) // 500 ms later
-      response = await te.put({ a: 2 }, 'userX', newValidFromDate.toISOString(), undefined, response.meta.eTag)
-      t.equal(
-        state.storage.data['testIDString/entityMeta'].timeline.length,
-        2,
-        'should still have 2 entries after 2nd put with same userID but only 500 ms in the future',
-      )
+    newValidFromDate = new Date(new Date(response.meta.validFrom).getTime() + 500) // 500 ms later
+    response = await te.put({ a: 2 }, 'userX', newValidFromDate.toISOString(), undefined, response.meta.eTag)
+    t.equal(
+      state.storage.data['testIDString/entityMeta'].timeline.length,
+      2,
+      'should still have 2 entries after 2nd put with same userID but only 500 ms in the future',
+    )
 
-      t.end()
-    })
+    t.end()
   })
+})
 
-  test('TemporalEntity PUT fails with old ETag', async (t) => {
-    t.test('optimistic concurrency', async (t) => {
-      const state = getStateMock()
-      const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
+test('TemporalEntity PUT fails with old ETag', async (t) => {
+  t.test('optimistic concurrency', async (t) => {
+    const state = getStateMock()
+    const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
 
-      const response3 = await te.put({ a: 1, b: 2, c: 3, d: 4 }, 'userY', '2200-01-01T00:00:00.000Z')
-      t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+    const response3 = await te.put({ a: 1, b: 2, c: 3, d: 4 }, 'userY', '2200-01-01T00:00:00.000Z')
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 1, 'should have 1 entry in timeline after 1st put')
 
-      const response4 = await te.put({ a: 10, b: 2, c: 3, d: 4 }, 'userY', '2200-01-02T00:00:00.000Z', undefined, response3.meta.eTag)
-      t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 2, 'should have 2 entries in timeline after 2nd put')
+    const response4 = await te.put({ a: 10, b: 2, c: 3, d: 4 }, 'userY', '2200-01-02T00:00:00.000Z', undefined, response3.meta.eTag)
+    t.equal(state.storage.data['testIDString/entityMeta'].timeline.length, 2, 'should have 2 entries in timeline after 2nd put')
 
-      try {
-        await te.put({ a: 1, b: 2, c: 25, d: 40 }, 'userY', '2200-01-05T00:00:00.000Z', undefined, response3.meta.eTag)
-        t.fail('async thrower did not throw')
-      } catch (e) {
-        t.equal(
-          e.message,
-          'If-Match does not match this TemporalEntity\'s current ETag',
-          'should throw if old ETag is used',
-        )
-        t.equal(e.status, 412, 'should see status 412 in e.status')
-        t.deepEqual(
-          e.body.value,
-          { a: 10, b: 2, c: 3, d: 4 },
-          'should get back the current value of the entity if the fields are the same',
-        )
-        t.equal(e.body.meta.validFrom, '2200-01-02T00:00:00.000Z', 'should get back the validFrom of the last successful update')
-        t.equal(e.body.error.status, 412, 'should see status 412 in e.body.error.status')
-      }
+    try {
+      await te.put({ a: 1, b: 2, c: 25, d: 40 }, 'userY', '2200-01-05T00:00:00.000Z', undefined, response3.meta.eTag)
+      t.fail('async thrower did not throw')
+    } catch (e) {
+      t.equal(
+        e.message,
+        'If-Match does not match this TemporalEntity\'s current ETag',
+        'should throw if old ETag is used',
+      )
+      t.equal(e.status, 412, 'should see status 412 in e.status')
+      t.deepEqual(
+        e.body.value,
+        { a: 10, b: 2, c: 3, d: 4 },
+        'should get back the current value of the entity if the fields are the same',
+      )
+      t.equal(e.body.meta.validFrom, '2200-01-02T00:00:00.000Z', 'should get back the validFrom of the last successful update')
+      t.equal(e.body.error.status, 412, 'should see status 412 in e.body.error.status')
+    }
 
-      t.end()
-    })
+    t.end()
   })
 })

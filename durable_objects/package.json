@@ -11,9 +11,10 @@
     "publish": "npm run build && npx wrangler publish",
     "build": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm --target=esnext --bundle --loader:.yaml=text && npm run test",
     "dev": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm  --bundle --loader:.yaml=text --watch",
-    "test": "tape test/* | tap-spec",
+    "test": "for file in test/*; do node --enable-source-maps $file | tap-spec; done",
+    "test:current": "node --enable-source-maps test/tree.test.js | tap-spec",
     "coverage": "c8 npm run test",
-    "coverage-report": "c8 report --reporter=html"
+    "coverage:report": "c8 report --reporter=html"
   },
   "dependencies": {
     "@cfworker/json-schema": "^1.12.5",

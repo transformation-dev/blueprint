@@ -33,60 +33,9 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A. PATCH addParent. Also changes the children field of the parent. Errors unless hasParents is true
+// TODO: A. Can we get rid of entityMeta.eTags array?
 
-// TODO: A. PATCH removeParent. Also changes the children field of the parent. Changes to a delete if last parent. Errors unless hasParents is true
-
-// TODO: A. PATCH move. Sugar for removeParent and addParent
-
-// TODO: A. Create a new DO named Tree
-//       The nodes will all be TemporalEntity instances via composition which means we'll call the lowercase get, put, patch, etc. methods and need to generate an idString
-//       Create the root node when the Tree is created (POST). Store the idString of the root in the Tree state.
-//       The root node will not have a meta.parents field.
-
-// TODO: A. Tree.POST .../[parentType]/[parentVersion]/[parentIDString]/[childType]/[childVersion] without an idString will create a new child
-
-/*
-
-org-tree: {  // Tree w/ org-tree type
-  rootNode: idString,  // "0"
-  nodeIDCounter: number,  // start at 0
-}
-
-org-tree-root-node: {  // TemporalEntity w/ org-tree-root-node type. Add a flag in TemporalEntity type for hasChildren
-  value: {
-    label: string,
-    emailDomains: [string],
-  },
-  meta: { children: [idString] },
-}
-
-org-tree-node: {  // TemporalEntity w/ org-tree-node type. Add a flag in TemporalEntity type for hasParents
-  value: { label: string },
-  meta: {
-    children: [idString],
-    parents: [idString],
-  },
-}
-
-/org-tree/v1/<treeIDString>
-  PUT - creates the tree with the root node as the value from the body
-  GET - returns the DAG with just labels and children
-
-/org-tree/v1/<treeIDString>/aggregate
-  POST - alias for /aggregate against the root node
-
-/org-tree/v1/<treeIdString>/org-node/v1/<nodeIDString>
-  POST creates a new child of nodeIDString. Body is the value for the new node. This is done by Tree not TemporalEntity
-  GET, PUT, PATCH delta/undelete, and DELETE just like a TemporalEntity
-  PATCH with { addParent: { parent: idString } }
-  PATCH with { removeParent: { parent: idString } }
-  PATCH with { move: { currentParent: idString, newParent: idString } }
-
-/org-tree/v1/<treeIdString>/org-node/v1/<nodeIDString>/aggregate
-  POST - execute the aggregation. First version just gathers all matching nodes.
-
-*/
+// TODO: A. Refactor so all methods use destructuring on options/body for parameters
 
 // TODO: A. Implement add/remove meta.references on TreeNode as a PATCH operation.
 //       Use Set<idString> to store the references.
@@ -350,16 +299,8 @@ export class TemporalEntityBase {
     this.hydrated = false  // using this.hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.hydrate.bind(this))
   }
 
-  async hydrate() {
-    debug('#hydrate')
-    if (this.hydrated) return
-
-    // validation
+  hydrateTypeVersionConfig() {  // We don't store typeVersionConfig which allows for the values to be changed over time
     utils.throwUnless(this.constructor.types[this.type], `Entity type, ${this.type}, not found`, 404)
-    utils.throwUnless(this.idString, 'Entity id is required', 404)
-    utils.throwIf(this.state?.id && this.state?.id?.toString() !== this.idString, `Entity id mismatch. Url says ${this.idString} but this.state.id says ${this.state?.id}.`, 500)
-
-    // hydrate #typeVerionConfig. We don't store typeVersionConfig which allows for the values to be changed over time
     const defaultTypeVersionConfig = this.constructor.types['*'].versions['*']
     const lookedUpTypeVersionConfig = this.constructor.types[this.type].versions[this.version]
     utils.throwUnless(lookedUpTypeVersionConfig, `Entity version, ${this.version}, not found for type, ${this.type}`, 404)
@@ -375,6 +316,20 @@ export class TemporalEntityBase {
         else utils.throwIf(true, `Unsupported granularity: ${this.typeVersionConfig.granularity}`, 500)
       }
     }
+  }
+
+  async hydrate() {
+    debug('hydrate() called')
+    debug('this.hydrated: %O', this.hydrated)
+    if (this.hydrated) return
+
+    // validation
+    utils.throwUnless(this.idString, 'Entity id is required', 404)
+    utils.throwIf(
+      this.state?.id && this.state?.id?.toString() !== this.idString,
+      `Entity id mismatch. Url says ${this.idString} but this.state.id says ${this.state?.id}.`,
+      500,
+    )
 
     // hydrate #entityMeta
     this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { timeline: [], eTags: [] }
@@ -383,6 +338,11 @@ export class TemporalEntityBase {
     if (this.entityMeta.timeline.length > 0) {
       this.current = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}`)
     }
+
+    // preferably, this.type and this.version are set earlier, but if not, we'll try to set them here from this.current.meta
+    if (!this.type && this.current?.meta?.type) this.type = this.current.meta.type
+    if (!this.version && this.current?.meta?.version) this.version = this.current.meta.version
+    this.hydrateTypeVersionConfig()
 
     this.hydrated = true
   }
@@ -466,41 +426,6 @@ export class TemporalEntityBase {
     }
   }
 
-  async deleteOld(userID, validFrom, impersonatorID) {
-    utils.throwUnless(userID, 'userID required by TemporalEntity DELETE is missing')
-
-    await this.hydrate()
-
-    utils.throwIf(this.current?.meta?.deleted, 'Cannot delete a TemporalEntity that is already deleted', 404)
-    utils.throwUnless(this.entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity DELETE when there is no prior value')
-
-    validFrom = this.deriveValidFrom(validFrom).validFrom
-
-    // Update and save the old current
-    const oldCurrent = structuredClone(this.current)
-    oldCurrent.meta.validTo = validFrom
-    this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
-
-    this.current.meta = {
-      userID,
-      previousValues: {},  // Nothing changes in the value so previousValues is empty
-      validFrom,
-      validTo: this.constructor.END_OF_TIME,
-      eTag: this.getUUID(),
-      type: this.type,  // I'm putting this here rather than entityMeta on the off chance that a migration changes the type
-      version: this.version,
-      deleted: true,
-    }
-    if (impersonatorID) this.current.meta.impersonatorID = impersonatorID
-
-    this.entityMeta.timeline.push(validFrom)
-    this.entityMeta.eTags.push(this.current.meta.eTag)
-    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
-    this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
-
-    return 204
-  }
-
   async delete(userID, validFrom, impersonatorID) {
     utils.throwUnless(userID, 'userID required by TemporalEntity DELETE is missing')
 
@@ -512,7 +437,6 @@ export class TemporalEntityBase {
     const metaDelta = {
       userID,
       validFrom,
-      eTag: this.getUUID(),
       deleted: true,
     }
     if (impersonatorID) metaDelta.impersonatorID = impersonatorID
@@ -639,32 +563,10 @@ export class TemporalEntityBase {
     const metaDelta = {
       userID,
       validFrom,
-      eTag: this.getUUID(),
       deleted: undefined,
     }
     if (impersonatorID) metaDelta.impersonatorID = impersonatorID
     return this.patchMetaDelta(metaDelta)
-  }
-
-  async patchMetaDelta(metaDelta) {
-    await this.hydrate()
-
-    metaDelta.validFrom = this.deriveValidFrom(metaDelta.validFrom).validFrom
-
-    // Update and save the old current
-    const oldCurrent = structuredClone(this.current)
-    oldCurrent.meta.validTo = metaDelta.validFrom
-    this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
-
-    // apply metaDelta to current.meta and save it
-    utils.apply(this.current.meta, metaDelta)
-    this.current.meta.previousValues = {}  // value never changes in a metaDelta
-    this.entityMeta.timeline.push(metaDelta.validFrom)
-    this.entityMeta.eTags.push(this.current.meta.eTag)
-    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
-    this.state.storage.put(`${this.idString}/snapshot/${metaDelta.validFrom}`, this.current)
-
-    return this.current
   }
 
   async patchDelta({ delta, userID, validFrom, impersonatorID }, eTag) {
@@ -689,29 +591,24 @@ export class TemporalEntityBase {
     return this.put(newValue, userID, validFrom, impersonatorID, eTag)
   }
 
-  async patchAddChild({ addChild, userID, validFrom, impersonatorID }) {
-    const { childID } = addChild
-
+  async patchMetaDelta(metaDelta) {
     await this.hydrate()
 
-    utils.throwUnless(this.typeVersionConfig.hasChildren, `TemporalEntity of type ${this.type} does not support children`)
+    metaDelta.validFrom = this.deriveValidFrom(metaDelta.validFrom).validFrom
+    metaDelta.eTag = this.getUUID()
 
-    const children = structuredClone(this.current.meta.children ?? new Set())
-    children.add(childID)
+    // Update and save the old current
+    const oldCurrent = structuredClone(this.current)
+    oldCurrent.meta.validTo = metaDelta.validFrom
+    this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
 
-    const metaDelta = {
-      userID,
-      validFrom,
-      eTag: this.getUUID(),
-      children,
-    }
-    if (impersonatorID) metaDelta.impersonatorID = impersonatorID
-    this.patchMetaDelta(metaDelta)
-
-    // TODO: add this.idString to child's meta.parents
-    // if the childID is a durable object idString, then get the stub and patch from afar
-
-    // else instantiate a new TemporalEntity using this env and state and patch it locally
+    // apply metaDelta to current.meta and save it
+    utils.apply(this.current.meta, metaDelta)
+    this.current.meta.previousValues = {}  // value never changes in a patchMetaDelta
+    this.entityMeta.timeline.push(metaDelta.validFrom)
+    this.entityMeta.eTags.push(this.current.meta.eTag)
+    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
+    this.state.storage.put(`${this.idString}/snapshot/${metaDelta.validFrom}`, this.current)
 
     return this.current
   }
@@ -721,12 +618,10 @@ export class TemporalEntityBase {
 
     if (options.undelete) return this.patchUndelete(options)  // does not use eTag
     if (options.delta) return this.patchDelta(options, eTag)
-    if (options.addChild) return this.patchAddChild(options)
-    if (options.addParent) return this.patchAddParent(options)
 
     return utils.throwIf(
       true,
-      'Malformed PATCH on TemporalEntity. Body must include valid operation: delta, undelete, addParent, removeParent, or move',
+      'Malformed PATCH on TemporalEntity. Body must include valid operation: delta, undelete, addParent, removeParent, etc.',
       400,
     )
   }
