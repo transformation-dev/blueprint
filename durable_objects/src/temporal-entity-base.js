@@ -345,12 +345,6 @@ export class TemporalEntityBase {
     this.hydrated = true
   }
 
-  getUUID() {
-    if (this.env.crypto?.randomUUID) return this.env.crypto.randomUUID()
-    if (crypto?.randomUUID) return crypto.randomUUID()
-    else return utils.throwIf(true, 'crypto.randomUUID() not in the environment', 500)
-  }
-
   deriveValidFrom(validFrom) {
     let validFromDate
     if (validFrom) {
@@ -515,7 +509,7 @@ export class TemporalEntityBase {
       userID,
       validFrom,
       validTo: this.constructor.END_OF_TIME,
-      eTag: this.getUUID(),
+      eTag: utils.getUUID(this.env),
       type: this.type,  // I'm putting this here rather than entityMeta on the off chance that a migration changes the type
       version: this.version,
     }
@@ -585,11 +579,11 @@ export class TemporalEntityBase {
     return this.put(newValue, userID, validFrom, impersonatorID, eTag)
   }
 
-  async patchMetaDelta(metaDelta) {
+  async patchMetaDelta(metaDelta, validFrom) {
     await this.hydrate()
 
     metaDelta.validFrom = this.deriveValidFrom(metaDelta.validFrom).validFrom
-    metaDelta.eTag = this.getUUID()
+    metaDelta.eTag = utils.getUUID(this.env)
 
     // Update and save the old current
     const oldCurrent = structuredClone(this.current)

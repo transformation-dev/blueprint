@@ -1,12 +1,8 @@
 /* eslint-disable max-classes-per-file */
-// import Debug from "debug"
-// const debugRaw = Debug("blueprint:api:status")
-// function debug(value) {
-//   console.log('\n')
-//   debugRaw(value)
-// }
 
 export * from './temporal-entity.js'
+
+export * from './tree.js'
 
 // Worker. I'm not sure why this is needed since we never call it. I'm guessing it's legacy
 export default {

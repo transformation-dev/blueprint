@@ -2,7 +2,7 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-shadow */
 import test from 'tape'
-import { TemporalEntity } from '../index.mjs'
+import { Tree } from '../index.mjs'
 
 let crypto
 const env = {}
@@ -36,26 +36,48 @@ function getStateMock(initialData = {}) {
 test('TemporalEntity parents and children', async (t) => {
   t.test('parents and children', async (t) => {
     const state = getStateMock()
-    const root = new TemporalEntity(state, env, '***test-has-children***', 'v1', 'rootID')
+    const tree = new Tree(state, env, 'testTreeID')
 
-    let response = await root.put({ a: 1 }, 'userW')
-    t.equal(state.storage.data['rootID/entityMeta'].timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+    let response
+    const rootNode = {
+      value: { a: 1 },
+      type: '***test-has-children***',
+      version: 'v1',
+    }
+    response = await tree.post({ rootNode, userID: 'userW' })
+    console.log(state.storage.data)
+    t.equal(state.storage.data['0/entityMeta'].timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+
+    const newNode = {
+      value: { b: 2 },
+      type: '***test-has-children-and-parents***',
+      version: 'v1',
+    }
+    response = await tree.patch({ addNode: { newNode, parentID: '0' }, userID: 'userX' })
+    const { lastValidFrom } = response[0]
+    t.deepEqual(
+      state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents,
+      { 0: true },
+      'should have correct parent on new node',
+    )
+    t.deepEqual(
+      state.storage.data[`0/snapshot/${lastValidFrom}`].meta.children,
+      { 1: true },
+      'should have correct child on root node',
+    )
 
     try {
-      response = await root.patchAddChild({ addChild: { childID: 'child1ID' }, userID: 'userW' })
+      const newNode = {
+        value: { c: 3 },
+        type: '***test-has-children-and-parents***',
+        version: 'v1',
+      }
+      response = await tree.patch({ addNode: { newNode, parentID: 'not-there' }, userID: 'userY' })
       t.fail('async thrower did not throw')
     } catch (e) {
       t.equal(e.status, 404, 'should see status 404 in e.status')
-      t.equal(e.message, 'child1ID TemporalEntity not found', 'should throw if child does not exist')
+      t.equal(e.message, 'not-there TemporalEntity not found', 'should throw if parent does not exist')
     }
-
-    const child1 = new TemporalEntity(state, env, '***test-has-children-and-parents***', 'v1', 'child1ID')
-    response = await child1.put({ a: 1 }, 'userW')
-    response = await root.patchAddChild({ addChild: { childID: 'child1ID' }, userID: 'userW' })
-    t.deepEqual(response.meta.children, { child1ID: true }, 'root should have child1ID as child')
-
-    response = await child1.get()
-    // console.log(response[0])
 
     console.log(state.storage.data)
 
