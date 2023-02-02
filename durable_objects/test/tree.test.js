@@ -33,8 +33,8 @@ function getStateMock(initialData = {}) {
   return { storage: new StorageMock(initialData) }  // id must be undefined for unit tests to pass due to the validation that state.id match the id in the url
 }
 
-test('TemporalEntity parents and children', async (t) => {
-  t.test('parents and children', async (t) => {
+test('Tree parents and children', async (t) => {
+  t.test('Create Tree and add a node', async (t) => {
     const state = getStateMock()
     const tree = new Tree(state, env, 'testTreeID')
 

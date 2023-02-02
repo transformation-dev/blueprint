@@ -323,11 +323,6 @@ export class TemporalEntityBase {
 
     // validation
     utils.throwUnless(this.idString, 'Entity id is required', 404)
-    utils.throwIf(
-      this.state?.id && this.state?.id?.toString() !== this.idString,
-      `Entity id mismatch. Url says ${this.idString} but this.state.id says ${this.state?.id}.`,
-      500,
-    )
 
     // hydrate #entityMeta
     this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { timeline: [] }

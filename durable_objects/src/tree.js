@@ -1,5 +1,4 @@
 /* eslint-disable no-param-reassign */  // safe because durable objects are airgapped so to speak
-/* eslint-disable no-irregular-whitespace */  // because I use non-breaking spaces in comments
 
 // 3rd party imports
 import Debug from 'debug'
@@ -10,7 +9,7 @@ import responseMixin from './response-mixin.js'
 import { TemporalEntity } from './temporal-entity.js'
 
 // initialize imports
-const debug = utils.getDebug('blueprint:temporal-entity')
+const debug = utils.getDebug('blueprint:tree')
 
 /*
 
@@ -181,8 +180,7 @@ export class Tree {
 
     // Create root node
     const rootNodeTE = new TemporalEntity(this.state, this.env, type, version, this.entityMeta.nodeCount.toString())
-    // No await so sub-operations combined with tree-level operations are treated as a transaction
-    rootNodeTE.put(value, userID, validFrom, impersonatorID)
+    await rootNodeTE.put(value, userID, validFrom, impersonatorID)
 
     // If the root node creation works, then update entityMeta
     this.entityMeta.nodeCount++
