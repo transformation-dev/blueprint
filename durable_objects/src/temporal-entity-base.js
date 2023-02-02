@@ -579,7 +579,7 @@ export class TemporalEntityBase {
     return this.put(newValue, userID, validFrom, impersonatorID, eTag)
   }
 
-  async patchMetaDelta(metaDelta, validFrom) {
+  async patchMetaDelta(metaDelta) {
     await this.hydrate()
 
     metaDelta.validFrom = this.deriveValidFrom(metaDelta.validFrom).validFrom

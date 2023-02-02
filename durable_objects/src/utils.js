@@ -142,8 +142,9 @@ export const getDebug = (name, delay = 50) => {
   return theFunction
 }
 
+// eslint-disable-next-line consistent-return
 export function getUUID(env) {
   if (env.crypto?.randomUUID) return env.crypto.randomUUID()
   if (crypto?.randomUUID) return crypto.randomUUID()
-  else return throwIf(true, 'crypto.randomUUID() not in the environment', 500)
+  else throwIf(true, 'crypto.randomUUID() not in the environment', 500)
 }

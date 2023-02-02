@@ -12,19 +12,16 @@ import { TemporalEntity } from './temporal-entity.js'
 // initialize imports
 const debug = utils.getDebug('blueprint:temporal-entity')
 
-// TODO: A. Tree.POST .../[parentType]/[parentVersion]/[parentIDString]/[childType]/[childVersion] without an idString will create a new child
-
-// TODO: A. PATCH addParent. Also changes the children field of the parent. Errors unless hasParents is true
-
-// TODO: A. PATCH removeParent. Also changes the children field of the parent. Changes to a delete if last parent. Errors unless hasParents is true
-
-// TODO: A. PATCH move. Sugar for removeParent and addParent
-
 /*
 
-org-tree: {  // Tree w/ org-tree type
-  rootNode: idString,  // "0"
-  nodeIDCounter: number,  // start at 0
+org-tree: {  // Tree
+  entityMeta: {
+    nodeCount: number,  // start at 0
+    userID: string,  // user who created the tree
+    impersonatorID: string,  // user who created the tree if impersonating
+    validFrom: string,  // The ISO string when the tree was created
+    lastValidFrom: string,  // The ISO string when the tree was last modified
+  }
 }
 
 org-tree-root-node: {  // TemporalEntity w/ org-tree-root-node type. Add a flag in TemporalEntity type for hasChildren
@@ -43,22 +40,35 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Add a flag in Tempora
   },
 }
 
-/org-tree/v1/<treeIDString>
-  PUT - creates the tree with the root node as the value from the body
-  GET - returns the DAG with just labels and children
+/tree/v1
+  TODO A1: e2e tests for POST - creates a new tree with a root node
 
-/org-tree/v1/<treeIDString>/aggregate
-  POST - alias for /aggregate against the root node
+/tree/v1/[treeIDString]
+  TODO B: GET - returns the DAG with just labels and children
 
-/org-tree/v1/<treeIdString>/org-node/v1/<nodeIDString>
-  POST creates a new child of nodeIDString. Body is the value for the new node. This is done by Tree not TemporalEntity
-  GET, PUT, PATCH delta/undelete, and DELETE just like a TemporalEntity
-  PATCH with { addParent: { parent: idString } }
-  PATCH with { removeParent: { parent: idString } }
-  PATCH with { move: { currentParent: idString, newParent: idString } }
+/tree/v1/[treeIdString]/node/[nodeType]/[nodeVersion]/[nodeIDString]
+  TODO B: GET, PUT, PATCH delta/undelete, and DELETE just like a TemporalEntity
 
-/org-tree/v1/<treeIdString>/org-node/v1/<nodeIDString>/aggregate
-  POST - execute the aggregation. First version just gathers all matching nodes.
+/tree/v1/[treeIdString]/aggregate
+  TODO B: POST - execute the aggregation. Starting nodeIDString in body or root if omitted. First version just gathers all matching nodes.
+
+/tree/v1/[treeIdString]
+  PATCH
+    TODO A1: e2e tests for addNode
+    TODO A2: addBranch
+      Add a branch to the tree. Body contains parentIDString and childIDString.
+      Errors unless child type.hasParents.
+      Errors unless parent type.hasChildren.
+      Before anything is changed confirms that adding the branch won't create a cycle. If it does, returns ?409?.
+    TODO A3: removeBranch
+      Removes a branch from the tree. Body contains parentIDString and childIDString.
+      If the childIDString is '0', then return early but don't error.
+      Don't do any error checking because this is a no-op if the branch doesn't exist.
+      If the child TE only has that one parent, remove it anyway. You can figure out the orphaned ids by
+      crawling the tree from the root. Any unused numbers between 0 and nodeCound are orphans.
+    TODO A4: moveNode
+      Moves a branch from one parent to another. Body contains parentIDString, childIDString, and newParentIDString.
+      Start with addBranch which has error checking. If that succeeds, removeBranch which has no error checking.
 
 */
 
@@ -132,6 +142,9 @@ export class Tree {
       const pathArray = url.pathname.split('/')
       if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
 
+      const version = pathArray.shift()
+      utils.throwUnless(version === 'v1', `Unrecognized version ${version}`, 404)
+
       if (utils.isIDString(pathArray[0])) {
         this.idString = pathArray.shift()  // remove the ID
       } else {
@@ -145,10 +158,6 @@ export class Tree {
         case '/':
           if (this[request.method]) return this[request.method](request)
           return utils.throwIf(true, `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
-
-        case '/entity-meta':  // This doesn't require type or version but this.hydrate does and this needs this.hydrate
-          utils.throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
-          return this.GETEntityMeta(request)
 
         default:
           return utils.throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
@@ -168,12 +177,10 @@ export class Tree {
     utils.throwUnless(this.entityMeta.nodeCount === 0, `POST can only be called once but nodeCount is ${this.entityMeta.nodeCount}`)
 
     // Set validFrom and validFromDate
-    let validFromDate
-    ({ validFrom, validFromDate } = this.deriveValidFrom(validFrom))
+    validFrom = this.deriveValidFrom(validFrom).validFrom
 
-    // TODO: Create root node
+    // Create root node
     const rootNodeTE = new TemporalEntity(this.state, this.env, type, version, this.entityMeta.nodeCount.toString())
-
     // No await so sub-operations combined with tree-level operations are treated as a transaction
     rootNodeTE.put(value, userID, validFrom, impersonatorID)
 
@@ -187,8 +194,8 @@ export class Tree {
 
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
 
-    const getResponse = this.get()
-    return getResponse  // TODO: Return 201 for successful creation
+    const getResponse = await this.get()
+    return [getResponse[0], 201]
   }
 
   async POST(request) {
@@ -204,7 +211,7 @@ export class Tree {
 
   // async patchAddBranch({ addBranch, userID, validFrom, impersonatorID }) {
   //   const { parentID, childID } = addBranch
-  //   utils.throwIf(utils.isIDString(childID), 'Parent/child relationships across separate durable objects not yet supported by TemporalEntity')  // TODO: maybe implement this
+  //   utils.throwIf(utils.isIDString(childID), 'Parent/child relationships across separate durable objects not yet supported by TemporalEntity')
 
   //   await this.hydrate()
 
@@ -235,7 +242,7 @@ export class Tree {
 
   // async patchAddParent({ addParent, userID, validFrom, impersonatorID }) {
   //   const { parentID, dontPropogate = false } = addParent
-  //   utils.throwIf(utils.isIDString(parentID), 'Parent/child relationships across separate durable objects not yet supported by TemporalEntity')  // TODO: maybe implement this
+  //   utils.throwIf(utils.isIDString(parentID), 'Parent/child relationships across separate durable objects not yet supported by TemporalEntity')
 
   //   await this.hydrate()
 
@@ -266,7 +273,7 @@ export class Tree {
   //   return this.entityMeta  // was this.current in TemporalEntity
   // }
 
-  async patchAddNode({ addNode, userID, validFrom, impersonatorID }, eTag) {  // TODO: Decide if we want to use eTags at all in Tree
+  async patchAddNode({ addNode, userID, validFrom, impersonatorID }) {
     const { newNode, parentID } = addNode
     const parentIDNumber = Number(parentID)
     utils.throwIf(
@@ -310,17 +317,16 @@ export class Tree {
     this.entityMeta.eTag = utils.getUUID(this.env)
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
 
-    const getResponse = this.get()
-    return getResponse  // TODO: Return 201 for successful creation
+    const getResponse = await this.get()
+    return [getResponse[0], 201]
   }
 
-  async patch(options, eTag) {  // eTag used for operations on tree nodes
+  async patch(options, eTag) {  // eTag to be used for operations on tree nodes but not on the Tree itself
     utils.throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
 
-    if (options.addNode) return this.patchAddNode(options, eTag)
+    if (options.addNode) return this.patchAddNode(options)
     if (options.addBranch) return this.patchAddBranch(options)  // does not use eTag because it's idempotent
     if (options.removeBranch) return this.patchRemoveBranch(options)  // does not use eTag because it fails silently
-    // TODO: Add operations for tree nodes
 
     return utils.throwIf(
       true,
@@ -341,12 +347,13 @@ export class Tree {
     }
   }
 
-  // TODO: Upgrade to return DAG with the entityMeta. Add back eTag support to save regenerating the DAG
   async get(eTag) {
     await this.hydrate()
     // Note, we don't check for deleted here because we want to be able to get the entityMeta even if the entity is deleted
     if (eTag && eTag === this.entityMeta.eTag) return [undefined, 304]
-    return [this.entityMeta, 200]
+    const tree = {}  // TODO: Build the tree
+    const response = { meta: this.entityMeta, tree }
+    return [response, 200]
   }
 
   async GET(request) {

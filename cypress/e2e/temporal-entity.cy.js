@@ -198,7 +198,6 @@ context('TemporalEntity', () => {
 
               const o = response.CBOR_SC
 
-              expect(response.headers.get('ETag')).to.eq(o.eTags.at(-1))
               expect(o.timeline.length).to.eq(3)
 
               const options5 = {

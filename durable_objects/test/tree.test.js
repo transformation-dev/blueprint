@@ -45,7 +45,7 @@ test('TemporalEntity parents and children', async (t) => {
       version: 'v1',
     }
     response = await tree.post({ rootNode, userID: 'userW' })
-    console.log(state.storage.data)
+    t.equal(response[1], 201, 'should get back 201 on successful tree and root node creation')
     t.equal(state.storage.data['0/entityMeta'].timeline.length, 1, 'should have 1 entry in timeline after 1st put')
 
     const newNode = {
@@ -54,7 +54,8 @@ test('TemporalEntity parents and children', async (t) => {
       version: 'v1',
     }
     response = await tree.patch({ addNode: { newNode, parentID: '0' }, userID: 'userX' })
-    const { lastValidFrom } = response[0]
+    t.equal(response[1], 201, 'should get back 201 on successful node creation')
+    const { lastValidFrom } = response[0].meta
     t.deepEqual(
       state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents,
       { 0: true },
@@ -79,7 +80,7 @@ test('TemporalEntity parents and children', async (t) => {
       t.equal(e.message, 'not-there TemporalEntity not found', 'should throw if parent does not exist')
     }
 
-    console.log(state.storage.data)
+    // console.log(state.storage.data)
 
     t.end()
   })
