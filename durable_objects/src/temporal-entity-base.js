@@ -365,12 +365,17 @@ export class TemporalEntityBase {
 
   // The body and return is always a CBOR-SC object
   // eslint-disable-next-line consistent-return
-  async fetch(request) {
-    debug('%s %s', request.method, request.url)
-    this.nextStatus = undefined
+  async fetch(request, urlString) {  // urlString is only used when called in composition by another durable object sharing state and env
+    debug('%s %s', request.method, urlString || request.url)
+    this.nextStatus = undefined  // TODO: maybe find a way to do this in the lower methods like we do in GET expecting [value, status] from get
     try {
-      const url = new URL(request.url)
-      const pathArray = url.pathname.split('/')
+      let pathArray
+      if (urlString) {
+        pathArray = urlString.split('/')
+      } else {
+        const url = new URL(request.url)
+        pathArray = url.pathname.split('/')
+      }
       if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
 
       this.type = pathArray.shift()
@@ -382,7 +387,10 @@ export class TemporalEntityBase {
       const typeVersionConfig = typeConfig.versions?.[this.version]
       utils.throwUnless(typeVersionConfig, `Unrecognized version ${this.version}`, 404)
 
-      if (utils.isIDString(pathArray[0])) {
+      if (this.idString) {  // It might be set when instantiated manually
+        const otherIDString = pathArray.shift()
+        utils.throwIf(otherIDString && otherIDString !== this.idString, `The ID in the URL, ${otherIDString}, does not match the ID in the entity, ${this.idString}`, 404)
+      } else if (utils.isIDString(pathArray[0])) {
         this.idString = pathArray.shift()  // remove the ID
       } else {
         this.idString = this.state?.id?.toString()
@@ -394,7 +402,7 @@ export class TemporalEntityBase {
       switch (restOfPath) {
         case '/':
           if (this[request.method]) return this[request.method](request)
-          return utils.throwIf(true, `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
+          return utils.throwIf(true, `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
 
         case '/ticks':
           // Not yet implemented
@@ -402,11 +410,11 @@ export class TemporalEntityBase {
           return this.getStatusOnlyResponse(500)  // this just here temporarily because every case needs to end with a break or return
 
         case '/entity-meta':  // This doesn't require type or version but this.hydrate does and this needs this.hydrate
-          utils.throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
+          utils.throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
           return this.GETEntityMeta(request)
 
         default:
-          utils.throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
+          utils.throwIf(true, `Unrecognized URL ${request.url}`, 404)
       }
     } catch (e) {
       return this.getErrorResponse(e)
@@ -623,7 +631,7 @@ export class TemporalEntityBase {
   async get(eTag) {
     await this.hydrate()
     utils.throwIf(this.current?.meta?.deleted, 'GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true', 404)
-    if (eTag && eTag === this.current?.meta?.eTag) return [undefined, 304]  // e2e test for this. Be sure to also look for Content-ID header.
+    if (eTag && eTag === this.current?.meta?.eTag) return [undefined, 304]  // TODO: e2e test for this. Be sure to also look for Content-ID header.
     return [this.current, 200]
   }
 
@@ -633,7 +641,7 @@ export class TemporalEntityBase {
       const eTag = utils.extractETag(request)
       const [current, status] = await this.get(eTag)
       if (status === 304) return this.getStatusOnlyResponse(status)
-      return this.getResponse(current)
+      return this.getResponse(current, status)
     } catch (e) {
       return this.getErrorResponse(e)
     }
@@ -652,7 +660,7 @@ export class TemporalEntityBase {
       const eTag = utils.extractETag(request)
       const [entityMeta, status] = await this.getEntityMeta(eTag)
       if (status === 304) return this.getStatusOnlyResponse(304)
-      return this.getResponse(entityMeta)
+      return this.getResponse(entityMeta, status)
     } catch (e) {
       return this.getErrorResponse(e)
     }

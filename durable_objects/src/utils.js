@@ -3,7 +3,7 @@ import { Encoder } from 'cbor-x'
 import Debug from 'debug'
 
 // mono-repo imports
-import Accept from '@transformation-dev/accept'
+import Accept from '@transformation-dev/accept'  // TODO: Stop using this because only support application/cbor-sc and we don't support q values
 
 // iniialize imports
 const cborSC = new Encoder({ structuredClone: true })

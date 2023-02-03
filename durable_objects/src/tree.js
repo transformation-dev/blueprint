@@ -19,7 +19,7 @@ org-tree: {  // Tree
     userID: string,  // user who created the tree
     impersonatorID: string,  // user who created the tree if impersonating
     validFrom: string,  // The ISO string when the tree was created
-    lastValidFrom: string,  // The ISO string when the tree was last modified
+    lastValidFrom: string,  // The ISO string when the tree/branches (not the nodes) were last modified
   }
 }
 
@@ -28,19 +28,19 @@ org-tree-root-node: {  // TemporalEntity w/ org-tree-root-node type. Add a flag 
     label: string,
     emailDomains: [string],
   },
-  meta: { children: [idString] },
+  meta: { children: { id1: true, id2: true, ... } },
 }
 
 org-tree-node: {  // TemporalEntity w/ org-tree-node type. Add a flag in TemporalEntity type for hasParents
   value: { label: string },
   meta: {
-    children: [idString],
-    parents: [idString],
+    children: { id1: true, id2: true, ... },
+    parents: { id1: true, id2: true, ... },
   },
 }
 
 /tree/v1
-  TODO A1: e2e tests for POST - creates a new tree with a root node
+  POST - creates a new tree with a root node
 
 /tree/v1/[treeIDString]
   TODO B: GET - returns the DAG with just labels and children
@@ -53,7 +53,7 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Add a flag in Tempora
 
 /tree/v1/[treeIdString]
   PATCH
-    TODO A1: e2e tests for addNode
+    addNode - add a node to the tree. Body contains newNode and parentIDString.
     TODO A2: addBranch
       Add a branch to the tree. Body contains parentIDString and childIDString.
       Errors unless child type.hasParents.
@@ -151,8 +151,18 @@ export class Tree {
         this.nextStatus = 201  // This means that the entity was created on this PUT or POST
       }
 
-      const restOfPath = `/${pathArray.join('/')}`
+      let restOfPath
+      if (pathArray[0] === 'node') {
+        pathArray.shift()  // remove "node"
+        restOfPath = `/${pathArray.join('/')}`
+        pathArray.shift()  // remove the nodeType
+        pathArray.shift()  // remove the nodeVersion
+        const nodeIDString = pathArray.shift()
+        const nodeTE = new TemporalEntity(this.state, this.env, undefined, undefined, nodeIDString)
+        return nodeTE.fetch(request, restOfPath)
+      }
 
+      restOfPath = `/${pathArray.join('/')}`
       switch (restOfPath) {
         case '/':
           if (this[request.method]) return this[request.method](request)
@@ -200,8 +210,8 @@ export class Tree {
     try {
       utils.throwIfMediaTypeHeaderInvalid(request)
       const options = await utils.decodeCBORSC(request)
-      const entityMeta = await this.post(options)
-      return this.getResponse(entityMeta, this.nextStatus)
+      const [entityMeta, status] = await this.post(options)
+      return this.getResponse(entityMeta, status)
     } catch (e) {
       return this.getErrorResponse(e)
     }
@@ -338,8 +348,8 @@ export class Tree {
       utils.throwIfMediaTypeHeaderInvalid(request)
       const options = await utils.decodeCBORSC(request)
       const eTag = utils.extractETag(request)
-      const current = await this.patch(options, eTag)
-      return this.getResponse(current)
+      const [entityMeta, status] = await this.patch(options, eTag)
+      return this.getResponse(entityMeta, status)
     } catch (e) {
       return this.getErrorResponse(e)  // TODO: add e2e test for the body of the response
     }

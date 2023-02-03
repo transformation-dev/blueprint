@@ -2,10 +2,10 @@ import Debug from 'debug'
 import { Encoder } from 'cbor-x'
 import { getDebug } from '../../_utils'
 
-const debug = getDebug('blueprint:api:tree')
+const debug = getDebug('blueprint:api:tree')  // TODO: Change this to the name of the package. Maybe pull that from package.json.
 const cborSC = new Encoder({ structuredClone: true })
 
-function findFirstID(pathArray) {  // TODO: Get this from utils.js once we move TemporalEntityBase and Tree to it's own project
+function findFirstID(pathArray) {
   for (const segment of pathArray) {
     if (/^[a-fA-F0-9]{64}$$/.test(segment)) {
       return segment
@@ -16,22 +16,19 @@ function findFirstID(pathArray) {  // TODO: Get this from utils.js once we move 
 
 export async function onRequest({ request, env, params }) {
   Debug.enable(env.DEBUG)
-  debug('onRequest() called')
   debug('%s %s', request.method, request.url)
+  debug('params: %O', params)
+
+  // TODO: Move this to it's own package, maybe called cloudflare-do-pages-utils
+  //       Use the findFirstID from utils.js since it's upgraded from this one. Export it in pieces like we currently do in utils.js.
+  //       Make TemporalEntityBase and Tree use it there.
+  //       Rather than hard-code env.TREE, we should get the name of the durable object from the request.url segment immediately before the one in params.path
+  //       We should also allow you to pass the name of the durable object in when using the package.
 
   // If there is no id in the URL, then we randomly generate one. You needn't worry that this will create orphaned durable objects
   // because if a durable object has no stored data, it ceases to exist as soon as it leaves memory.
   // So, if the call is malformed or doesn't store anything, then the orphaned durable object will be short lived.
   // Good practice is to do all of your validation and only store data once you are certain it's a valid request.
-  debug('request.url: %O', request.url)
-  debug('params: %O', params)
-
-  // TODO: make the below code more generic. Make no assumptions about the path. Simply search for the first segment that matches
-  //       the idString regex. If there is no match, then generate a new id. If there is a match, then use that id.
-  //       regardless of the position in the path of the idString, pass the entire path to the durable object. This will
-  //       require a change to the durable object code. It'll have to do the same sort of searching for the idString.
-  //       It'll also have to be able to handle paths that have no idString because we won't add that to the path.
-
   let idString
   if (params.path) idString = findFirstID(params.path)
 
@@ -48,7 +45,7 @@ export async function onRequest({ request, env, params }) {
   debug('url to pass to durable object: %O', url)
 
   const entityStub = env.TREE.get(id)
-  const response = await entityStub.fetch(url, request)  // TODO: upgrade this to pass the rest along to the durable object
+  const response = await entityStub.fetch(url, request)
   if (response.status >= 400) {
     debug('DURABLE_OBJECT.fetch() to %O failed with status: %O', url, response.status)  // TODO: replace 'DURABLE_OBJECT' with the durable object's name
     const responseClone = response.clone()

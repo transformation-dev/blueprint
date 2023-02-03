@@ -4,13 +4,20 @@ import { Encoder, encode, decode } from 'cbor-x'
 const cborSC = new Encoder({ structuredClone: true })
 
 async function encodeAndFetch(url, options) {  // TODO: move this to a helper file
+  if (!options) options = {}
+
   if (options.body) {
     const u8a = cborSC.encode(options.body)
     // const u8a = encode(options.body)  // using this seems to fail regardless of how I decode
     options.body = u8a
   }
 
-  const headers = new Headers(options.headers)
+  let headers
+  if (options.headers) {
+    headers = new Headers(options.headers)
+  } else {
+    headers = new Headers()
+  }
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/cbor-sc')
   }
@@ -54,39 +61,50 @@ context('Tree', () => {
       expect(response.status).to.eq(201)
       expect(response.headers.get('Content-Type')).to.eq('application/cbor-sc')
 
-      const o = response.CBOR_SC
-      const { meta, tree } = o[0]
-      console.log('o', o)
+      const { meta, tree, idString } = response.CBOR_SC
       expect(meta.nodeCount).to.be.a('number')
       expect(meta.nodeCount).to.eq(1)
       expect(meta.validFrom).to.be.a('string')
       expect(meta.userID).to.eq('UserW')
       expect(response.headers.get('ETag')).to.eq(meta.eTag)
 
-      // TODO: Return and finish this test of adding a new child node once I have a way of retrieving the node
-      
-      // const options2 = {
-      //   method: 'PATCH',
-      //   body: {
-      //     delta: { a: 10, b: undefined },
-      //     userID: '2',
-      //     validFrom: newValidFromISOString,
-      //     impersonatorID: 'impersonator1',
-      //   },
-      //   headers: {
-      //     'If-Match': eTag1,
-      //   },
-      // }
+      cy.wrap(null).then(async () => {
+        const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children***/v1/0`, { method: 'OPTIONS' })
+        expect(response.status).to.eq(405)
 
-      // cy.wrap(null).then(async () => {
-      //   const response = await encodeFetchAndDecode(`/api/temporal-entity/*/*/${idString}`, options2)
-      //   expect(response.status).to.eq(200)
+        cy.wrap(null).then(async () => {
+          const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children***/v1/0`, undefined)
+          expect(response.status).to.eq(200)
+          expect(response.CBOR_SC.idString).to.eq('0')
+          
+          const newNode = {
+            value: { b: 2 },
+            type: '***test-has-children-and-parents***',
+            version: 'v1',
+          }
+          let options = {
+            method: 'PATCH',
+            body: { addNode: { newNode, parentID: '0' }, userID: 'userX' },
+          }
+          cy.wrap(null).then(async () => {
+            const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}`, options)
+            expect(response.status).to.eq(201)
+            expect(response.CBOR_SC.meta.nodeCount).to.eq(2)
 
-      //   const o = response.CBOR_SC
-      //   expect(o.idString).to.eq(idString)
-      // })
+            cy.wrap(null).then(async () => {
+              const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children***/v1/0`, undefined)
+              expect(response.status).to.eq(200)
+              expect(response.CBOR_SC.meta.children['1']).to.be.true
+
+              cy.wrap(null).then(async () => {
+                const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children-and-parents***/v1/1`, undefined)
+                expect(response.status).to.eq(200)
+                expect(response.CBOR_SC.meta.parents['0']).to.be.true
+              })
+            })
+          })
+        })
+      })
     })
   })
-
-
 })

@@ -8,7 +8,10 @@ export default {
     headers.set('Content-ID', this.idString)
     if (this.current?.meta?.eTag) headers.set('ETag', this.current.meta.eTag)  // for TemportalEntity
     if (this.entityMeta?.eTag) headers.set('ETag', this.entityMeta.eTag)  // for Tree
-    if (statusText) headers.set('Status-Text', statusText)
+    if (statusText) {
+      const cleanedStatusText = statusText.replaceAll('\n', ' ')
+      headers.set('Status-Text', cleanedStatusText)
+    }
     if (body && typeof body === 'object') {
       const newBody = structuredClone(body)
       newBody.idString = this.idString
