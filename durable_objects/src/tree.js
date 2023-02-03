@@ -7,6 +7,7 @@ import Debug from 'debug'
 import * as utils from './utils.js'
 import responseMixin from './response-mixin.js'
 import { TemporalEntity } from './temporal-entity.js'
+import { TemporalEntityBase } from './temporal-entity-base.js'
 
 // initialize imports
 const debug = utils.getDebug('blueprint:tree')
@@ -109,7 +110,6 @@ export class Tree {
       // eTag: null,
     }
     this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || defaultEntityMeta
-    this.tree = await this.state.storage.get(`${this.idString}/tree`) || new Set(['0'])
 
     this.hydrated = true
   }
@@ -202,8 +202,7 @@ export class Tree {
     this.entityMeta.lastValidFrom = validFrom
     this.entityMeta.eTag = utils.getUUID(this.env)
     if (impersonatorID) this.entityMeta.impersonatorID = impersonatorID
-    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
-    this.state.storage.put(`${this.idString}/tree`, this.tree)
+    await this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
 
     const responseFromGet = await this.get()
     return [responseFromGet[0], 201]
@@ -240,28 +239,82 @@ export class Tree {
     // Create the new node
     const nodeTE = new TemporalEntity(this.state, this.env, type, version, this.entityMeta.nodeCount.toString())
     await nodeTE.put(value, userID, validFrom, impersonatorID)
-    // Update the new node in place to add the parent without creating a new snapshot
-    nodeTE.current.meta.parents ??= new Set()
-    nodeTE.current.meta.parents.add(parentID)
-    nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`, nodeTE.current)
 
-    // Get the parent node
-    const parentTE = new TemporalEntity(this.state, this.env, undefined, undefined, parentID)
-    await parentTE.hydrate()
-    // Update the parent node normally so it creates a new snapshot
-    const children = structuredClone(parentTE.current.meta.children) || new Set()
-    children.add(nodeTE.idString)
-    parentTE.patchMetaDelta({ children, validFrom })
+    await this.patchAddBranch({ addBranch: { parent: parentID, child: nodeTE }, userID, validFrom, impersonatorID })
 
     // Update entityMeta
     this.entityMeta.nodeCount++
     this.entityMeta.lastValidFrom = validFrom
     this.entityMeta.eTag = utils.getUUID(this.env)
-    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
-    this.state.storage.put(`${this.idString}/tree`, this.tree)
+    await this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
 
     const responseFromGet = await this.get()
     return [responseFromGet[0], 201]
+  }
+
+  /**
+   *
+   * # addBranch
+   *
+   * Adds a branch to the tree mutating the children and parents fields of the parent and child respectively.
+   *
+   * Accepts either TemporalEntity instances or IDs for parent or child.
+   * If an ID is passed in rather than a TemporalEntity instance, it uses TemporalEntity.patchMetaDelta() which creates a new snapshot.
+   * If a TemporalEntity instance is passed in, it mutates the current value in place and does not create a new snapshot under the assumption
+   * that if you already had a TemporalEnity instance, you probably already made a change and you want this branch change to be atomic with
+   * that.
+   */
+  async patchAddBranch({ addBranch, userID, validFrom, impersonatorID }) {
+    // TODO: Call this from patchAddNode
+    const { parent, child } = addBranch
+
+    let parentIDString
+    if (typeof parent === 'string' || parent instanceof String) {
+      parentIDString = parent
+    } else if (parent instanceof TemporalEntityBase) {
+      parentIDString = parent.idString
+    } else {
+      utils.throwIf(true, 'parent must be a string or a TemporalEntity')
+    }
+
+    let childIDString
+    if (typeof child === 'string' || child instanceof String) {
+      childIDString = child
+    } else if (child instanceof TemporalEntityBase) {
+      childIDString = child.idString
+    } else {
+      utils.throwIf(true, 'child must be a string or a TemporalEntity')
+    }
+
+    await Promise.all([
+      this.addToSetInEntityMeta('parents', child, parentIDString, userID, validFrom, impersonatorID),
+      this.addToSetInEntityMeta('children', parent, childIDString, userID, validFrom, impersonatorID),
+    ])
+
+    // TODO: return something maybe?
+  }
+
+  async addToSetInEntityMeta(metaFieldToAddTo, temporalEntityOrIDString, valueToAdd, userID, validFrom, impersonatorID) {
+    let idString
+    let nodeTE
+    if (typeof temporalEntityOrIDString === 'string' || temporalEntityOrIDString instanceof String) {  // so update by creating a new snapshot
+      idString = temporalEntityOrIDString
+      nodeTE = new TemporalEntity(this.state, this.env, undefined, undefined, idString)
+      await nodeTE.hydrate()
+      const set = structuredClone(nodeTE.current.meta[metaFieldToAddTo]) || new Set()
+      set.add(valueToAdd)
+      const delta = { validFrom, userID }
+      if (impersonatorID) delta.impersonatorID = impersonatorID
+      delta[metaFieldToAddTo] = set
+      nodeTE.patchMetaDelta(delta)  // creates a new snapshot
+    } else if (temporalEntityOrIDString instanceof TemporalEntityBase) {  // update in place without creating a new snapshot
+      nodeTE = temporalEntityOrIDString
+      nodeTE.current.meta[metaFieldToAddTo] ??= new Set()
+      nodeTE.current.meta[metaFieldToAddTo].add(valueToAdd)
+      await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`, nodeTE.current)
+    } else {
+      utils.throwIf(true, `${metaFieldToAddTo === 'children' ? 'parent' : 'child'} must be a string or a TemporalEntity`)
+    }
   }
 
   async patch(options) {
@@ -294,8 +347,7 @@ export class Tree {
     await this.hydrate()
     // Note, we don't check for deleted here because we want to be able to get the entityMeta even if the entity is deleted
     if (eTag && eTag === this.entityMeta.eTag) return [undefined, 304]
-    // const tree = {}  // TODO: Build the tree
-    const tree = await this.state.storage.get(`${this.idString}/tree`)
+    const tree = {}  // TODO: Build the tree
     const response = { meta: this.entityMeta, tree }
     return [response, 200]
   }

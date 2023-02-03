@@ -30,7 +30,7 @@ class StorageMock {
 }
 
 function getStateMock(initialData = {}) {
-  return { storage: new StorageMock(initialData) }  // id must be undefined for unit tests to pass due to the validation that state.id match the id in the url
+  return { storage: new StorageMock(initialData) }
 }
 
 test('Tree parents and children', async (t) => {
@@ -56,14 +56,13 @@ test('Tree parents and children', async (t) => {
     response = await tree.patch({ addNode: { newNode, parentID: '0' }, userID: 'userX' })
     t.equal(response[1], 201, 'should get back 201 on successful node creation')
     const { lastValidFrom } = response[0].meta
-    t.deepEqual(
-      state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents,
-      { 0: true },
+    t.assert(
+      state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents.has('0'),
       'should have correct parent on new node',
     )
-    t.deepEqual(
-      state.storage.data[`0/snapshot/${lastValidFrom}`].meta.children,
-      { 1: true },
+    console.log(state.storage.data)
+    t.assert(
+      state.storage.data[`0/snapshot/${lastValidFrom}`].meta.children.has('1'),
       'should have correct child on root node',
     )
 
