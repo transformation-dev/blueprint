@@ -54,9 +54,11 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Add a flag in Tempora
 
 /tree/v1/[treeIdString]
   PATCH
-    addNode - add a node to the tree. Body contains newNode and parentIDString.
-    TODO A2: addBranch
-      Add a branch to the tree. Body contains parentIDString and childIDString.
+    addNode - Adds a node to the tree
+      body.addNode contains newNode and parentID fields
+    TODO A2: branch - Adds or deletes a branch
+      body.branch.operation must be 'add' or 'delete'
+      body contains parent and child fields
       Errors unless child type.hasParents.
       Errors unless parent type.hasChildren.
       Before anything is changed confirms that adding the branch won't create a cycle. If it does, returns ?409?.
@@ -220,13 +222,7 @@ export class Tree {
   }
 
   async patchAddNode({ addNode, userID, validFrom, impersonatorID }) {
-    const { newNode, parentID } = addNode
-    const parentIDNumber = Number(parentID)
-    utils.throwIf(
-      Number.isNaN(parentIDNumber) || parentIDNumber < 0 || parentIDNumber > this.entityMeta.nodeCount,
-      `${parentID} TemporalEntity not found`,
-      404,
-    )
+    const { newNode, parent } = addNode
     const { value, type, version } = newNode
     utils.throwUnless(value && type && version, 'body.node with value, type, and version required when Tree PATCH addNode is called')
     utils.throwUnless(userID, 'userID required by Tree operation is missing')
@@ -234,13 +230,22 @@ export class Tree {
 
     await this.hydrate()
 
+    const parentIDNumber = Number(parent)
+    if (!Number.isNaN(parentIDNumber)) {
+      utils.throwIf(  // TODO: add this check elsewhere
+        parentIDNumber < 0 || parentIDNumber > this.entityMeta.nodeCount,
+        `${parent} TemporalEntity not found`,
+        404,
+      )
+    }
+
     validFrom = this.deriveValidFrom(validFrom).validFrom
 
     // Create the new node
     const nodeTE = new TemporalEntity(this.state, this.env, type, version, this.entityMeta.nodeCount.toString())
     await nodeTE.put(value, userID, validFrom, impersonatorID)
 
-    await this.patchAddBranch({ addBranch: { parent: parentID, child: nodeTE }, userID, validFrom, impersonatorID })
+    await this.patchBranch({ branch: { parent, child: nodeTE }, userID, validFrom, impersonatorID })
 
     // Update entityMeta
     this.entityMeta.nodeCount++
@@ -254,9 +259,9 @@ export class Tree {
 
   /**
    *
-   * # addBranch
+   * # patchBranch
    *
-   * Adds a branch to the tree mutating the children and parents fields of the parent and child respectively.
+   * Adds or deletes a branch to the tree mutating the children and parents fields of the parent and child respectively.
    *
    * Accepts either TemporalEntity instances or IDs for parent or child.
    * If an ID is passed in rather than a TemporalEntity instance, it uses TemporalEntity.patchMetaDelta() which creates a new snapshot.
@@ -264,9 +269,10 @@ export class Tree {
    * that if you already had a TemporalEnity instance, you probably already made a change and you want this branch change to be atomic with
    * that.
    */
-  async patchAddBranch({ addBranch, userID, validFrom, impersonatorID }) {
-    // TODO: Call this from patchAddNode
-    const { parent, child } = addBranch
+  async patchBranch({ branch, userID, validFrom, impersonatorID }) {
+    const { parent, child, operation } = branch
+    utils.throwUnless(parent && child, 'body.branch with parent and child required when Tree PATCH patchBranch is called')
+    if (operation) utils.throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
 
     let parentIDString
     if (typeof parent === 'string' || parent instanceof String) {
@@ -287,14 +293,14 @@ export class Tree {
     }
 
     await Promise.all([
-      this.addToSetInEntityMeta('parents', child, parentIDString, userID, validFrom, impersonatorID),
-      this.addToSetInEntityMeta('children', parent, childIDString, userID, validFrom, impersonatorID),
+      this.addOrDeleteOnSetInEntityMeta('parents', child, parentIDString, userID, validFrom, impersonatorID, operation),
+      this.addOrDeleteOnSetInEntityMeta('children', parent, childIDString, userID, validFrom, impersonatorID, operation),
     ])
 
     // TODO: return something maybe?
   }
 
-  async addToSetInEntityMeta(metaFieldToAddTo, temporalEntityOrIDString, valueToAdd, userID, validFrom, impersonatorID) {
+  async addOrDeleteOnSetInEntityMeta(metaFieldToAddTo, temporalEntityOrIDString, valueToAdd, userID, validFrom, impersonatorID, operation = 'add') {
     let idString
     let nodeTE
     if (typeof temporalEntityOrIDString === 'string' || temporalEntityOrIDString instanceof String) {  // so update by creating a new snapshot
@@ -302,15 +308,15 @@ export class Tree {
       nodeTE = new TemporalEntity(this.state, this.env, undefined, undefined, idString)
       await nodeTE.hydrate()
       const set = structuredClone(nodeTE.current.meta[metaFieldToAddTo]) || new Set()
-      set.add(valueToAdd)
+      set[operation](valueToAdd)
       const delta = { validFrom, userID }
       if (impersonatorID) delta.impersonatorID = impersonatorID
       delta[metaFieldToAddTo] = set
-      nodeTE.patchMetaDelta(delta)  // creates a new snapshot
+      await nodeTE.patchMetaDelta(delta)  // creates a new snapshot
     } else if (temporalEntityOrIDString instanceof TemporalEntityBase) {  // update in place without creating a new snapshot
       nodeTE = temporalEntityOrIDString
       nodeTE.current.meta[metaFieldToAddTo] ??= new Set()
-      nodeTE.current.meta[metaFieldToAddTo].add(valueToAdd)
+      nodeTE.current.meta[metaFieldToAddTo][operation](valueToAdd)
       await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`, nodeTE.current)
     } else {
       utils.throwIf(true, `${metaFieldToAddTo === 'children' ? 'parent' : 'child'} must be a string or a TemporalEntity`)
@@ -321,12 +327,11 @@ export class Tree {
     utils.throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
 
     if (options.addNode) return this.patchAddNode(options)
-    if (options.addBranch) return this.patchAddBranch(options)  // does not use eTag because it's idempotent
-    if (options.removeBranch) return this.patchRemoveBranch(options)  // does not use eTag because it fails silently
+    if (options.branch) return this.patchBranch(options)  // does not use eTag because it's idempotent
 
     return utils.throwIf(
       true,
-      'Malformed PATCH on Tree. Body must include valid operation: addNode, addBranch, removeBranch, etc.',
+      'Malformed PATCH on Tree. Body must include valid operation: addNode, branch, etc.',
       400,
     )
   }

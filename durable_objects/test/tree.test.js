@@ -53,7 +53,7 @@ test('Tree parents and children', async (t) => {
       type: '***test-has-children-and-parents***',
       version: 'v1',
     }
-    response = await tree.patch({ addNode: { newNode, parentID: '0' }, userID: 'userX' })
+    response = await tree.patch({ addNode: { newNode, parent: '0' }, userID: 'userX' })
     t.equal(response[1], 201, 'should get back 201 on successful node creation')
     const { lastValidFrom } = response[0].meta
     t.assert(
@@ -71,11 +71,11 @@ test('Tree parents and children', async (t) => {
         type: '***test-has-children-and-parents***',
         version: 'v1',
       }
-      response = await tree.patch({ addNode: { newNode, parentID: 'not-there' }, userID: 'userY' })
+      response = await tree.patch({ addNode: { newNode, parent: '999' }, userID: 'userY' })
       t.fail('async thrower did not throw')
     } catch (e) {
       t.equal(e.status, 404, 'should see status 404 in e.status')
-      t.equal(e.message, 'not-there TemporalEntity not found', 'should throw if parent does not exist')
+      t.assert(e.message.endsWith('TemporalEntity not found'), 'should throw if parent does not exist')
     }
 
     // console.log(state.storage.data)

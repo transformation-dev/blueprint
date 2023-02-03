@@ -86,7 +86,7 @@ context('Tree', () => {
           }
           let options = {
             method: 'PATCH',
-            body: { addNode: { newNode, parentID: '0' }, userID: 'userX' },
+            body: { addNode: { newNode, parent: '0' }, userID: 'userX' },
           }
           cy.wrap(null).then(async () => {
             const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}`, options)
