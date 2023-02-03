@@ -28,14 +28,14 @@ org-tree-root-node: {  // TemporalEntity w/ org-tree-root-node type. Add a flag 
     label: string,
     emailDomains: [string],
   },
-  meta: { children: { id1: true, id2: true, ... } },
+  meta: { children: Set<string> },
 }
 
 org-tree-node: {  // TemporalEntity w/ org-tree-node type. Add a flag in TemporalEntity type for hasParents
   value: { label: string },
   meta: {
-    children: { id1: true, id2: true, ... },
-    parents: { id1: true, id2: true, ... },
+    children: Set<string>,
+    parents: Set<string>,
   },
 }
 
@@ -220,70 +220,6 @@ export class Tree {
     }
   }
 
-  // async patchAddBranch({ addBranch, userID, validFrom, impersonatorID }) {
-  //   const { parentID, childID } = addBranch
-  //   utils.throwIf(utils.isIDString(childID), 'Parent/child relationships across separate durable objects not yet supported by TemporalEntity')
-
-  //   await this.hydrate()
-
-  //   utils.throwUnless(this.typeVersionConfig.hasChildren, `TemporalEntity of type ${this.type} does not support children`)
-
-  //   let children
-  //   if (this.current?.meta?.children) children = structuredClone(this.current.meta.children)
-  //   else children = {}
-  //   children[childID] = true
-
-  //   const metaDelta = {
-  //     userID,
-  //     validFrom,
-  //     children,
-  //   }
-  //   if (impersonatorID) metaDelta.impersonatorID = impersonatorID
-  //   this.patchMetaDelta(metaDelta)
-
-  //   // Instantiate a new TemporalEntity using this.env and this.state and call patchAddParent on it
-  //   console.log('childID: %s', childID)
-  //   const child = new this.constructor(this.state, this.env, undefined, undefined, childID)
-  //   const childEntityMeta = await child.state.storage.get(`${childID}/entityMeta`)
-  //   utils.throwUnless(childEntityMeta?.timeline?.length > 0, `${childID} TemporalEntity not found`, 404)
-  //   child.patchAddParent({ addParent: { parentID: this.idString, dontPropogate: true }, userID, validFrom, impersonatorID })
-
-  //   return this.entityMeta  // was this.current in TemporalEntity
-  // }
-
-  // async patchAddParent({ addParent, userID, validFrom, impersonatorID }) {
-  //   const { parentID, dontPropogate = false } = addParent
-  //   utils.throwIf(utils.isIDString(parentID), 'Parent/child relationships across separate durable objects not yet supported by TemporalEntity')
-
-  //   await this.hydrate()
-
-  //   utils.throwUnless(this.typeVersionConfig.hasParents, `TemporalEntity of type ${this.type} does not support parents`)
-
-  //   let parents
-  //   if (this.current?.meta?.parents) parents = structuredClone(this.current.meta.parents)
-  //   else parents = {}
-  //   parents[parentID] = true
-
-  //   const metaDelta = {
-  //     userID,
-  //     validFrom,
-  //     parents,
-  //   }
-  //   if (impersonatorID) metaDelta.impersonatorID = impersonatorID
-  //   this.patchMetaDelta(metaDelta)
-
-  //   // Instantiate a new TemporalEntity using this.env and this.state and call patchAddChild on it
-  //   console.log('parentID: %s', parentID)
-  //   if (!dontPropogate) {
-  //     const parent = new this.constructor(this.state, this.env, undefined, undefined, parentID)
-  //     const parentEntityMeta = await parent.state.storage.get(`${parentID}/entityMeta`)
-  //     utils.throwUnless(parentEntityMeta?.timeline?.length > 0, `${parentID} TemporalEntity not found`, 404)
-  //     parent.patchAddChild({ addChild: { childID: this.idString, dontPropogate: true }, userID, validFrom, impersonatorID })
-  //   }
-
-  //   return this.entityMeta  // was this.current in TemporalEntity
-  // }
-
   async patchAddNode({ addNode, userID, validFrom, impersonatorID }) {
     const { newNode, parentID } = addNode
     const parentIDNumber = Number(parentID)
@@ -303,23 +239,18 @@ export class Tree {
 
     // Create the new node
     const nodeTE = new TemporalEntity(this.state, this.env, type, version, this.entityMeta.nodeCount.toString())
-    // TODO: The await in the line below _might_ mean that the node could be created and persisted but the operations
-    //       below this point fail leaving the node unconnected to the tree. However, I don't believe interim awaits
-    //       actually effect the transactional nature. I think it just means that this will add tens of milliseconds
-    //       awaiting the storage.put inside of TemporalEntity.put to persist. I still think it rolls back if something
-    //       below fails.
     await nodeTE.put(value, userID, validFrom, impersonatorID)
     // Update the new node in place to add the parent without creating a new snapshot
-    nodeTE.current.meta.parents ??= {}
-    nodeTE.current.meta.parents[parentID] = true
+    nodeTE.current.meta.parents ??= new Set()
+    nodeTE.current.meta.parents.add(parentID)
     nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`, nodeTE.current)
 
     // Get the parent node
     const parentTE = new TemporalEntity(this.state, this.env, undefined, undefined, parentID)
     await parentTE.hydrate()
     // Update the parent node normally so it creates a new snapshot
-    const children = structuredClone(parentTE.current.meta.children) || {}
-    children[nodeTE.idString] = true
+    const children = structuredClone(parentTE.current.meta.children) || new Set()
+    children.add(nodeTE.idString)
     parentTE.patchMetaDelta({ children, validFrom })
 
     // Update entityMeta

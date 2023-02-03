@@ -102,7 +102,10 @@ export function findFirstID(pathArray) {
 
 export function apply(obj, d) {
   for (const key of Object.keys(d)) {
-    if (d[key] instanceof Object) {
+    if (d[key] instanceof Set) {
+      // eslint-disable-next-line no-param-reassign
+      obj[key] = d[key]
+    } else if (d[key] instanceof Object) {
       // eslint-disable-next-line no-param-reassign
       obj[key] = apply(obj[key] ?? {}, d[key])
     } else if (d[key] === undefined) {

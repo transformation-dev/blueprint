@@ -92,17 +92,18 @@ context('Tree', () => {
             const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}`, options)
             expect(response.status).to.eq(201)
             expect(response.CBOR_SC.meta.nodeCount).to.eq(2)
-            console.log(response.CBOR_SC)
 
             cy.wrap(null).then(async () => {
               const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children***/v1/0`, undefined)
               expect(response.status).to.eq(200)
-              expect(response.CBOR_SC.meta.children['1']).to.be.true
+              console.log(response.CBOR_SC)
+
+              expect(response.CBOR_SC.meta.children.has('1')).to.be.true
 
               cy.wrap(null).then(async () => {
                 const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children-and-parents***/v1/1`, undefined)
                 expect(response.status).to.eq(200)
-                expect(response.CBOR_SC.meta.parents['0']).to.be.true
+                expect(response.CBOR_SC.meta.parents.has('0')).to.be.true
               })
             })
           })
