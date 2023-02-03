@@ -44,6 +44,8 @@ async function encodeFetchAndDecode(url, options) {  // TODO: move this to a hel
 context('Tree', () => {
 
   // TODO: Test to confirm that for DAGs the nodes that are referenced twice are actually the same object; === rather than just deep.eq
+  // TODO: Tests for every TemporalEntity method
+  // TODO: Tests for Tree errors and unhappy paths
 
   it('should allow POST, PATCH addNode', () => {
     const rootNode = {
@@ -69,7 +71,7 @@ context('Tree', () => {
       expect(response.headers.get('ETag')).to.eq(meta.eTag)
 
       cy.wrap(null).then(async () => {
-        const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children***/v1/0`, { method: 'OPTIONS' })
+        const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children***/v1/0`, { method: 'OPTIONS' })  // TODO: move this to a different test
         expect(response.status).to.eq(405)
 
         cy.wrap(null).then(async () => {
@@ -90,6 +92,7 @@ context('Tree', () => {
             const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}`, options)
             expect(response.status).to.eq(201)
             expect(response.CBOR_SC.meta.nodeCount).to.eq(2)
+            console.log(response.CBOR_SC)
 
             cy.wrap(null).then(async () => {
               const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children***/v1/0`, undefined)

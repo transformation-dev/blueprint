@@ -99,14 +99,17 @@ export class Tree {
 
     // validation
     utils.throwUnless(this.idString, 'Entity id is required', 404)
-    utils.throwIf(
-      this.state?.id && this.state?.id?.toString() !== this.idString,
-      `Entity id mismatch. Url says ${this.idString} but this.state.id says ${this.state?.id}.`,
-      500,
-    )
 
     // hydrate #entityMeta
-    this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { nodeCount: 0, lastValidFrom: null }
+    const defaultEntityMeta = {
+      nodeCount: 0,
+      // lastValidFrom: null,  // The fields on this line and below are not populated until after the first operation. They are here but commented out for documentation. Fields above this line are required upon instantiation.
+      // validFrom: null,
+      // userID: null,
+      // eTag: null,
+    }
+    this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || defaultEntityMeta
+    this.tree = await this.state.storage.get(`${this.idString}/tree`) || new Set(['0'])
 
     this.hydrated = true
   }
@@ -199,11 +202,11 @@ export class Tree {
     this.entityMeta.lastValidFrom = validFrom
     this.entityMeta.eTag = utils.getUUID(this.env)
     if (impersonatorID) this.entityMeta.impersonatorID = impersonatorID
-
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
+    this.state.storage.put(`${this.idString}/tree`, this.tree)
 
-    const getResponse = await this.get()
-    return [getResponse[0], 201]
+    const responseFromGet = await this.get()
+    return [responseFromGet[0], 201]
   }
 
   async POST(request) {
@@ -324,12 +327,13 @@ export class Tree {
     this.entityMeta.lastValidFrom = validFrom
     this.entityMeta.eTag = utils.getUUID(this.env)
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
+    this.state.storage.put(`${this.idString}/tree`, this.tree)
 
-    const getResponse = await this.get()
-    return [getResponse[0], 201]
+    const responseFromGet = await this.get()
+    return [responseFromGet[0], 201]
   }
 
-  async patch(options, eTag) {  // eTag to be used for operations on tree nodes but not on the Tree itself
+  async patch(options) {
     utils.throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
 
     if (options.addNode) return this.patchAddNode(options)
@@ -359,7 +363,8 @@ export class Tree {
     await this.hydrate()
     // Note, we don't check for deleted here because we want to be able to get the entityMeta even if the entity is deleted
     if (eTag && eTag === this.entityMeta.eTag) return [undefined, 304]
-    const tree = {}  // TODO: Build the tree
+    // const tree = {}  // TODO: Build the tree
+    const tree = await this.state.storage.get(`${this.idString}/tree`)
     const response = { meta: this.entityMeta, tree }
     return [response, 200]
   }
