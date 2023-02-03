@@ -435,7 +435,7 @@ export class TemporalEntityBase {
       deleted: true,
     }
     if (impersonatorID) metaDelta.impersonatorID = impersonatorID
-    this.patchMetaDelta(metaDelta)
+    await this.patchMetaDelta(metaDelta)
     return 204
   }
 
@@ -503,7 +503,7 @@ export class TemporalEntityBase {
     // Update the old current and save it
     if (!debounce && this.current) {
       oldCurrent.meta.validTo = validFrom
-      this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
+      await this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
     }
 
     // Create the new current and save it
@@ -521,9 +521,9 @@ export class TemporalEntityBase {
     this.current.value = value
     if (!debounce) {  // timeline only changes if not debounced
       this.entityMeta.timeline.push(validFrom)
-      this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
+      await this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     }
-    this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
+    await this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
     // return the new current
     return this.current
@@ -591,14 +591,14 @@ export class TemporalEntityBase {
     // Update and save the old current
     const oldCurrent = structuredClone(this.current)
     oldCurrent.meta.validTo = metaDelta.validFrom
-    this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
+    await this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
 
     // apply metaDelta to current.meta and save it
     utils.apply(this.current.meta, metaDelta)
     this.current.meta.previousValues = {}  // value never changes in a patchMetaDelta
     this.entityMeta.timeline.push(metaDelta.validFrom)
-    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
-    this.state.storage.put(`${this.idString}/snapshot/${metaDelta.validFrom}`, this.current)
+    await this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
+    await this.state.storage.put(`${this.idString}/snapshot/${metaDelta.validFrom}`, this.current)
 
     return this.current
   }

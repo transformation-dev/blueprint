@@ -60,7 +60,6 @@ test('Tree parents and children', async (t) => {
       state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents.has('0'),
       'should have correct parent on new node',
     )
-    console.log(state.storage.data)
     t.assert(
       state.storage.data[`0/snapshot/${lastValidFrom}`].meta.children.has('1'),
       'should have correct child on root node',
