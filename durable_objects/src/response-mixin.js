@@ -7,7 +7,7 @@ export default {
     const headers = new Headers({ 'Content-Type': 'application/cbor-sc' })
     headers.set('Content-ID', this.idString)
     if (this.current?.meta?.eTag) headers.set('ETag', this.current.meta.eTag)  // for TemportalEntity
-    if (this.entityMeta?.eTag) headers.set('ETag', this.entityMeta.eTag)  // for Tree
+    if (this.treeMeta?.eTag) headers.set('ETag', this.treeMeta.eTag)  // for Tree
     if (statusText) {
       const cleanedStatusText = statusText.replaceAll('\n', ' ')
       headers.set('Status-Text', cleanedStatusText)

@@ -15,24 +15,29 @@ const debug = utils.getDebug('blueprint:tree')
 /*
 
 org-tree: {  // Tree
-  entityMeta: {
+  treeMeta: {  // TODO: Change this to treeMeta
     nodeCount: number,  // start at 0
     userID: string,  // user who created the tree
     impersonatorID: string,  // user who created the tree if impersonating
     validFrom: string,  // The ISO string when the tree was created
     lastValidFrom: string,  // The ISO string when the tree/branches (not the nodes) were last modified
   }
+  tree: {
+    index: { <nodeIDString>: <nodeStub> } where <nodeStub> is { label: string, children: Set(<nodeStub>) },
+    orphans: Set(<nodeIDString>),
+    root: <nodeStub>,
+  },
 }
 
-org-tree-root-node: {  // TemporalEntity w/ org-tree-root-node type. Add a flag in TemporalEntity type for hasChildren
+org-tree-root-node: {  // TemporalEntity w/ org-tree-root-node type. Flag in TemporalEntity type for hasChildren
   value: {
     label: string,
-    emailDomains: [string],
+    emailDomains: Set<string>,
   },
   meta: { children: Set<string> },
 }
 
-org-tree-node: {  // TemporalEntity w/ org-tree-node type. Add a flag in TemporalEntity type for hasParents
+org-tree-node: {  // TemporalEntity w/ org-tree-node type. Flags in TemporalEntity type for hasChildren and hasParents
   value: { label: string },
   meta: {
     children: Set<string>,
@@ -55,19 +60,12 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Add a flag in Tempora
 /tree/v1/[treeIdString]
   PATCH
     addNode - Adds a node to the tree
-      body.addNode contains newNode and parentID fields
-    TODO A2: branch - Adds or deletes a branch
+      body.addNode contains newNode and parent fields
+    branch - Adds or deletes a branch
       body.branch.operation must be 'add' or 'delete'
       body contains parent and child fields
-      Errors unless child type.hasParents.
-      Errors unless parent type.hasChildren.
-      Before anything is changed confirms that adding the branch won't create a cycle. If it does, returns ?409?.
-    TODO A3: removeBranch
-      Removes a branch from the tree. Body contains parentIDString and childIDString.
-      If the childIDString is '0', then return early but don't error.
-      Don't do any error checking because this is a no-op if the branch doesn't exist.
-      If the child TE only has that one parent, remove it anyway. You can figure out the orphaned ids by
-      crawling the tree from the root. Any unused numbers between 0 and nodeCound are orphans.
+      TODO A1: Test remove branch
+      TODO A2: Before a branch is added confirm that it won't create a cycle. If it does, returns 409 - Conflict.
     TODO A4: moveNode
       Moves a branch from one parent to another. Body contains parentIDString, childIDString, and newParentIDString.
       Start with addBranch which has error checking. If that succeeds, removeBranch which has no error checking.
@@ -100,31 +98,30 @@ export class Tree {
     debug('this.hydrated: %O', this.hydrated)
     if (this.hydrated) return
 
-    // validation
     utils.throwUnless(this.idString, 'Entity id is required', 404)
 
-    // hydrate #entityMeta
-    const defaultEntityMeta = {
+    const defaultTreeMeta = {
       nodeCount: 0,
       // lastValidFrom: null,  // The fields on this line and below are not populated until after the first operation. They are here but commented out for documentation. Fields above this line are required upon instantiation.
       // validFrom: null,
       // userID: null,
       // eTag: null,
     }
-    this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || defaultEntityMeta
+    this.treeMeta = await this.state.storage.get(`${this.idString}/treeMeta`) || defaultTreeMeta
 
     this.hydrated = true
   }
 
   deriveValidFrom(validFrom) {  // this is different from the one in TemporalEntity
+    utils.throwUnless(this.hydrated, 'hydrate() must be called before deriveValidFrom()')
     let validFromDate
     if (validFrom) {
-      utils.throwIf(this.entityMeta.lastValidFrom && validFrom <= this.entityMeta.lastValidFrom, 'the provided validFrom for a Tree update is not greater than the last validFrom')
+      utils.throwIf(this.treeMeta.lastValidFrom && validFrom <= this.treeMeta.lastValidFrom, 'the provided validFrom for a Tree update is not greater than the last validFrom')
       validFromDate = new Date(validFrom)
     } else {
       validFromDate = new Date()
-      if (this.entityMeta?.lastValidFrom) {
-        const lastValidFromDate = new Date(this.entityMeta.lastValidFrom)
+      if (this.treeMeta?.lastValidFrom) {
+        const lastValidFromDate = new Date(this.treeMeta.lastValidFrom)
         if (validFromDate <= lastValidFromDate) {
           validFromDate = new Date(lastValidFromDate.getTime() + 1)
         }
@@ -137,10 +134,39 @@ export class Tree {
     return { validFrom, validFromDate }
   }
 
+  async throwIfIDInAncestry(parent, childIDString, pathFromAncestorToNewChild) {
+    if (!(parent instanceof TemporalEntityBase)) {
+      parent = new TemporalEntity(this.state, this.env, undefined, undefined, parent)
+    }
+    debug('throwIfIDInAncestry parentIDString: %O  childIDString: %O', parent.idString, childIDString)
+    if (!pathFromAncestorToNewChild || pathFromAncestorToNewChild.length === 0) {
+      pathFromAncestorToNewChild = [childIDString]
+      utils.throwIf(parent.idString === childIDString, `Cannot create a branch from ${childIDString} to itself`, 409)
+    }
+    pathFromAncestorToNewChild.unshift(parent.idString)
+    const response = await parent.get()
+    const status = response[1]
+    utils.throwIf(status !== 200, `Could not get parent ${parent.idString}`, status)
+    const { parents } = response[0].meta
+    if (status === 200 && parents && parents.size > 0) {
+      for (const p of parents) {
+        utils.throwIf(
+          p === childIDString,
+          `Adding this branch would create a cycle from ${p} down through path ${pathFromAncestorToNewChild}`,
+          409,
+        )
+      }
+      const results = []
+      for (const p of parents) {
+        results.push(this.throwIfIDInAncestry(p, childIDString, pathFromAncestorToNewChild))
+      }
+      await Promise.all(results)
+    }
+  }
+
   // The body and return is always a CBOR-SC object
   async fetch(request) {
     debug('%s %s', request.method, request.url)
-    this.nextStatus = undefined
     try {
       const url = new URL(request.url)
       const pathArray = url.pathname.split('/')
@@ -153,7 +179,6 @@ export class Tree {
         this.idString = pathArray.shift()  // remove the ID
       } else {
         this.idString = this.state?.id?.toString()
-        this.nextStatus = 201  // This means that the entity was created on this PUT or POST
       }
 
       let restOfPath
@@ -177,6 +202,7 @@ export class Tree {
           return utils.throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
       }
     } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return this.getErrorResponse(e)
     }
   }
@@ -188,23 +214,23 @@ export class Tree {
 
     await this.hydrate()
 
-    utils.throwUnless(this.entityMeta.nodeCount === 0, `POST can only be called once but nodeCount is ${this.entityMeta.nodeCount}`)
+    utils.throwUnless(this.treeMeta.nodeCount === 0, `POST can only be called once but nodeCount is ${this.treeMeta.nodeCount}`)
 
     // Set validFrom and validFromDate
     validFrom = this.deriveValidFrom(validFrom).validFrom
 
     // Create root node
-    const rootNodeTE = new TemporalEntity(this.state, this.env, type, version, this.entityMeta.nodeCount.toString())
+    const rootNodeTE = new TemporalEntity(this.state, this.env, type, version, this.treeMeta.nodeCount.toString())
     await rootNodeTE.put(value, userID, validFrom, impersonatorID)
 
-    // If the root node creation works, then update entityMeta
-    this.entityMeta.nodeCount++
-    this.entityMeta.userID = userID
-    this.entityMeta.validFrom = validFrom
-    this.entityMeta.lastValidFrom = validFrom
-    this.entityMeta.eTag = utils.getUUID(this.env)
-    if (impersonatorID) this.entityMeta.impersonatorID = impersonatorID
-    await this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
+    // If the root node creation works, then update treeMeta
+    this.treeMeta.nodeCount++
+    this.treeMeta.userID = userID
+    this.treeMeta.validFrom = validFrom
+    this.treeMeta.lastValidFrom = validFrom
+    this.treeMeta.eTag = utils.getUUID(this.env)
+    if (impersonatorID) this.treeMeta.impersonatorID = impersonatorID
+    await this.state.storage.put(`${this.idString}/treeMeta`, this.treeMeta)
 
     const responseFromGet = await this.get()
     return [responseFromGet[0], 201]
@@ -214,8 +240,8 @@ export class Tree {
     try {
       utils.throwIfMediaTypeHeaderInvalid(request)
       const options = await utils.decodeCBORSC(request)
-      const [entityMeta, status] = await this.post(options)
-      return this.getResponse(entityMeta, status)
+      const [treeMeta, status] = await this.post(options)
+      return this.getResponse(treeMeta, status)
     } catch (e) {
       return this.getErrorResponse(e)
     }
@@ -233,7 +259,7 @@ export class Tree {
     const parentIDNumber = Number(parent)
     if (!Number.isNaN(parentIDNumber)) {
       utils.throwIf(  // TODO: add this check elsewhere
-        parentIDNumber < 0 || parentIDNumber > this.entityMeta.nodeCount,
+        parentIDNumber < 0 || parentIDNumber > this.treeMeta.nodeCount,
         `${parent} TemporalEntity not found`,
         404,
       )
@@ -242,16 +268,16 @@ export class Tree {
     validFrom = this.deriveValidFrom(validFrom).validFrom
 
     // Create the new node
-    const nodeTE = new TemporalEntity(this.state, this.env, type, version, this.entityMeta.nodeCount.toString())
+    const nodeTE = new TemporalEntity(this.state, this.env, type, version, this.treeMeta.nodeCount.toString())
     await nodeTE.put(value, userID, validFrom, impersonatorID)
 
     await this.patchBranch({ branch: { parent, child: nodeTE }, userID, validFrom, impersonatorID })
 
-    // Update entityMeta
-    this.entityMeta.nodeCount++
-    this.entityMeta.lastValidFrom = validFrom
-    this.entityMeta.eTag = utils.getUUID(this.env)
-    await this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
+    // Update treeMeta
+    this.treeMeta.nodeCount++
+    this.treeMeta.lastValidFrom = validFrom
+    this.treeMeta.eTag = utils.getUUID(this.env)
+    await this.state.storage.put(`${this.idString}/treeMeta`, this.treeMeta)
 
     const responseFromGet = await this.get()
     return [responseFromGet[0], 201]
@@ -271,33 +297,20 @@ export class Tree {
    */
   async patchBranch({ branch, userID, validFrom, impersonatorID }) {
     const { parent, child, operation } = branch
-    utils.throwUnless(parent && child, 'body.branch with parent and child required when Tree PATCH patchBranch is called')
+    utils.throwUnless(parent.toString() && child.toString(), 'body.branch with parent and child required when Tree PATCH patchBranch is called')
     if (operation) utils.throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
 
-    let parentIDString
-    if (typeof parent === 'string' || parent instanceof String) {
-      parentIDString = parent
-    } else if (parent instanceof TemporalEntityBase) {
-      parentIDString = parent.idString
-    } else {
-      utils.throwIf(true, 'parent must be a string or a TemporalEntity')
-    }
+    const [parentIDString, parentTemporalEntityOrIDString] = utils.getIDStringFromInput(parent)
+    const [childIDString, childTemporalEntityOrIDString] = utils.getIDStringFromInput(child)
 
-    let childIDString
-    if (typeof child === 'string' || child instanceof String) {
-      childIDString = child
-    } else if (child instanceof TemporalEntityBase) {
-      childIDString = child.idString
-    } else {
-      utils.throwIf(true, 'child must be a string or a TemporalEntity')
-    }
+    utils.throwIf(parentIDString === childIDString, 'parent and child cannot be the same')
+    await this.throwIfIDInAncestry(parentTemporalEntityOrIDString, childIDString)
 
-    await Promise.all([
-      this.addOrDeleteOnSetInEntityMeta('parents', child, parentIDString, userID, validFrom, impersonatorID, operation),
-      this.addOrDeleteOnSetInEntityMeta('children', parent, childIDString, userID, validFrom, impersonatorID, operation),
-    ])
+    // TODO: Implement rollback so that if one of these fails, we aren't left in a mutant state
+    const childTE = await this.addOrDeleteOnSetInEntityMeta('parents', childTemporalEntityOrIDString, parentIDString, userID, validFrom, impersonatorID, operation)
+    const parentTE = await this.addOrDeleteOnSetInEntityMeta('children', parentTemporalEntityOrIDString, childIDString, userID, validFrom, impersonatorID, operation)
 
-    // TODO: return something maybe?
+    return { childTE, parentTE }
   }
 
   async addOrDeleteOnSetInEntityMeta(metaFieldToAddTo, temporalEntityOrIDString, valueToAdd, userID, validFrom, impersonatorID, operation = 'add') {
@@ -321,9 +334,11 @@ export class Tree {
     } else {
       utils.throwIf(true, `${metaFieldToAddTo === 'children' ? 'parent' : 'child'} must be a string or a TemporalEntity`)
     }
+
+    return nodeTE
   }
 
-  async patch(options) {
+  async patch(options, eTag) {
     utils.throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
 
     if (options.addNode) return this.patchAddNode(options)
@@ -341,19 +356,19 @@ export class Tree {
       utils.throwIfMediaTypeHeaderInvalid(request)
       const options = await utils.decodeCBORSC(request)
       const eTag = utils.extractETag(request)
-      const [entityMeta, status] = await this.patch(options, eTag)
-      return this.getResponse(entityMeta, status)
+      const [treeMeta, status] = await this.patch(options, eTag)
+      return this.getResponse(treeMeta, status)
     } catch (e) {
-      return this.getErrorResponse(e)  // TODO: add e2e test for the body of the response
+      return this.getErrorResponse(e)
     }
   }
 
   async get(eTag) {
     await this.hydrate()
-    // Note, we don't check for deleted here because we want to be able to get the entityMeta even if the entity is deleted
-    if (eTag && eTag === this.entityMeta.eTag) return [undefined, 304]
+    // Note, we don't check for deleted here because we want to be able to get the treeMeta even if the entity is deleted
+    if (eTag && eTag === this.treeMeta.eTag) return [undefined, 304]
     const tree = {}  // TODO: Build the tree
-    const response = { meta: this.entityMeta, tree }
+    const response = { meta: this.treeMeta, tree }
     return [response, 200]
   }
 
@@ -361,9 +376,9 @@ export class Tree {
     try {
       utils.throwIfAcceptHeaderInvalid(request)
       const eTag = utils.extractETag(request)
-      const [entityMeta, status] = await this.getEntityMeta(eTag)
+      const [response, status] = await this.get(eTag)
       if (status === 304) return this.getStatusOnlyResponse(304)
-      return this.getResponse(entityMeta)
+      return this.getResponse(response)
     } catch (e) {
       return this.getErrorResponse(e)
     }

@@ -68,6 +68,7 @@ context('Tree', () => {
       expect(meta.nodeCount).to.eq(1)
       expect(meta.validFrom).to.be.a('string')
       expect(meta.userID).to.eq('UserW')
+      response.headers.forEach((value, key) => { console.log(key, value) })
       expect(response.headers.get('ETag')).to.eq(meta.eTag)
 
       cy.wrap(null).then(async () => {
@@ -96,7 +97,6 @@ context('Tree', () => {
             cy.wrap(null).then(async () => {
               const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children***/v1/0`, undefined)
               expect(response.status).to.eq(200)
-              console.log(response.CBOR_SC)
 
               expect(response.CBOR_SC.meta.children.has('1')).to.be.true
 

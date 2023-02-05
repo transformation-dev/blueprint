@@ -290,7 +290,9 @@ export class TemporalEntityBase {
     this.env = env
     this.type = type
     this.version = version
-    this.idString = idString
+    if (idString === 0) this.idString = '0'
+    else if (idString) this.idString = idString.toString()
+    else this.idString = undefined
 
     Object.assign(this, responseMixin)
 
@@ -417,6 +419,7 @@ export class TemporalEntityBase {
           utils.throwIf(true, `Unrecognized URL ${request.url}`, 404)
       }
     } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return this.getErrorResponse(e)
     }
   }
@@ -446,6 +449,7 @@ export class TemporalEntityBase {
       const status = await this.delete(options.userID, options.validFrom, options.impersonatorID)
       return this.getStatusOnlyResponse(status)
     } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return this.getErrorResponse(e)
     }
   }
@@ -538,6 +542,7 @@ export class TemporalEntityBase {
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
       return this.getResponse(current, this.nextStatus)
     } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return this.getErrorResponse(e)
     }
   }
@@ -624,6 +629,7 @@ export class TemporalEntityBase {
       const current = await this.patch(options, eTag)
       return this.getResponse(current)
     } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return this.getErrorResponse(e)  // TODO: add e2e test for the body of the response
     }
   }
@@ -643,6 +649,7 @@ export class TemporalEntityBase {
       if (status === 304) return this.getStatusOnlyResponse(status)
       return this.getResponse(current, status)
     } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return this.getErrorResponse(e)
     }
   }
@@ -662,6 +669,7 @@ export class TemporalEntityBase {
       if (status === 304) return this.getStatusOnlyResponse(304)
       return this.getResponse(entityMeta, status)
     } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return this.getErrorResponse(e)
     }
   }

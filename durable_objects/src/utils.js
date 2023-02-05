@@ -151,3 +151,15 @@ export function getUUID(env) {
   if (crypto?.randomUUID) return crypto.randomUUID()
   else throwIf(true, 'crypto.randomUUID() not in the environment', 500)
 }
+
+// eslint-disable-next-line consistent-return
+export function getIDStringFromInput(input) {
+  if (typeof input === 'string' || input instanceof String) return [input, input]
+  if (input.idString) return [input.idString, input]
+  const num = Number(input)
+  if (!Number.isNaN(num)) {
+    const idString = num.toString()
+    return [idString, idString]
+  }
+  throwIf(true, `${input} must be a string, Number, or a TemporalEntity`)
+}
