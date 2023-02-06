@@ -72,11 +72,10 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Flags in TemporalEnti
     addNode - Adds a node to the tree
       body.addNode contains newNode and parent fields
     branch - Adds or deletes a branch
-      body.branch.operation must be 'add' or 'delete'
-      body contains parent and child fields
-      TODO A1: Test remove branch
-    TODO A4: moveNode
-      Moves a branch from one parent to another. Body contains parentIDString, childIDString, and newParentIDString.
+      body.branch.operation can be 'add' or 'delete'. 'add' is the default.
+      body contains parent and child fields. Strings or numbers are accepted.
+    TODO A4: moveNode - Moves a branch from one parent to another.
+      body contains parent, child, and newParent fields. Strings or numbers are accepted.
       Start with addBranch which has error checking. If that succeeds, removeBranch which has no error checking.
 
 /tree/v1/[treeIdString]/node/[nodeType]/[nodeVersion]/[nodeIDString]
@@ -311,7 +310,9 @@ export class Tree {
    * that.
    */
   async patchBranch({ branch, userID, validFrom, impersonatorID }) {
-    const { parent, child, operation } = branch
+    const { parent, child } = branch
+    let { operation } = branch
+    if (operation == null) operation = 'add'
     utils.throwUnless(parent.toString() && child.toString(), 'body.branch with parent and child required when Tree PATCH patchBranch is called')
     if (operation != null) utils.throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
 
@@ -320,8 +321,10 @@ export class Tree {
     if (parentValidFrom != null && parentValidFrom > validFrom) validFrom = parentValidFrom
     if (childValidFrom != null && childValidFrom > validFrom) validFrom = childValidFrom
 
-    utils.throwIf(parentIDString === childIDString, 'parent and child cannot be the same')
-    await this.throwIfIDInAncestry(parentTemporalEntityOrIDString, childIDString)
+    if (operation === 'add') {
+      utils.throwIf(parentIDString === childIDString, 'parent and child cannot be the same')
+      await this.throwIfIDInAncestry(parentTemporalEntityOrIDString, childIDString)
+    }
 
     // TODO A: Implement a proxy for storage that holds all writes in memory and then commits them at the end of the request or not if there is an error
 
