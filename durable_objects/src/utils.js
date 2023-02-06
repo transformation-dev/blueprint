@@ -155,7 +155,7 @@ export function getUUID(env) {
 // eslint-disable-next-line consistent-return
 export function getIDStringFromInput(input) {
   if (typeof input === 'string' || input instanceof String) return [input, input]
-  if (input.idString) return [input.idString, input]
+  if (input.idString) return [input.idString, input, input.validFrom]
   const num = Number(input)
   if (!Number.isNaN(num)) {
     const idString = num.toString()

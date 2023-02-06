@@ -33,21 +33,25 @@ const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO: A. Refactor so all methods use destructuring on options/body for parameters
+// TODO A: Refactor so all methods use destructuring on options/body for parameters
 
-// TODO: A. Implement add/remove meta.references on TreeNode as a PATCH operation.
-//       Use Set<idString> to store the references.
-//       { references: [{ operation, idString }] }; where operation is add or remove.
+// TODO A: Wrap the entire fetch in state.blockConcurrencyWhile() like I'm planning for Tree.
 
-// TODO: A. Create People DO. A Person is a just a TemporalEntity but the People DO is not temporal. It'll store the list of people
+// TODO A: Implement add/remove meta.references on TreeNode as a PATCH operation. I still need this for external references.
+//         Use Set<idString> to store the references.
+//         { references: [{ operation, idString }] }; where operation is add or remove.
+
+// TODO A: Create People DO. A Person is a just a TemporalEntity but the People DO is not temporal. It'll store the list of people
 //       in a single storage object under the key 1 for now but later we can spread it out over multiple storage objects,
 //       People batches 2 thru n if you will.
 
-// TODO: A. Implement query using npm module sift https://github.com/crcn/sift.js.
+// TODO A: Implement query using npm module sift https://github.com/crcn/sift.js.
 //       Support a query parameter to include soft-deleted items in the query but default to not including them.
 //       Update the error message for GET.
 
-// TODO: A. Cause queries to go down recursively into children of the DAG as well as meta.attachments of the entity
+// TODO A: Cause queries to go down recursively into children of the DAG as well as meta.attachments of the entity
+
+// TODO B: Add a check for invalid type or version name. Cannot have any forward slashs, dashes, or periods.
 
 // TODO: B. Timeline
 
@@ -291,7 +295,7 @@ export class TemporalEntityBase {
     this.type = type
     this.version = version
     if (idString === 0) this.idString = '0'
-    else if (idString) this.idString = idString.toString()
+    else if (idString != null) this.idString = idString.toString()
     else this.idString = undefined
 
     Object.assign(this, responseMixin)
@@ -335,8 +339,8 @@ export class TemporalEntityBase {
     }
 
     // preferably, this.type and this.version are set earlier, but if not, we'll try to set them here from this.current.meta
-    if (!this.type && this.current?.meta?.type) this.type = this.current.meta.type
-    if (!this.version && this.current?.meta?.version) this.version = this.current.meta.version
+    if (this.type == null && this.current?.meta?.type != null) this.type = this.current.meta.type
+    if (this.version == null && this.current?.meta?.version != null) this.version = this.current.meta.version
     this.hydrateTypeVersionConfig()
 
     this.hydrated = true
@@ -344,7 +348,7 @@ export class TemporalEntityBase {
 
   deriveValidFrom(validFrom) {
     let validFromDate
-    if (validFrom) {
+    if (validFrom != null) {
       if (this.entityMeta?.timeline?.length > 0) {
         utils.throwIf(validFrom <= this.entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
       }
@@ -372,7 +376,7 @@ export class TemporalEntityBase {
     this.nextStatus = undefined  // TODO: maybe find a way to do this in the lower methods like we do in GET expecting [value, status] from get
     try {
       let pathArray
-      if (urlString) {
+      if (urlString != null) {
         pathArray = urlString.split('/')
       } else {
         const url = new URL(request.url)
@@ -389,7 +393,7 @@ export class TemporalEntityBase {
       const typeVersionConfig = typeConfig.versions?.[this.version]
       utils.throwUnless(typeVersionConfig, `Unrecognized version ${this.version}`, 404)
 
-      if (this.idString) {  // It might be set when instantiated manually
+      if (this.idString != null) {  // It might be set when instantiated manually
         const otherIDString = pathArray.shift()
         utils.throwIf(otherIDString && otherIDString !== this.idString, `The ID in the URL, ${otherIDString}, does not match the ID in the entity, ${this.idString}`, 404)
       } else if (utils.isIDString(pathArray[0])) {
@@ -403,7 +407,7 @@ export class TemporalEntityBase {
 
       switch (restOfPath) {
         case '/':
-          if (this[request.method]) return this[request.method](request)
+          if (this[request.method] != null) return this[request.method](request)
           return utils.throwIf(true, `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
 
         case '/ticks':
@@ -437,7 +441,7 @@ export class TemporalEntityBase {
       validFrom,
       deleted: true,
     }
-    if (impersonatorID) metaDelta.impersonatorID = impersonatorID
+    if (impersonatorID != null) metaDelta.impersonatorID = impersonatorID
     await this.patchMetaDelta(metaDelta)
     return 204
   }
@@ -461,13 +465,13 @@ export class TemporalEntityBase {
     await this.hydrate()
 
     const { schema } = this.typeVersionConfig
-    if (schema) {
+    if (schema != null) {
       const schemaValidator = new JsonSchemaValidator(schema)
       const result = schemaValidator.validate(value)
       utils.throwUnless(result.valid, `Schema validation failed. Error(s):\n${JSON.stringify(result.errors, null, 2)}`)
     }
     const { additionalValidation } = this.typeVersionConfig
-    if (additionalValidation) {
+    if (additionalValidation != null) {
       additionalValidation(value)
     }
 
@@ -484,7 +488,7 @@ export class TemporalEntityBase {
     // Determine if this update should be debounced and set oldCurrent
     let debounce = false
     let oldCurrent = { value: {} }
-    if (this.current) {
+    if (this.current != null) {
       oldCurrent = structuredClone(this.current)
       if (
         userID === this.current?.meta?.userID
@@ -505,7 +509,7 @@ export class TemporalEntityBase {
     }
 
     // Update the old current and save it
-    if (!debounce && this.current) {
+    if (!debounce && this.current != null) {
       oldCurrent.meta.validTo = validFrom
       await this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
     }
@@ -521,7 +525,7 @@ export class TemporalEntityBase {
       version: this.version,
     }
     if (!this.typeVersionConfig.supressPreviousValues) this.current.meta.previousValues = previousValues
-    if (impersonatorID) this.current.meta.impersonatorID = impersonatorID
+    if (impersonatorID != null) this.current.meta.impersonatorID = impersonatorID
     this.current.value = value
     if (!debounce) {  // timeline only changes if not debounced
       this.entityMeta.timeline.push(validFrom)
@@ -561,7 +565,7 @@ export class TemporalEntityBase {
       validFrom,
       deleted: undefined,
     }
-    if (impersonatorID) metaDelta.impersonatorID = impersonatorID
+    if (impersonatorID != null) metaDelta.impersonatorID = impersonatorID
     return this.patchMetaDelta(metaDelta)
   }
 
@@ -611,8 +615,8 @@ export class TemporalEntityBase {
   async patch(options, eTag) {
     utils.throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
 
-    if (options.undelete) return this.patchUndelete(options)  // does not use eTag
-    if (options.delta) return this.patchDelta(options, eTag)
+    if (options.undelete != null) return this.patchUndelete(options)  // does not use eTag
+    if (options.delta != null) return this.patchDelta(options, eTag)
 
     return utils.throwIf(
       true,
@@ -637,7 +641,7 @@ export class TemporalEntityBase {
   async get(eTag) {
     await this.hydrate()
     utils.throwIf(this.current?.meta?.deleted, 'GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true', 404)
-    if (eTag && eTag === this.current?.meta?.eTag) return [undefined, 304]  // TODO: e2e test for this. Be sure to also look for Content-ID header.
+    if (eTag != null && eTag === this.current?.meta?.eTag) return [undefined, 304]  // TODO: e2e test for this. Be sure to also look for Content-ID header.
     return [this.current, 200]
   }
 
@@ -657,7 +661,7 @@ export class TemporalEntityBase {
   async getEntityMeta(eTag) {
     await this.hydrate()
     // Note, we don't check for deleted here because we want to be able to get the entityMeta even if the entity is deleted
-    if (eTag && eTag === this.current?.meta?.eTag) return [undefined, 304]
+    if (eTag != null && eTag === this.current?.meta?.eTag) return [undefined, 304]
     return [this.entityMeta, 200]
   }
 

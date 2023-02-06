@@ -14,8 +14,26 @@ const debug = utils.getDebug('blueprint:tree')
 
 /*
 
+TODO A0: Create a wrapper class that will ensure memory and storage state are always in sync and storage self-consistent.
+
+    You can import many different classes into this wrapper, but it will choose which one it is upon creation and use
+    that one for ever more. You have to deleteAll on the storage contents to reassign it to a different class but we can provide
+    a method in the wrapper class to do that.
+
+    The original purpose of this is to address a concurrency worry I had once I started to compose my DOs with reusable
+    parts. For instance, Tree uses TemporalEntity in composition.
+
+    It replaces state.storage with the trx from a transaction.
+
+    It also implements optimistic concurrency.
+
+    In the future, I may also figure out a way to use this to implement versioning of the class code itself as opposed
+    to the entity schemas as is done in TemporalEntity. This could solve the worry I have about using the same DO class
+    for preview and production. I could deply the preview versions along side the older versions of the classes and dynamically
+    pick the right version based on the environment. Maybe even implement a compatibility date approach like Cloudflare's itself.
+
 org-tree: {  // Tree
-  treeMeta: {  // TODO: Change this to treeMeta
+  treeMeta: {
     nodeCount: number,  // start at 0
     userID: string,  // user who created the tree
     impersonatorID: string,  // user who created the tree if impersonating
@@ -49,15 +67,7 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Flags in TemporalEnti
   POST - creates a new tree with a root node
 
 /tree/v1/[treeIDString]
-  TODO B: GET - returns the DAG with just labels and children
-
-/tree/v1/[treeIdString]/node/[nodeType]/[nodeVersion]/[nodeIDString]
-  TODO B: GET, PUT, PATCH delta/undelete, and DELETE just like a TemporalEntity
-
-/tree/v1/[treeIdString]/aggregate
-  TODO B: POST - execute the aggregation. Starting nodeIDString in body or root if omitted. First version just gathers all matching nodes.
-
-/tree/v1/[treeIdString]
+  TODO A: GET - returns the DAG with just labels and children
   PATCH
     addNode - Adds a node to the tree
       body.addNode contains newNode and parent fields
@@ -65,10 +75,15 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Flags in TemporalEnti
       body.branch.operation must be 'add' or 'delete'
       body contains parent and child fields
       TODO A1: Test remove branch
-      TODO A2: Before a branch is added confirm that it won't create a cycle. If it does, returns 409 - Conflict.
     TODO A4: moveNode
       Moves a branch from one parent to another. Body contains parentIDString, childIDString, and newParentIDString.
       Start with addBranch which has error checking. If that succeeds, removeBranch which has no error checking.
+
+/tree/v1/[treeIdString]/node/[nodeType]/[nodeVersion]/[nodeIDString]
+  TODO B: GET, PUT, PATCH delta/undelete, and DELETE just like a TemporalEntity
+
+/tree/v1/[treeIdString]/aggregate
+  TODO B: POST - execute the aggregation. Starting nodeIDString in body or root if omitted. First version just gathers all matching nodes.
 
 */
 
@@ -128,7 +143,6 @@ export class Tree {
         validFrom = new Date(validFromDate).toISOString()
       } else {
         validFrom = validFromDate.toISOString()
-        validFromDate = new Date(validFrom)
       }
     }
     return { validFrom, validFromDate }
@@ -243,6 +257,7 @@ export class Tree {
       const [treeMeta, status] = await this.post(options)
       return this.getResponse(treeMeta, status)
     } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return this.getErrorResponse(e)
     }
   }
@@ -300,18 +315,42 @@ export class Tree {
     utils.throwUnless(parent.toString() && child.toString(), 'body.branch with parent and child required when Tree PATCH patchBranch is called')
     if (operation != null) utils.throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
 
-    const [parentIDString, parentTemporalEntityOrIDString] = utils.getIDStringFromInput(parent)
-    const [childIDString, childTemporalEntityOrIDString] = utils.getIDStringFromInput(child)
+    const [parentIDString, parentTemporalEntityOrIDString, parentValidFrom] = utils.getIDStringFromInput(parent)
+    const [childIDString, childTemporalEntityOrIDString, childValidFrom] = utils.getIDStringFromInput(child)
+    if (parentValidFrom != null && parentValidFrom > validFrom) validFrom = parentValidFrom
+    if (childValidFrom != null && childValidFrom > validFrom) validFrom = childValidFrom
 
     utils.throwIf(parentIDString === childIDString, 'parent and child cannot be the same')
     await this.throwIfIDInAncestry(parentTemporalEntityOrIDString, childIDString)
 
-    // TODO: Implement rollback so that if one of these fails, we aren't left in a mutant state
+    // TODO A: Implement a proxy for storage that holds all writes in memory and then commits them at the end of the request or not if there is an error
+
+    // The validFrom in the calls below is only a suggestion to the TE because it might need to increment it by a millisecond if the prior validFrom is the same
+    // so we can't gaurantee they'll be exactly the same. However, in real world the chances they'll be different is much lower than here in unit
+    // testing because there is going some lag associated with storage that you don't see with an in-memory store used in testing.
+    // Besides, we can live with them being a millisecond off in real world usage because the chances of the two validFrom values being on different
+    // sides of a tick boundary is also very low. Besides, the chances that both the children and parents relationships matter for a moment in time
+    // calculation is also very low.
+    // Very low probability ^ 3 = not worth worrying about.
     const childTE = await this.addOrDeleteOnSetInEntityMeta('parents', childTemporalEntityOrIDString, parentIDString, userID, validFrom, impersonatorID, operation)
     const parentTE = await this.addOrDeleteOnSetInEntityMeta('children', parentTemporalEntityOrIDString, childIDString, userID, validFrom, impersonatorID, operation)
 
+    // TODO: If I ever get on a later version of miniflare that includes storage.delete, I can use the code below
+    // if (childTE.current.meta.validFrom !== parentTE.current.meta.validFrom) {
+    //   const newValidFrom = childTE.current.meta.validFrom > parentTE.current.meta.validFrom ? childTE.current.meta.validFrom : parentTE.current.meta.validFrom
+    //   await this.constructor.updateValidFromWithoutSnapshot(childTE, newValidFrom)
+    //   await this.constructor.updateValidFromWithoutSnapshot(parentTE, newValidFrom)
+    // }
     return { childTE, parentTE }
   }
+
+  // static async updateValidFromWithoutSnapshot(nodeTE, newValidFrom) {
+  //   await nodeTE.state.storage.delete(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`, nodeTE.current)
+  //   await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${newValidFrom}`, nodeTE.current)
+  //   nodeTE.entityMeta.timeline.pop()
+  //   nodeTE.entityMeta.timeline.push(newValidFrom)
+  //   await nodeTE.state.storage.put(`${nodeTE.idString}/entityMeta`, nodeTE.entityMeta)
+  // }
 
   async addOrDeleteOnSetInEntityMeta(metaFieldToAddTo, temporalEntityOrIDString, valueToAdd, userID, validFrom, impersonatorID, operation = 'add') {
     let idString
@@ -360,6 +399,7 @@ export class Tree {
       const [treeMeta, status] = await this.patch(options, eTag)
       return this.getResponse(treeMeta, status)
     } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return this.getErrorResponse(e)
     }
   }
@@ -381,6 +421,7 @@ export class Tree {
       if (status === 304) return this.getStatusOnlyResponse(304)
       return this.getResponse(response)
     } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return this.getErrorResponse(e)
     }
   }

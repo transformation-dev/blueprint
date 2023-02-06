@@ -130,14 +130,28 @@ test('Tree parents and children', async (t) => {
       )
     }
 
-    const branch = {
+    let branch = {
       parent: 0,  // intentionally a Number to confirm that it's forgiving of this as a zero
       child: 2,
-      operation: 'add',
+      // operation: 'add',  // testing default operation by commenting this out
+    }
+    let { childTE, parentTE } = await tree.patch({ branch, userID: 'userY' })
+    t.assert(childTE.current.meta.parents.has('1'), 'should have correct 1st parent on childTE')
+    t.assert(childTE.current.meta.parents.has('0'), 'should have correct 2nd parent on childTE')
+    t.assert(parentTE.current.meta.children.has('1'), 'should have correct 1st child on parentTE')
+    t.assert(parentTE.current.meta.children.has('2'), 'should have correct 2nd child on parentTE')
+
+    branch = {
+      parent: 1,
+      child: 2,
+      operation: 'delete',
     }
     response = await tree.patch({ branch, userID: 'userY' })
-    console.log(response)
-    // lastValidFrom = response.childTE.current.meta.validFrom
+    childTE = response.childTE
+    parentTE = response.parentTE
+    t.equal(childTE.current.meta.parents.size, 1, 'should have 1 parent on childTE')
+    t.assert(childTE.current.meta.parents.has('0'), 'should have correct parent on childTE')
+    t.equal(parentTE.current.meta.children.size, 0, 'should have 0 children on parentTE')
 
     // console.log(state.storage.data)
 
