@@ -1,4 +1,6 @@
 /* eslint-disable max-classes-per-file */
+import * as utils from './utils.js'
+import responseMixin from './response-mixin.js'
 
 export * from './temporal-entity.js'
 
@@ -12,7 +14,7 @@ export default {
 }
 
 // Durable Object
-export class Counter {
+export class TemporarilyDisabledCounter {
   constructor(state, env) {
     this.state = state
     this.env = env
@@ -50,6 +52,36 @@ export class Counter {
     await this.state.storage.put('value', value)
 
     return new Response(value)
+  }
+}
+
+export class Counter {
+  constructor(state, env) {
+    this.state = state
+    this.env = env
+
+    Object.assign(this, responseMixin)
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url)
+    const pathArray = url.pathname.split('/')
+    switch (request.method) {
+      case 'GET': {
+        const value1 = await this.state.storage.get('value1')
+        const value2 = await this.state.storage.get('value2')
+        return this.getResponse({ value1, value2 })
+      }
+      case 'POST': {
+        const value = Math.random()
+        await this.state.storage.put('value1', value)
+        if (pathArray.at(-1) === 'throw') throw new Error('This is a test error')
+        await this.state.storage.put('value2', value)
+        return this.getResponse({ id: this.state.id.toString(), value })
+      }
+      default:
+        return this.getResponse('Not found in Counter', { status: 404 })
+    }
   }
 }
 
