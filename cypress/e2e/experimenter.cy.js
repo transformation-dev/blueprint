@@ -57,7 +57,7 @@ context('Concurrency Experimenter', () => {
         expect(response.CBOR_SC.value1).to.eq(response.CBOR_SC.value2)
 
         cy.wrap(null).then(async () => {
-          let response = await encodeAndFetch(`/api/experimenter/${id}/throw`, { method: 'POST' })
+          let response = await encodeAndFetch(`/api/experimenter/${id}/no-await/throw`, { method: 'POST' })
           console.log(response)
           expect(response.status).to.eq(500)
 

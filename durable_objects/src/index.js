@@ -74,7 +74,8 @@ export class Counter {
       }
       case 'POST': {
         const value = Math.random()
-        await this.state.storage.put('value1', value)
+        if (pathArray.at(-2) === 'no-await') this.state.storage.put('value1', value)
+        else await this.state.storage.put('value1', value)
         if (pathArray.at(-1) === 'throw') throw new Error('This is a test error')
         await this.state.storage.put('value2', value)
         return this.getResponse({ id: this.state.id.toString(), value })
