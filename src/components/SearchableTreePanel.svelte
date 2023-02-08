@@ -145,7 +145,7 @@
     <div id="search-bar" class="flex flex-row items-center">
       <div id="search-bubble" class="mis8 mbs8 mbe8 flex flex-fill items-center">
         <input id="search-input" type="text" class="flex-fill p4 pis8 focus-link" placeholder="Search" bind:value={searchString} />
-        <button id="collapse-tree" on:click={clearSearch} class="flex inherit-colors">
+        <button id="clear-search" on:click={clearSearch} class="flex inherit-colors">
           <Icon data={close} class="m8" />
         </button>
       </div>

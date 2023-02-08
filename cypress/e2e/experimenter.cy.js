@@ -45,24 +45,25 @@ context('Concurrency Experimenter', () => {
 
   it('should POST', () => {
     cy.wrap(null).then(async () => {
-      let response = await encodeFetchAndDecode('/api/experimenter', { method: 'POST'})
-      console.log('response.CBOR_SC', response.CBOR_SC)
+      let response = await encodeFetchAndDecode('/api/experimenter/experimenter/v1', { method: 'POST'})
       const id = response.CBOR_SC.id
       expect(response.status).to.eq(200)
+      console.log('response.CBOR_SC', response.CBOR_SC)
 
       cy.wrap(null).then(async () => {
-        let response = await encodeFetchAndDecode(`/api/experimenter/${id}`)
+        let response = await encodeFetchAndDecode(`/api/experimenter/experimenter/v1/${id}`)
         console.log('response.CBOR_SC', response.CBOR_SC)
         expect(response.status).to.eq(200)
         expect(response.CBOR_SC.value1).to.eq(response.CBOR_SC.value2)
 
         cy.wrap(null).then(async () => {
-          let response = await encodeAndFetch(`/api/experimenter/${id}/no-await/throw`, { method: 'POST' })
+          let response = await encodeAndFetch(`/api/experimenter/experimenter/v1/${id}/no-await/error-status`, { method: 'POST' })
           console.log(response)
-          expect(response.status).to.eq(500)
+          // expect(response.status).to.eq(500)
+          expect(response.status).to.eq(400)
 
           cy.wrap(null).then(async () => {
-            let response = await encodeFetchAndDecode(`/api/experimenter/${id}`)
+            let response = await encodeFetchAndDecode(`/api/experimenter/experimenter/v1/${id}`)
             console.log('response.CBOR_SC', response.CBOR_SC)
             expect(response.status).to.eq(200)
             expect(response.CBOR_SC.value1).to.eq(response.CBOR_SC.value2)
