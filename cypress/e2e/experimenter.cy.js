@@ -31,44 +31,71 @@ async function encodeAndFetch(url, options) {  // TODO: move this to a helper fi
 
 async function encodeFetchAndDecode(url, options) {  // TODO: move this to a helper file
   const response = await encodeAndFetch(url, options)
-  const ab = await response.arrayBuffer()
-  if (ab) {
-    const u8a = new Uint8Array(ab)
-    const o = cborSC.decode(u8a)
-    // const o = decode(u8a)  // on the other hand, this works regardless of how I encode
-    response.CBOR_SC = o
+  if (response.status >= 500) {
+    response.asText = await response.text()
+  } else {
+    const ab = await response.arrayBuffer()
+    if (ab) {
+      const u8a = new Uint8Array(ab)
+      response.obj = cborSC.decode(u8a)
+      // const o = decode(u8a)  // on the other hand, this works regardless of how I encode
+      response.asText = JSON.stringify(response.obj, null, 2)
+    }
   }
   return response
 }
 
 context('Concurrency Experimenter', () => {
+  let idString
+  let response
+  let successfulPostCount = 0
+  let successfulGetCount = 0
 
-  it('should POST', () => {
+  async function post() {
+    if (idString == null) {
+      response = await encodeFetchAndDecode('/api/experimenter/experimenter/v1', { method: 'POST' })
+    } else {
+      response = await encodeFetchAndDecode(`/api/experimenter/experimenter/v1/${idString}`, { method: 'POST' })
+    }
+    if (response.status >= 500) {
+    } else {
+      successfulPostCount++
+      if (idString == null) idString = response.obj.idString
+    }
+  }
+
+  async function getAndCheck() {
+    if (idString != null) {
+      response = await encodeFetchAndDecode(`/api/experimenter/experimenter/v1/${idString}`)
+      if (response.status >= 400) {
+        console.log('GET failed')
+      } else {
+        successfulGetCount++
+        const obj = response.obj
+        expect(obj.value).to.equal(obj.valueInMemory)
+        expect(obj.twiceValue).to.equal(obj.twiceValueInMemory)
+        expect(obj.value * 2).to.equal(obj.twiceValue)
+      }
+    }
+  }
+
+  it('should stay consistent in spite of failing 50% of the time', () => {
     cy.wrap(null).then(async () => {
-      let response = await encodeFetchAndDecode('/api/experimenter/experimenter/v1', { method: 'POST'})
-      const id = response.CBOR_SC.id
-      expect(response.status).to.eq(200)
-      console.log('response.CBOR_SC', response.CBOR_SC)
-
+      while (idString == null) {
+        await post()
+      }
+      const promises = []
+      for (let i = 0; i < 10; i++) {
+        if (Math.random() < 0.5) {
+          promises.push(post())
+        } else {
+          promises.push(getAndCheck())
+        }
+      }
       cy.wrap(null).then(async () => {
-        let response = await encodeFetchAndDecode(`/api/experimenter/experimenter/v1/${id}`)
-        console.log('response.CBOR_SC', response.CBOR_SC)
-        expect(response.status).to.eq(200)
-        expect(response.CBOR_SC.value1).to.eq(response.CBOR_SC.value2)
-
-        cy.wrap(null).then(async () => {
-          let response = await encodeAndFetch(`/api/experimenter/experimenter/v1/${id}/no-await/error-status`, { method: 'POST' })
-          console.log(response)
-          // expect(response.status).to.eq(500)
-          expect(response.status).to.eq(400)
-
-          cy.wrap(null).then(async () => {
-            let response = await encodeFetchAndDecode(`/api/experimenter/experimenter/v1/${id}`)
-            console.log('response.CBOR_SC', response.CBOR_SC)
-            expect(response.status).to.eq(200)
-            expect(response.CBOR_SC.value1).to.eq(response.CBOR_SC.value2)
-          })
-        })
+        await Promise.all(promises)
+        console.log(`successfulPostCount: ${successfulPostCount}`)
+        console.log(`successfulGetCount: ${successfulGetCount}`)
       })
     })
   })

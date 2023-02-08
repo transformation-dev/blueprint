@@ -2,7 +2,7 @@ import Debug from 'debug'
 import { Encoder } from 'cbor-x'
 import { getDebug } from '../../_utils'
 
-const debug = getDebug('blueprint:api:tree')  // TODO: Change this to the name of the package. Maybe pull that from package.json.
+const debug = getDebug('blueprint:api:experimenter')  // TODO: Change this to the name of the package. Maybe pull that from package.json.
 const cborSC = new Encoder({ structuredClone: true })
 
 function findFirstID(pathArray) {
@@ -17,7 +17,6 @@ function findFirstID(pathArray) {
 export async function onRequest({ request, env, params }) {
   Debug.enable(env.DEBUG)
   debug('%s %s', request.method, request.url)
-  debug('params: %O', params)
 
   // If there is no id in the URL, then we randomly generate one. You needn't worry that this will create orphaned durable objects
   // because if a durable object has no stored data, it ceases to exist as soon as it leaves memory.
