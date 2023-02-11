@@ -12,13 +12,8 @@ export * from './temporal-entity.js'
 
 export * from './tree.js'
 
-// Worker. I'm not sure why this is needed since we never call it. I'm guessing it's legacy
-// Apparently, you can just do `export default {}`
-export default {
-  fetch() {
-    return new Response('This Worker creates the Durable Object(s).')
-  },
-}
+// Worker that does nothing and is never used but necessary since durable objects require a worker
+export default {}
 
 // Durable Object
 export class TemporarilyDisabledCounter {
@@ -119,8 +114,4 @@ export class Counter extends TransactionalDOWrapperBase {
       },
     },
   }
-}
-
-export class PreviewCounter extends Counter {
-  static production = false
 }
