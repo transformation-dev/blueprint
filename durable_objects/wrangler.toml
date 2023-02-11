@@ -25,3 +25,7 @@ new_classes = ["TemporalEntity"]
 [[migrations]]
 tag = "v4"
 new_classes = ["Tree"]
+
+[[migrations]]
+tag = "v5"
+deleted_classes = ["PreviewCounter"]
