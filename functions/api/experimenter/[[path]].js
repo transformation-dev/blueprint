@@ -17,6 +17,7 @@ function findFirstID(pathArray) {
 export async function onRequest({ request, env, params }) {
   Debug.enable(env.DEBUG)
   debug('%s %s', request.method, request.url)
+  debug('env: %O', env)
 
   // If there is no id in the URL, then we randomly generate one. You needn't worry that this will create orphaned durable objects
   // because if a durable object has no stored data, it ceases to exist as soon as it leaves memory.
@@ -33,8 +34,8 @@ export async function onRequest({ request, env, params }) {
   }
 
   // build the url to be passed to the durable object
-  let url = '/'
-  if (params.path) url = `/${params.path.join('/')}`
+  let url = 'http://fake.host/'
+  if (params.path) url = `http://fake.host/${params.path.join('/')}`
   debug('url to pass to durable object: %O', url)
 
   const entityStub = env.COUNTER.get(id)

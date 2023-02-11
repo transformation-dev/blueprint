@@ -1,4 +1,11 @@
+// 3rd party imports
+// import Debug from 'debug'
+
+// local imports
 import * as responseMixin from './response-mixin.js'
+
+// initialize imports
+// const debug = utils.getDebug('blueprint:tree')
 
 export class TransactionalDOWrapperBase {
   async hydrate() {
@@ -32,6 +39,7 @@ export class TransactionalDOWrapperBase {
     await this.hydrate()
     const url = new URL(request.url)
     const pathArray = url.pathname.split('/')
+    // debug('pathArray', pathArray)
     if (pathArray[0] === '') pathArray.shift()  // deal with leading slash
     const type = pathArray.shift()
     if (this.constructor.types[type] == null) {

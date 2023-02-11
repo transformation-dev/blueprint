@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "echo 'WARNING: must run `npm run dev:durable_objects` in other window' && npm run build && wrangler pages dev --binding NODE_ENV=development SENDGRID_LOGIN=$SENDGRID_LOGIN TESTING_OVERRIDE_CODE=$TESTING_OVERRIDE_CODE DEBUG=\"blueprint:*\" DEBUG_COLORS=1 --do TREE=Tree@transformation-durable_objects TEMPORAL_ENTITY=TemporalEntity@transformation-durable_objects COUNTER=Counter@transformation-durable_objects --kv SESSIONS --proxy 3000 -- vite --host",
+    "dev": "echo 'WARNING: must run `npm run dev:durable_objects` in other window' && npm run build && npx @transformation-dev/wrangler pages dev --binding NODE_ENV=development SENDGRID_LOGIN=$SENDGRID_LOGIN TESTING_OVERRIDE_CODE=$TESTING_OVERRIDE_CODE DEBUG=\"blueprint:*\" DEBUG_COLORS=1 --mount transformation-durable_objects=./durable_objects --do TREE=Tree@transformation-durable_objects TEMPORAL_ENTITY=TemporalEntity@transformation-durable_objects COUNTER=PreviewCounter@transformation-durable_objects --kv SESSIONS --proxy 3000 -- vite --host",
     "dev:durable_objects": "cd durable_objects && npm run dev",
     "build": "npm run build:version.json && npm run build:durable_objects && npm run build:ui",
     "build:version.json": "printf '{\"sha\":\"' > ./public/version.json && printf $(git show -s --format=%H) >> ./public/version.json && echo '\"}' >> ./public/version.json",
@@ -33,6 +33,7 @@
     "@creativebulma/bulma-tooltip": "^1.2.0",
     "@cypress/code-coverage": "^3.10.0",
     "@sveltejs/vite-plugin-svelte": "^1.0.0-next.30",
+    "@transformation-dev/wrangler": "^0.0.16",
     "agnostic-svelte": "^1.1.22",
     "bulma": "^0.9.3",
     "bulma-badge": "^3.0.1",
@@ -67,8 +68,7 @@
     "nanoid": "^3.3.4",
     "sort-on": "^5.0.0",
     "svelte": "^3.55.1",
-    "svelte-spa-router": "^3.2.0",
-    "wrangler": "^2.9.1"
+    "svelte-spa-router": "^3.2.0"
   },
   "workspaces": [
     "packages/cloudflare-do-utils",

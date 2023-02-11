@@ -40,8 +40,8 @@ export async function onRequest({ request, env, params }) {
   }
 
   // build the url to be passed to the durable object
-  let url = '/'
-  if (params.path) url = `/${params.path.join('/')}`
+  let url = 'http://fake.host/'
+  if (params.path) url = `http://fake.host/${params.path.join('/')}`
   debug('url to pass to durable object: %O', url)
 
   const entityStub = env.TREE.get(id)

@@ -38,7 +38,7 @@ export async function onRequest({ request, env, params }) {
   }
 
   // build the url to be passed to the durable object
-  const url = `/${params.path.join('/')}`
+  const url = `http://fake.host/${params.path.join('/')}`
   debug('url to pass to durable object: %O', url)
 
   const entityStub = env.TEMPORAL_ENTITY.get(id)

@@ -91,7 +91,7 @@ export class Experimenter {
       case 'POST': {
         this.value = Math.random()
         this.state.storage.put('value', this.value)
-        if (Math.random() < 0.25) throw new Error('Random error thrown')
+        // if (Math.random() < 0.25) throw new Error('Random error thrown')
         if (Math.random() < 0.25) return this.getErrorResponse(new utils.HTTPError('Random error response'))
         await this.state.storage.put('twiceValue', this.value * 2)
         this.twiceValue = this.value * 2

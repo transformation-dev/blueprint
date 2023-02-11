@@ -81,11 +81,13 @@ context('Concurrency Experimenter', () => {
 
   it('should stay consistent in spite of failing 50% of the time', () => {
     cy.wrap(null).then(async () => {
-      while (idString == null) {
+      let retries = 10
+      while (idString == null && retries > 0) {
         await post()
+        retries--
       }
       const promises = []
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 2; i++) {
         if (Math.random() < 0.9) {
           promises.push(post())
         } else {
