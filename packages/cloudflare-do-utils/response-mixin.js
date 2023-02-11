@@ -2,7 +2,7 @@ import { Encoder } from 'cbor-x'
 
 const cborSC = new Encoder({ structuredClone: true })
 
-export default {
+export const responseMixin = {
   getResponse(body, status = 200, statusText = undefined) {
     const headers = new Headers({ 'Content-Type': 'application/cbor-sc' })
     headers.set('Content-ID', this.idString)

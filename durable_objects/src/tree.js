@@ -3,9 +3,11 @@
 // 3rd party imports
 import Debug from 'debug'
 
+// monorepo imports
+import { responseMixin } from '@transformation-dev/cloudflare-do-utils'
+
 // local imports
 import * as utils from './utils.js'
-import responseMixin from './response-mixin.js'
 import { TemporalEntity } from './temporal-entity.js'
 import { TemporalEntityBase } from './temporal-entity-base.js'
 
