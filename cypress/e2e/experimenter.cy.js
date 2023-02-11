@@ -65,7 +65,7 @@ context('Concurrency Experimenter', () => {
   }
 
   async function getAndCheck() {
-    if (idString != null) {
+    // if (idString != null) {
       response = await encodeFetchAndDecode(`/api/experimenter/experimenter/v1/${idString}`)
       if (response.status >= 400) {
         console.log('GET failed')
@@ -76,7 +76,7 @@ context('Concurrency Experimenter', () => {
         expect(obj.twiceValue).to.equal(obj.twiceValueInMemory)
         expect(obj.value * 2).to.equal(obj.twiceValue)
       }
-    }
+    // }
   }
 
   it('should stay consistent in spite of failing 50% of the time', () => {
@@ -86,7 +86,7 @@ context('Concurrency Experimenter', () => {
       }
       const promises = []
       for (let i = 0; i < 10; i++) {
-        if (Math.random() < 0.5) {
+        if (Math.random() < 0.9) {
           promises.push(post())
         } else {
           promises.push(getAndCheck())

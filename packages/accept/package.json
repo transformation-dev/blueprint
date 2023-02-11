@@ -2,7 +2,10 @@
   "name": "@transformation-dev/accept",
   "description": "HTTP Accept-* headers parsing",
   "version": "0.6.0",
-  "repository": "git://github.com/transformation-dev/blueprint",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/transformation-dev/blueprint.git"
+  },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
@@ -14,15 +17,16 @@
     "accept",
     "accept-encoding"
   ],
-
-  "dependencies": {
-
+  "devDependencies": {},
+  "scripts": {},
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/transformation-dev/blueprint/issues"
   },
-  "devDependencies": {
-
+  "homepage": "https://github.com/transformation-dev/blueprint#readme",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
   },
-  "scripts": {
-
-  },
-  "license": "BSD-3-Clause"
+  "author": "Larry Maccherone"
 }

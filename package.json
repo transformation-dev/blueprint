@@ -69,5 +69,10 @@
     "sort-on": "^5.0.0",
     "svelte": "^3.55.1",
     "svelte-spa-router": "^3.2.0"
-  }
+  },
+  "workspaces": [
+    "packages/cloudflare-do-utils",
+    "packages/dragster",
+    "packages/accept"
+  ]
 }

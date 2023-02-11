@@ -11,6 +11,7 @@ export * from './temporal-entity.js'
 export * from './tree.js'
 
 // Worker. I'm not sure why this is needed since we never call it. I'm guessing it's legacy
+// Apparently, you can just do `export default {}`
 export default {
   fetch() {
     return new Response('This Worker creates the Durable Object(s).')
@@ -59,7 +60,7 @@ export class TemporarilyDisabledCounter {
   }
 }
 
-class Experimenter {
+export class Experimenter {
   async hydrate() {
     if (this.hydrated) return
     this.value = await this.state.storage.get('value')
@@ -100,11 +101,6 @@ class Experimenter {
   }
 }
 
-function sleep(ms) {
-  // eslint-disable-next-line no-promise-executor-return
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 export class Counter {
   // Since we're using the same type and version concept and url ordering as TemporalEntity, we can defer those differences to TemporalEntity.
   // This means that TemporalEntity can be the class for many different types below but the url gets passed into TemporalEntity
@@ -123,13 +119,14 @@ export class Counter {
   }
 
   async hydrate() {
-    if (this.hydrated) return
+    // if (this.hydrated) return
+    // The above line is commented out because we want the storage operation in the line below to activate the input gate
     this.transactionalWrapperMeta = await this.state.storage.get('transactionalWrapperMeta')
-    this.hydrated = true
+    // this.hydrated = true
   }
 
+  // eslint-disable-next-line class-methods-use-this
   respondEarly(response, options) {  // TODO: Swap this out for my response mixin behavior
-    this.gated = false
     return new Response(response, options)
   }
 
@@ -137,57 +134,18 @@ export class Counter {
     this.state = state
     this.env = env
 
-    this.hydrated = false
+    // this.hydrated = false
     this.classInstance = null
-
-    this.queue = []  // FIFO so push, shift, and peek with queue.at(-1)
-    this.gated = false
 
     Object.assign(this, responseMixin)
   }
 
-  async sleepUntilReady(request, delay = 3, retriesRemaining = 15) {
-    console.log('sleepUntilReady %O', { delay, retriesRemaining })
-    await sleep(delay)
-    if (!this.gated) {
-      if (!this.queue.includes(request)) return 'error'
-      if (this.queue.at(-1) === request) {
-        this.gated = true
-        this.queue.shift()
-        return 'continue'
-      }
-      if (retriesRemaining === 0) {
-        this.queue = this.queue.filter((r) => r !== request)
-        return 'timeout'
-      }
-    }
-    const sleepResult = await this.sleepUntilReady(request, delay * 2, retriesRemaining - 1)
-    return sleepResult
-  }
-
   async fetch(request) {
-    // I'm convinced that this input gate is not necessary in [some?/many?/all?] cases to protect against storage self-inconsistency.
-    // However, I'm equally convinced that it is needed to protect against instance member in-memory self-inconsistency and even consistency
-    // between in-memory and storage. This is because the built-in input gate only claims to kick in once there is a storage operation. What if
-    // you change one instance member and the operation fails unexpectedly before you got a chance to change another instance member
-    // that should remain consistent with the first one? The next call to the durable object will see this inconsistent state. It is
-    // a very real possibility that's worth protecting against.
-    //
-    // Further, I don't believe this will measurably impact performance. Your parallism/scalability comes from using multiple durable object
-    // instances. If you are relying upon a single durable object instance to handle a lot of concurrent requests, you are already bottlenecked.
-    //
-    // TODO: Improve this using async generators (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AsyncGenerator)
-    if (this.gated) {
-      console.log('backpressure')
-      const sleepResult = await this.sleepUntilReady(request)
-      if (sleepResult === 'timeout') {
-        return this.respondEarly('Request timed out', { status: 408 })
-      } else if (sleepResult !== 'continue') {
-        this.queue = []  // This will cause any other requests that were waiting to error next time they check
-        return this.respondEarly('Unexpected sleep result', { status: 500 })
-      }
-    }
-    this.gated = true
+    // I'm relying upon the built-in input gating to prevent concurrent requests from starting before this one finishes.
+    // However, it's unclear to me how exactly this works just reading the docs and posts about it. However, one thing
+    // mentioned is that it kicks in once there is a storage operation, so we do a storage operation right away to rehydrate
+    // this wrapper's state from disk. Note, this is different from the hydrate found() in TemplateEntity, which short-circuit
+    // exits if the class instance is already hydrated. This version will always do a single get from storage.
     await this.hydrate()
     const url = new URL(request.url)
     const pathArray = url.pathname.split('/')
@@ -220,8 +178,11 @@ export class Counter {
           txn.rollback()  // explicit rollback whenever there is a non-2xx, non-3xx response
           this.classInstance = null  // reset the class instance so all memory will be rehydrated from storage on next request
         } else if (this.transactionalWrapperMeta == null) {
+          // This next section checks to see if the DO is using any storage.
+          // This preserves the Cloudflare behavior that a DO doesn't survive unless it has storage.
+          // Without this check, our saving of the transactionalWrapperMeta would cause the DO to survive even if it didn't use storage.
           const storageUsage = await txn.list({ limit: 1 })
-          if (storageUsage.size > 0) {  // preserves DO behavior that a DO doesn't survive unless it has storage
+          if (storageUsage.size > 0) {
             this.transactionalWrapperMeta = { type, version, environment }  // only type is checked for now but we'll store the others for migration purposes later
             await this.state.storage.put('transactionalWrapperMeta', this.transactionalWrapperMeta)
           } else {
@@ -232,11 +193,9 @@ export class Counter {
       })
     } catch (e) {
       // rollback is automatic on error
-      this.gated = false
       this.classInstance = null  // but we still need to reset the class instance so all memory will be rehydrated from storage on next request
-      throw e  // rethrowing error to preserve the behavior of the wrapped durable object class
+      throw e  // Rethrowing to preserve the wrapped durable object's behavior. Ideally, the wrapped class returns a utils.getErrorResponse(e)
     }
-    this.gated = false
     return response
   }
 }

@@ -1,0 +1,32 @@
+{
+  "name": "@transformation-dev/cloudflare-do-utils",
+  "version": "0.0.1",
+  "description": "Utilities for working with Cloudflare's Durable Objects",
+  "keywords": [
+    "cloudflare",
+    "durable object",
+    "durable objects",
+    "do",
+    "DurableObject",
+    "DurableObjects"
+  ],
+  "author": "Larry Maccherone <Larry@Maccherone.com>",
+  "homepage": "https://github.com/transformation-dev/blueprint/tree/master/packages/cloudflare-do-utils#readme",
+  "license": "MIT",
+  "main": "cloudflare-do-utils.js",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/transformation-dev/blueprint.git#master"
+  },
+  "scripts": {
+    "test": "echo \"no tests yet\""
+  },
+  "bugs": {
+    "url": "https://github.com/transformation-dev/blueprint/issues"
+  },
+  "devDependencies": {}
+}
