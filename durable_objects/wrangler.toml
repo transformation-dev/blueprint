@@ -5,9 +5,10 @@ main = "index.mjs"
 
 [durable_objects]
 bindings = [
-  {name = "COUNTER", class_name = "Counter"},
-  {name = "TEMPORAL_ENTITY", class_name = "TemporalEntity"},
-  {name = "TREE", class_name = "Tree"},
+  # {name = "COUNTER", class_name = "Counter"},
+  # {name = "TEMPORAL_ENTITY", class_name = "TemporalEntity"},
+  # {name = "TREE", class_name = "Tree"},
+  {name = "DO_API", class_name = "DurableAPI"},
 ]
 
 [[migrations]]
@@ -28,4 +29,8 @@ new_classes = ["Tree"]
 
 [[migrations]]
 tag = "v5"
-deleted_classes = ["PreviewCounter"]
+deleted_classes = ["PreviewCounter", "Counter", "TemporalEntity", "Tree"]
+
+[[migrations]]
+tag = "v6"
+new_classes = ["DurableAPI"]

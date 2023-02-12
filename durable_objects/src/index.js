@@ -1,115 +1,81 @@
-/* eslint-disable max-classes-per-file */
-
 // 3rd party imports
 
 // mono-repo imports
-import { TransactionalDOWrapperBase, responseMixin } from '@transformation-dev/cloudflare-do-utils'
+import { TransactionalDOWrapperBase } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
-import * as utils from './utils.js'
+import { Experimenter } from './experimenter.js'
+import { ExperimenterV2 } from './experimenter-v2.js'
+import { Counter } from './counter.js'
+import { TemporalEntity } from './temporal-entity.js'
+import { Tree } from './tree.js'
 
-export * from './temporal-entity.js'
-
-export * from './tree.js'
+export * from './temporal-entity.js'  // Need this for unit testing TemporalEntity which has imported YAML schemas
+export * from './tree.js'  // And this is needed because Tree uses TemporalEntity
+export * from './counter.js'  // I don't think this is needed but I'm not sure
 
 // Worker that does nothing and is never used but necessary since durable objects require a worker
 export default {}
 
 // Durable Object
-export class TemporarilyDisabledCounter {
-  constructor(state, env) {
-    this.state = state
-    this.env = env
-  }
-
-  static production = true
-
-  // Handle HTTP requests from clients.
-  async fetch(request) {
-    const url = new URL(request.url)
-
-    // Durable Object storage is automatically cached in-memory, so reading the
-    // same key every request is fast. (That said, you could also store the
-    // value in a class member if you prefer.)
-    let value = await this.state.storage.get('value') || 0
-
-    switch (url.pathname) {
-      case '/increment':
-        ++value
-        break
-      case '/decrement':
-        --value
-        break
-      case '/':
-        // Just serve the current value.
-        break
-      default:
-        return new Response('Not found', { status: 404 })
-    }
-
-    // We don't have to worry about a concurrent request having modified the
-    // value in storage because "input gates" will automatically protect against
-    // unwanted concurrency. So, read-modify-write is safe. For more details,
-    // see: https://blog.cloudflare.com/durable-objects-easy-fast-correct-choose-three/
-    await this.state.storage.put('value', value)
-
-    return new Response(value)
-  }
-}
-
-export class Experimenter {
-  async hydrate() {
-    if (this.hydrated) return
-    this.value = await this.state.storage.get('value')
-    this.twiceValue = await this.state.storage.get('twiceValue')
-    this.hydrated = true
-  }
-
-  constructor(state, env) {
-    this.state = state
-    this.env = env
-
-    this.idString = this.state.id.toString()
-    this.hydrated = false
-
-    Object.assign(this, responseMixin)
-  }
-
-  async fetch(request) {
-    switch (request.method) {
-      case 'GET': {
-        await this.hydrate()
-        const value = await this.state.storage.get('value')
-        const twiceValue = await this.state.storage.get('twiceValue')
-        return this.getResponse({ value, twiceValue, valueInMemory: this.value, twiceValueInMemory: this.twiceValue })
-      }
-      case 'POST': {
-        this.value = Math.random()
-        this.state.storage.put('value', this.value)
-        // if (Math.random() < 0.25) throw new Error('Random error thrown')
-        if (Math.random() < 0.25) return this.getErrorResponse(new utils.HTTPError('Random error response'))
-        await this.state.storage.put('twiceValue', this.value * 2)
-        this.twiceValue = this.value * 2
-        return this.getResponse({ value: this.value, twiceValue: this.twiceValue })
-      }
-      default:
-        return new Response('Not found', { status: 404 })
-    }
-  }
-}
-
-export class Counter extends TransactionalDOWrapperBase {
+export class DurableAPI extends TransactionalDOWrapperBase {
   // Since we're using the same type and version concept and url ordering as TemporalEntity, we can defer those differences to TemporalEntity.
   // This means that TemporalEntity can be the class for many different types below but the url gets passed into TemporalEntity
   // so it would further refine the type inside of TemporalEntity. They will still have different schemas, validation, migrations, etc.
   static types = {
+    '*': {  // These are the defaults for settings used below but also allows you to make calls like /*/*/foo which can be useful for testing
+      versions: {
+        '*': {
+          environments: {
+            '*': {
+              TheClass: TemporalEntity,
+              flags: {
+                passFullUrl: true,  // false will strip the type and version segments which allows you to use many DOs as-is
+              },
+            },
+          },
+        },
+      },
+    },
     experimenter: {
       versions: {
         v1: {
-          environments: { preview: Experimenter, production: Experimenter, default: Experimenter },  // only "default" is required
+          environments: { '*': { TheClass: Experimenter } },
         },
         v2: {
-          environments: { preview: Experimenter, production: null },  // null means it's not available in production
+          environments: {
+            preview: { TheClass: ExperimenterV2 },
+            production: null,  // null means it's not available in production yet  TODO: Test this
+            '*': { TheClass: ExperimenterV2 },
+          },
+        },
+      },
+    },
+    'temporal-entity': {
+      versions: {
+        v1: {
+          environments: { '*': { TheClass: TemporalEntity } },
+        },
+      },
+    },
+    tree: {
+      versions: {
+        v1: {
+          environments: { '*': { TheClass: Tree } },
+        },
+      },
+    },
+    counter: {
+      versions: {
+        v1: {
+          environments: {
+            '*': {
+              TheClass: Counter,
+              flags: {
+                passFullUrl: false,  // false is the default but it's overridden in */*/* above
+              },
+            },
+          },
         },
       },
     },

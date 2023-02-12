@@ -187,6 +187,9 @@ export class Tree {
       const pathArray = url.pathname.split('/')
       if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
 
+      const type = pathArray.shift()
+      utils.throwUnless(type === 'tree', `Unrecognized type ${type}`, 404)
+
       const version = pathArray.shift()
       utils.throwUnless(version === 'v1', `Unrecognized version ${version}`, 404)
 

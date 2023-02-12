@@ -53,9 +53,9 @@ context('Concurrency Experimenter', () => {
 
   async function post() {
     if (idString == null) {
-      response = await encodeFetchAndDecode('/api/experimenter/experimenter/v1', { method: 'POST' })
+      response = await encodeFetchAndDecode('/api/do/experimenter/v1', { method: 'POST' })
     } else {
-      response = await encodeFetchAndDecode(`/api/experimenter/experimenter/v1/${idString}`, { method: 'POST' })
+      response = await encodeFetchAndDecode(`/api/do/experimenter/v1/${idString}`, { method: 'POST' })
     }
     if (response.status >= 500) {
     } else {
@@ -66,7 +66,7 @@ context('Concurrency Experimenter', () => {
 
   async function getAndCheck() {
     // if (idString != null) {
-      response = await encodeFetchAndDecode(`/api/experimenter/experimenter/v1/${idString}`)
+      response = await encodeFetchAndDecode(`/api/do/experimenter/v1/${idString}`)
       if (response.status >= 400) {
         console.log('GET failed')
       } else {

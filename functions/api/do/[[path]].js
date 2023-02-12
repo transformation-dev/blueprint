@@ -2,10 +2,10 @@ import Debug from 'debug'
 import { Encoder } from 'cbor-x'
 import { getDebug } from '../../_utils'
 
-const debug = getDebug('blueprint:api:experimenter')  // TODO: Change this to the name of the package. Maybe pull that from package.json.
+const debug = getDebug('blueprint:api:do')
 const cborSC = new Encoder({ structuredClone: true })
 
-function findFirstID(pathArray) {
+function findFirstID(pathArray) {  // TODO: use the one from utils or _utils after we move it into cloudflare-do-utils
   for (const segment of pathArray) {
     if (/^[a-fA-F0-9]{64}$$/.test(segment)) {
       return segment
@@ -27,9 +27,9 @@ export async function onRequest({ request, env, params }) {
 
   let id
   if (idString) {
-    id = env.COUNTER.idFromString(idString)
+    id = env.DO_API.idFromString(idString)
   } else {
-    id = ['production', 'preview'].includes(env.CF_ENV) ? env.COUNTER.newUniqueId() : env.COUNTER.idFromName(crypto.randomUUID()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
+    id = ['production', 'preview'].includes(env.CF_ENV) ? env.DO_API.newUniqueId() : env.DO_API.idFromName(crypto.randomUUID()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
   }
 
   // build the url to be passed to the durable object
@@ -37,10 +37,10 @@ export async function onRequest({ request, env, params }) {
   if (params.path) url = `http://fake.host/${params.path.join('/')}`
   debug('url to pass to durable object: %O', url)
 
-  const entityStub = env.COUNTER.get(id)
+  const entityStub = env.DO_API.get(id)
   const response = await entityStub.fetch(url, request)
   if (response.status >= 400) {
-    debug('DURABLE_OBJECT.fetch() to %O failed with status: %O', url, response.status)  // TODO: replace 'DURABLE_OBJECT' with the durable object's name
+    debug('DO_API.fetch() to %O failed with status: %O', url, response.status)  // TODO: replace 'DURABLE_OBJECT' with the durable object's name
     const responseClone = response.clone()
     if (responseClone.headers.get('Content-Type') === 'application/cbor-sc') {
       const ab = await responseClone.arrayBuffer()

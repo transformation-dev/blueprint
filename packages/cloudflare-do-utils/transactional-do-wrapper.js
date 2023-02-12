@@ -31,6 +31,7 @@ export class TransactionalDOWrapperBase {
   }
 
   async fetch(request) {
+    console.log('TransactionalDOWrapperBase.fetch() called')
     // I'm relying upon the built-in input gating to prevent concurrent requests from starting before this one finishes.
     // However, it's unclear to me how exactly this works just reading the docs and posts about it. However, one thing
     // mentioned is that it kicks in once there is a storage operation, so we do a storage operation right away to rehydrate
@@ -41,6 +42,8 @@ export class TransactionalDOWrapperBase {
     const pathArray = url.pathname.split('/')
     // debug('pathArray', pathArray)
     if (pathArray[0] === '') pathArray.shift()  // deal with leading slash
+
+    // pull type/version from url and validate
     const type = pathArray.shift()
     if (this.constructor.types[type] == null) {
       return this.respondEarly(`Type ${type} not found`, { status: 404 })
@@ -52,22 +55,43 @@ export class TransactionalDOWrapperBase {
     if (this.constructor.types[type].versions[version] == null) {
       return this.respondEarly(`Version ${version} for type ${type} not found`, { status: 404 })
     }
-    const environment = this.env.CF_ENV || 'default'
-    const TheClass = this.constructor.types[type].versions[version].environments[environment]
-    if (TheClass == null) {
-      return this.respondEarly(`Environment ${environment} for version ${version} for type ${type} not found`, { status: 404 })
+
+    // set the options by combining the default options with the options for the specific type/version/environment
+    const environment = this.env.CF_ENV || '*'
+    const options = {}
+    const defaultOptions = this.constructor.types['*'].versions['*'].environments['*'] || {}
+    const lookedUpOptions = this.constructor.types[type].versions[version].environments[environment] || {}
+    const keys = new Set([...Reflect.ownKeys(defaultOptions), ...Reflect.ownKeys(lookedUpOptions)])
+    for (const key of keys) {
+      options[key] = lookedUpOptions[key] ?? defaultOptions[key]
+    }
+
+    if (options.TheClass == null) {
+      return this.respondEarly(`TheClass for type/version/environment ${type}/${version}/${environment} or */*/* not found`, { status: 404 })
+    }
+
+    console.log('options: %O', options)
+
+    let requestToPassToWrappedDO
+    if (options.flags.passFullUrl) {
+      requestToPassToWrappedDO = request
+    } else {
+      const urlToPassToWrappedDO = `http://fake.host/${pathArray.join('/')}`
+      console.log('urlToPassToWrappedDO', urlToPassToWrappedDO)
+      requestToPassToWrappedDO = new Request(urlToPassToWrappedDO, request)
     }
 
     let response
     try {
       response = await this.state.storage.transaction(async (txn) => {
         const alteredState = { ...this.state, storage: txn }
-        if (this.classInstance == null) this.classInstance = new TheClass(alteredState, this.env)
+        if (this.classInstance == null) this.classInstance = new options.TheClass(alteredState, this.env)
         else this.classInstance.state = alteredState  // Must reset this for each transaction. Means the DO must use this.state
-        const responseInsideTransaction = await this.classInstance.fetch(request)
+        const responseInsideTransaction = await this.classInstance.fetch(requestToPassToWrappedDO)
         if (responseInsideTransaction.status >= 400) {
           txn.rollback()  // explicit rollback whenever there is a non-2xx, non-3xx response
           this.classInstance = null  // reset the class instance so all memory will be rehydrated from storage on next request
+          console.log('Rolling back transaction. Status code: %s', responseInsideTransaction.status)
         } else if (this.transactionalWrapperMeta == null) {
           // This next section checks to see if the DO is using any storage.
           // This preserves the Cloudflare behavior that a DO doesn't survive unless it has storage.

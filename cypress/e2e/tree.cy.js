@@ -59,7 +59,7 @@ context('Tree', () => {
     }
 
     cy.wrap(null).then(async () => {
-      let response = await encodeFetchAndDecode('/api/tree/v1', options)
+      let response = await encodeFetchAndDecode('/api/do/tree/v1', options)
       expect(response.status).to.eq(201)
       expect(response.headers.get('Content-Type')).to.eq('application/cbor-sc')
 
@@ -71,11 +71,11 @@ context('Tree', () => {
       expect(response.headers.get('ETag')).to.eq(meta.eTag)
 
       cy.wrap(null).then(async () => {
-        const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children***/v1/0`, { method: 'OPTIONS' })  // TODO: move this to a different test
+        const response = await encodeFetchAndDecode(`/api/do/tree/v1/${idString}/node/***test-has-children***/v1/0`, { method: 'OPTIONS' })  // TODO: move this to a different test
         expect(response.status).to.eq(405)
 
         cy.wrap(null).then(async () => {
-          const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children***/v1/0`, undefined)
+          const response = await encodeFetchAndDecode(`/api/do/tree/v1/${idString}/node/***test-has-children***/v1/0`, undefined)
           expect(response.status).to.eq(200)
           expect(response.CBOR_SC.idString).to.eq('0')
           
@@ -89,18 +89,18 @@ context('Tree', () => {
             body: { addNode: { newNode, parent: '0' }, userID: 'userX' },
           }
           cy.wrap(null).then(async () => {
-            const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}`, options)
+            const response = await encodeFetchAndDecode(`/api/do/tree/v1/${idString}`, options)
             expect(response.status).to.eq(201)
             expect(response.CBOR_SC.meta.nodeCount).to.eq(2)
 
             cy.wrap(null).then(async () => {
-              const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children***/v1/0`, undefined)
+              const response = await encodeFetchAndDecode(`/api/do/tree/v1/${idString}/node/***test-has-children***/v1/0`, undefined)
               expect(response.status).to.eq(200)
 
               expect(response.CBOR_SC.meta.children.has('1')).to.be.true
 
               cy.wrap(null).then(async () => {
-                const response = await encodeFetchAndDecode(`/api/tree/v1/${idString}/node/***test-has-children-and-parents***/v1/1`, undefined)
+                const response = await encodeFetchAndDecode(`/api/do/tree/v1/${idString}/node/***test-has-children-and-parents***/v1/1`, undefined)
                 expect(response.status).to.eq(200)
                 expect(response.CBOR_SC.meta.parents.has('0')).to.be.true
               })
