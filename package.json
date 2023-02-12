@@ -69,7 +69,7 @@
     "@transformation-dev/dragster": "file:packages/dragster",
     "@transformation-dev/svelte-realtime-store": "file:packages/svelte-realtime-store",
     "@transformation-dev/svelte-viewstate-store": "file:packages/svelte-viewstate-store",
-    "cbor-x": "1.5.1",
+    "cbor-x": "1.4.1",
     "debug": "^4.3.3",
     "nanoid": "^3.3.4",
     "sort-on": "^5.0.0",

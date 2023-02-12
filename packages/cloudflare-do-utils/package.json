@@ -29,6 +29,6 @@
     "url": "https://github.com/transformation-dev/blueprint/issues"
   },
   "dependencies": {
-    "cbor-x": "^1.5.1"
+    "cbor-x": "1.4.1"
   }
 }
