@@ -3,6 +3,9 @@ name = "transformation-durable_objects"
 # type = "javascript"
 main = "index.mjs"
 
+[vars]
+DEBUG = "blueprint:*"
+
 [durable_objects]
 bindings = [
   # {name = "COUNTER", class_name = "Counter"},

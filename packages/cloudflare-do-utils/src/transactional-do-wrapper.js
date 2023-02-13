@@ -1,11 +1,9 @@
-// 3rd party imports
-// import Debug from 'debug'
-
 // local imports
 import * as responseMixin from './response-mixin.js'
+import { getDebug, Debug } from './debug.js'
 
 // initialize imports
-// const debug = utils.getDebug('blueprint:tree')
+const debug = getDebug('blueprint:transactional-do-wrapper')
 
 export class TransactionalDOWrapperBase {
   async hydrate() {
@@ -21,6 +19,8 @@ export class TransactionalDOWrapperBase {
   }
 
   constructor(state, env) {
+    console.log('env', env)
+    Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
 
@@ -40,7 +40,7 @@ export class TransactionalDOWrapperBase {
     await this.hydrate()
     const url = new URL(request.url)
     const pathArray = url.pathname.split('/')
-    // debug('pathArray', pathArray)
+    debug('pathArray', pathArray)
     if (pathArray[0] === '') pathArray.shift()  // deal with leading slash
 
     // pull type/version from url and validate

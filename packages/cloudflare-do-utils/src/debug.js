@@ -1,7 +1,7 @@
 // 3rd party imports
 import Debug from 'debug'
 
-const getDebug = (name, delay = 50) => {
+function getDebug(name, delay = 50) {
   const debugRaw = Debug(name)
   let quiescent = true
   let theTimeout
