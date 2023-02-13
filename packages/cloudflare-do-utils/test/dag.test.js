@@ -1,5 +1,5 @@
 import test from 'tape'
-import { throwIfNotDag } from '../throws.js'
+import { throwIfNotDag } from '../src/throws.js'
 
 test('throwIfNotDag should not throw', (t) => {
   t.doesNotThrow(

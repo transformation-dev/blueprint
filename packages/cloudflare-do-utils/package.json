@@ -1,6 +1,6 @@
 {
   "name": "@transformation-dev/cloudflare-do-utils",
-  "version": "0.0.1",
+  "version": "0.6.0",
   "description": "Utilities for working with Cloudflare's Durable Objects",
   "keywords": [
     "cloudflare",
