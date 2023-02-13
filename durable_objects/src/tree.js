@@ -1,18 +1,17 @@
 /* eslint-disable no-param-reassign */  // safe because durable objects are airgapped so to speak
 
-// 3rd party imports
-import Debug from 'debug'
-
 // monorepo imports
-import { responseMixin } from '@transformation-dev/cloudflare-do-utils'
+import {
+  responseMixin, throwIf, throwUnless, isIDString, getUUID, throwIfMediaTypeHeaderInvalid,
+  throwIfAcceptHeaderInvalid, decodeCBORSC, getIDStringFromInput, extractETag, getDebug, Debug,
+} from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
-import * as utils from './utils.js'
 import { TemporalEntity } from './temporal-entity.js'
 import { TemporalEntityBase } from './temporal-entity-base.js'
 
 // initialize imports
-const debug = utils.getDebug('blueprint:tree')
+const debug = getDebug('blueprint:tree')
 
 /*
 
@@ -114,7 +113,7 @@ export class Tree {
     debug('this.hydrated: %O', this.hydrated)
     if (this.hydrated) return
 
-    utils.throwUnless(this.idString, 'Entity id is required', 404)
+    throwUnless(this.idString, 'Entity id is required', 404)
 
     const defaultTreeMeta = {
       nodeCount: 0,
@@ -129,10 +128,10 @@ export class Tree {
   }
 
   deriveValidFrom(validFrom) {  // this is different from the one in TemporalEntity
-    utils.throwUnless(this.hydrated, 'hydrate() must be called before deriveValidFrom()')
+    throwUnless(this.hydrated, 'hydrate() must be called before deriveValidFrom()')
     let validFromDate
     if (validFrom != null) {
-      utils.throwIf(this.treeMeta.lastValidFrom && validFrom <= this.treeMeta.lastValidFrom, 'the provided validFrom for a Tree update is not greater than the last validFrom')
+      throwIf(this.treeMeta.lastValidFrom && validFrom <= this.treeMeta.lastValidFrom, 'the provided validFrom for a Tree update is not greater than the last validFrom')
       validFromDate = new Date(validFrom)
     } else {
       validFromDate = new Date()
@@ -156,16 +155,16 @@ export class Tree {
     debug('throwIfIDInAncestry parentIDString: %O  childIDString: %O', parent.idString, childIDString)
     if (pathFromAncestorToNewChild == null || pathFromAncestorToNewChild.length === 0) {
       pathFromAncestorToNewChild = [childIDString]
-      utils.throwIf(parent.idString === childIDString, `Cannot create a branch from ${childIDString} to itself`, 409)
+      throwIf(parent.idString === childIDString, `Cannot create a branch from ${childIDString} to itself`, 409)
     }
     pathFromAncestorToNewChild.unshift(parent.idString)
     const response = await parent.get()
     const status = response[1]
-    utils.throwIf(status !== 200, `Could not get parent ${parent.idString}`, status)
+    throwIf(status !== 200, `Could not get parent ${parent.idString}`, status)
     const { parents } = response[0].meta
     if (status === 200 && parents != null && parents.size > 0) {
       for (const p of parents) {
-        utils.throwIf(
+        throwIf(
           p === childIDString,
           `Adding this branch would create a cycle from ${p} down through path ${pathFromAncestorToNewChild}`,
           409,
@@ -188,12 +187,12 @@ export class Tree {
       if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
 
       const type = pathArray.shift()
-      utils.throwUnless(type === 'tree', `Unrecognized type ${type}`, 404)
+      throwUnless(type === 'tree', `Unrecognized type ${type}`, 404)
 
       const version = pathArray.shift()
-      utils.throwUnless(version === 'v1', `Unrecognized version ${version}`, 404)
+      throwUnless(version === 'v1', `Unrecognized version ${version}`, 404)
 
-      if (utils.isIDString(pathArray[0])) {
+      if (isIDString(pathArray[0])) {
         this.idString = pathArray.shift()  // remove the ID
       } else {
         this.idString = this.state?.id?.toString()
@@ -214,10 +213,10 @@ export class Tree {
       switch (restOfPath) {
         case '/':
           if (this[request.method] != null) return this[request.method](request)
-          return utils.throwIf(true, `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
+          return throwIf(true, `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
 
         default:
-          return utils.throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
+          return throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
       }
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate
@@ -227,12 +226,12 @@ export class Tree {
 
   async post({ rootNode, userID, validFrom, impersonatorID }) {
     const { value, type, version } = rootNode
-    utils.throwUnless(value && type && version, 'body.rootNode with value, type, and version required when Tree is create')
-    utils.throwUnless(userID, 'userID required by Tree operation is missing')
+    throwUnless(value && type && version, 'body.rootNode with value, type, and version required when Tree is create')
+    throwUnless(userID, 'userID required by Tree operation is missing')
 
     await this.hydrate()
 
-    utils.throwUnless(this.treeMeta.nodeCount === 0, `POST can only be called once but nodeCount is ${this.treeMeta.nodeCount}`)
+    throwUnless(this.treeMeta.nodeCount === 0, `POST can only be called once but nodeCount is ${this.treeMeta.nodeCount}`)
 
     // Set validFrom and validFromDate
     validFrom = this.deriveValidFrom(validFrom).validFrom
@@ -246,7 +245,7 @@ export class Tree {
     this.treeMeta.userID = userID
     this.treeMeta.validFrom = validFrom
     this.treeMeta.lastValidFrom = validFrom
-    this.treeMeta.eTag = utils.getUUID(this.env)
+    this.treeMeta.eTag = getUUID(this.env)
     if (impersonatorID != null) this.treeMeta.impersonatorID = impersonatorID
     await this.state.storage.put(`${this.idString}/treeMeta`, this.treeMeta)
 
@@ -256,8 +255,8 @@ export class Tree {
 
   async POST(request) {
     try {
-      utils.throwIfMediaTypeHeaderInvalid(request)
-      const options = await utils.decodeCBORSC(request)
+      throwIfMediaTypeHeaderInvalid(request)
+      const options = await decodeCBORSC(request)
       const [treeMeta, status] = await this.post(options)
       return this.getResponse(treeMeta, status)
     } catch (e) {
@@ -269,15 +268,15 @@ export class Tree {
   async patchAddNode({ addNode, userID, validFrom, impersonatorID }) {
     const { newNode, parent } = addNode
     const { value, type, version } = newNode
-    utils.throwUnless(value && type && version, 'body.node with value, type, and version required when Tree PATCH addNode is called')
-    utils.throwUnless(userID, 'userID required by Tree operation is missing')
+    throwUnless(value && type && version, 'body.node with value, type, and version required when Tree PATCH addNode is called')
+    throwUnless(userID, 'userID required by Tree operation is missing')
     // TODO: throw unless the new node type allows for parents and children
 
     await this.hydrate()
 
     const parentIDNumber = Number(parent)
     if (!Number.isNaN(parentIDNumber)) {
-      utils.throwIf(  // TODO: add this check elsewhere
+      throwIf(  // TODO: add this check elsewhere
         parentIDNumber < 0 || parentIDNumber > this.treeMeta.nodeCount,
         `${parent} TemporalEntity not found`,
         404,
@@ -295,7 +294,7 @@ export class Tree {
     // Update treeMeta
     this.treeMeta.nodeCount++
     this.treeMeta.lastValidFrom = validFrom
-    this.treeMeta.eTag = utils.getUUID(this.env)
+    this.treeMeta.eTag = getUUID(this.env)
     await this.state.storage.put(`${this.idString}/treeMeta`, this.treeMeta)
 
     const responseFromGet = await this.get()
@@ -318,16 +317,16 @@ export class Tree {
     const { parent, child } = branch
     let { operation } = branch
     if (operation == null) operation = 'add'
-    utils.throwUnless(parent.toString() && child.toString(), 'body.branch with parent and child required when Tree PATCH patchBranch is called')
-    if (operation != null) utils.throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
+    throwUnless(parent.toString() && child.toString(), 'body.branch with parent and child required when Tree PATCH patchBranch is called')
+    if (operation != null) throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
 
-    const [parentIDString, parentTemporalEntityOrIDString, parentValidFrom] = utils.getIDStringFromInput(parent)
-    const [childIDString, childTemporalEntityOrIDString, childValidFrom] = utils.getIDStringFromInput(child)
+    const [parentIDString, parentTemporalEntityOrIDString, parentValidFrom] = getIDStringFromInput(parent)
+    const [childIDString, childTemporalEntityOrIDString, childValidFrom] = getIDStringFromInput(child)
     if (parentValidFrom != null && parentValidFrom > validFrom) validFrom = parentValidFrom
     if (childValidFrom != null && childValidFrom > validFrom) validFrom = childValidFrom
 
     if (operation === 'add') {
-      utils.throwIf(parentIDString === childIDString, 'parent and child cannot be the same')
+      throwIf(parentIDString === childIDString, 'parent and child cannot be the same')
       await this.throwIfIDInAncestry(parentTemporalEntityOrIDString, childIDString)
     }
 
@@ -379,7 +378,7 @@ export class Tree {
       nodeTE.current.meta[metaFieldToAddTo][operation](valueToAdd)
       await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`, nodeTE.current)
     } else {
-      utils.throwIf(true, `${metaFieldToAddTo === 'children' ? 'parent' : 'child'} must be a string or a TemporalEntity`)
+      throwIf(true, `${metaFieldToAddTo === 'children' ? 'parent' : 'child'} must be a string or a TemporalEntity`)
     }
 
     return nodeTE
@@ -387,12 +386,12 @@ export class Tree {
 
   // eslint-disable-next-line no-unused-vars
   async patch(options, eTag) {  // Maybe we'll use eTag on some other patch operation?
-    utils.throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
+    throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
 
     if (options.addNode != null) return this.patchAddNode(options)
     if (options.branch != null) return this.patchBranch(options)  // does not use eTag because it's idempotent
 
-    return utils.throwIf(
+    return throwIf(
       true,
       'Malformed PATCH on Tree. Body must include valid operation: addNode, branch, etc.',
       400,
@@ -401,9 +400,9 @@ export class Tree {
 
   async PATCH(request) {
     try {
-      utils.throwIfMediaTypeHeaderInvalid(request)
-      const options = await utils.decodeCBORSC(request)
-      const eTag = utils.extractETag(request)
+      throwIfMediaTypeHeaderInvalid(request)
+      const options = await decodeCBORSC(request)
+      const eTag = extractETag(request)
       const [treeMeta, status] = await this.patch(options, eTag)
       return this.getResponse(treeMeta, status)
     } catch (e) {
@@ -423,8 +422,8 @@ export class Tree {
 
   async GET(request) {
     try {
-      utils.throwIfAcceptHeaderInvalid(request)
-      const eTag = utils.extractETag(request)
+      throwIfAcceptHeaderInvalid(request)
+      const eTag = extractETag(request)
       const [response, status] = await this.get(eTag)
       if (status === 304) return this.getStatusOnlyResponse(304)
       return this.getResponse(response)
