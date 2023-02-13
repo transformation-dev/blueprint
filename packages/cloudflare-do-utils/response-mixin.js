@@ -1,6 +1,5 @@
-import { Encoder } from 'cbor-x'
-
-const cborSC = new Encoder({ structuredClone: true })
+// local imports
+import { encodeCBORSC } from './cbor.js'
 
 export const responseMixin = {
   getResponse(body, status = 200, statusText = undefined) {
@@ -15,7 +14,7 @@ export const responseMixin = {
     if (body && typeof body === 'object') {
       const newBody = structuredClone(body)
       newBody.idString = this.idString
-      return new Response(cborSC.encode(newBody), { status, headers })
+      return new Response(encodeCBORSC(newBody), { status, headers })
     }
     return new Response(undefined, { status, headers })
   },

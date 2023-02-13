@@ -1,5 +1,4 @@
-// eslint-disable-next-line no-unused-vars
-import * as utils from './utils.js'  // so you can use throwIfNotDag, throwIf, throwUnless, etc. in validation
+// import { throwIfNotDag, throwIf, throwUnless } from '@transformation-dev/cloudflare-do-utils'  // so you can use them in validation
 
 export default {
   '***test-type-in-subclass***': {

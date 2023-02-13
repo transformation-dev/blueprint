@@ -22,13 +22,25 @@
     "type": "git",
     "url": "git+https://github.com/transformation-dev/blueprint.git#master"
   },
+  "directories": {
+    "test": "test"
+  },
   "scripts": {
-    "test": "echo \"no tests yet\""
+    "test": "for file in test/*; do node --enable-source-maps $file | tap-spec; done",
+    "test:current": "node --enable-source-maps test/dag.test.js | tap-spec",
+    "coverage": "c8 npm run test",
+    "coverage:report": "c8 report --reporter=html"
   },
   "bugs": {
     "url": "https://github.com/transformation-dev/blueprint/issues"
   },
   "dependencies": {
-    "cbor-x": "1.4.1"
+    "@transformation-dev/accept": "file:packages/accept",
+    "cbor-x": "1.4.1",
+    "debug": "^4.3.4"
+  },
+  "devDependencies": {
+    "tape": "^5.6.3",
+    "tap-spec": "^5.0.0"
   }
 }

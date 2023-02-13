@@ -1,8 +1,5 @@
 // mono-repo imports
-import { responseMixin } from '@transformation-dev/cloudflare-do-utils'
-
-// local imports
-import * as utils from './utils.js'
+import { responseMixin, HTTPError } from '@transformation-dev/cloudflare-do-utils'
 
 export class Experimenter {
   async hydrate() {
@@ -34,7 +31,7 @@ export class Experimenter {
         this.value = Math.random()
         this.state.storage.put('value', this.value)
         // if (Math.random() < 0.25) throw new Error('Random error thrown')
-        if (Math.random() < 0.25) return this.getErrorResponse(new utils.HTTPError('Random error response', 400))
+        if (Math.random() < 0.25) return this.getErrorResponse(new HTTPError('Random error response', 400))
         await this.state.storage.put('twiceValue', this.value * 2)
         this.twiceValue = this.value * 2
         return this.getResponse({ value: this.value, twiceValue: this.twiceValue })
