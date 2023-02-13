@@ -34,5 +34,6 @@ module.exports = {
     'max-classes-per-file': 'off',
     'import/no-extraneous-dependencies': ['error', { devDependencies: true, optionalDependencies: false }],
     'object-curly-newline': 'off',
+    'space-before-function-paren': 'off',
   },
 }

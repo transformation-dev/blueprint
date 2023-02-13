@@ -1,57 +1,6 @@
-import Debug from 'debug'
-import { Encoder } from 'cbor-x'
-import { getDebug } from '../../_utils'
+// monorepo imports
+import { pagesDOProxy } from '@transformation-dev/cloudflare-do-utils'
 
-const debug = getDebug('blueprint:api:do')
-const cborSC = new Encoder({ structuredClone: true })
+const onRequest = pagesDOProxy('DO_API')
 
-function findFirstID(pathArray) {  // TODO: use the one from utils or _utils after we move it into cloudflare-do-utils
-  for (const segment of pathArray) {
-    if (/^[a-fA-F0-9]{64}$$/.test(segment)) {
-      return segment
-    }
-  }
-  return null
-}
-
-export async function onRequest({ request, env, params }) {
-  Debug.enable(env.DEBUG)
-  debug('%s %s', request.method, request.url)
-
-  // If there is no id in the URL, then we randomly generate one. You needn't worry that this will create orphaned durable objects
-  // because if a durable object has no stored data, it ceases to exist as soon as it leaves memory.
-  // So, if the call is malformed or doesn't store anything, then the orphaned durable object will be short lived.
-  // Good practice is to do all of your validation and only store data once you are certain it's a valid request.
-  let idString
-  if (params.path) idString = findFirstID(params.path)
-
-  let id
-  if (idString) {
-    id = env.DO_API.idFromString(idString)
-  } else {
-    id = ['production', 'preview'].includes(env.CF_ENV) ? env.DO_API.newUniqueId() : env.DO_API.idFromName(crypto.randomUUID()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
-  }
-
-  // build the url to be passed to the durable object
-  let url = 'http://fake.host/'
-  if (params.path) url = `http://fake.host/${params.path.join('/')}`
-  debug('url to pass to durable object: %O', url)
-
-  const entityStub = env.DO_API.get(id)
-  const response = await entityStub.fetch(url, request)
-  if (response.status >= 400) {
-    debug('DO_API.fetch() to %O failed with status: %O', url, response.status)  // TODO: replace 'DURABLE_OBJECT' with the durable object's name
-    const responseClone = response.clone()
-    if (responseClone.headers.get('Content-Type') === 'application/cbor-sc') {
-      const ab = await responseClone.arrayBuffer()
-      if (ab) {
-        const u8a = new Uint8Array(ab)
-        const o = cborSC.decode(u8a)
-        debug('Error body:\n%O', o)
-      }
-    } else if (responseClone.headers.get('Content-Type') === 'application/json') {
-      debug('Error body:\n%O', await responseClone.text())
-    }
-  }
-  return response
-}
+export { onRequest }

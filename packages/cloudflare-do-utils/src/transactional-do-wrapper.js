@@ -19,7 +19,6 @@ export class TransactionalDOWrapperBase {
   }
 
   constructor(state, env) {
-    console.log('env', env)
     Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
