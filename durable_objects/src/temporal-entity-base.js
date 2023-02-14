@@ -3,7 +3,6 @@
 
 // 3rd party imports
 import { diff } from 'deep-object-diff'
-import { parse as yamlParse } from 'yaml'
 import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 
 // monorepo imports
@@ -13,11 +12,10 @@ import {
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
-import testDagSchemaV1String from './schemas/***test-dag***.v1.yaml'
+import testDagSchemaV1 from './schemas/***test-dag***.v1.yaml'
 
 // initialize imports
 const debug = getDebug('blueprint:temporal-entity')
-const testDagSchemaV1 = yamlParse(testDagSchemaV1String)
 
 // The DurableObject storage API has no way to list just the keys so we have to keep track of all the
 // validFrom dates manually and store them under a key entityMeta.timeline

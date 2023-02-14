@@ -22,12 +22,12 @@
     "@transformation-dev/accept": "file:packages/accept",
     "@transformation-dev/cloudflare-do-utils": "file:packages/cloudflare-do-utils",
     "deep-object-diff": "^1.1.9",
-    "nanoid": "^4.0.0",
-    "yaml": "^2.2.1"
+    "nanoid": "^4.0.0"
   },
   "devDependencies": {
     "chokidar": "^3.5.3",
     "esbuild": "^0.17.2",
+    "esbuild-plugin-yaml": "^0.0.1",
     "supports-color": "^9.3.1",
     "tap-spec": "^5.0.0",
     "tape": "^5.6.1",

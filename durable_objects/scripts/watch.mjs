@@ -10,8 +10,8 @@ async function rebuild(event, path) {
   else console.log(`${event} changed. rebuilding...`)
   try {
     const result = await context.rebuild()
-    console.log('success!')
-    console.log('warnings: ', result.warnings, '\n')
+    if (result.warnings.length > 0) console.log('Build succeeded but there were warnings :-(', '\n')
+    else console.log('success!')
   } catch (e) {
     // console.log('rebuild failed: ', e.message)  // not needed because esbuild prints the error
   }
@@ -31,6 +31,7 @@ const watcher = chokidar.watch('.', {
     'index.mjs.map',
     '.c8rc.json',
     'watch.mjs',
+    'scripts',
   ],
 })
 watcher.on('change', rebuild)

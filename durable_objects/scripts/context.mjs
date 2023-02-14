@@ -1,4 +1,7 @@
 import * as esbuild from 'esbuild'
+import pluginYaml from 'esbuild-plugin-yaml'
+
+const { yamlPlugin } = pluginYaml
 
 export default await esbuild.context({
   entryPoints: ['src/index.js'],
@@ -7,7 +10,10 @@ export default await esbuild.context({
   bundle: true,
   format: 'esm',
   target: 'esnext',
-  loader: {
-    '.yaml': 'text',
-  },
+  // loader: {
+  //   '.yaml': 'text',
+  // },
+  plugins: [
+    yamlPlugin(),  // TODO: Now that this works, need to stop parsing yaml in the DO code
+  ],
 })
