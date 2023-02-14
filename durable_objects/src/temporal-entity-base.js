@@ -12,7 +12,7 @@ import {
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
-import testDagSchemaV1 from './schemas/***test-dag***.v1.yaml'
+import testDagSchemaV1 from './schemas/***test-dag***.v1.yaml'  // uses esbuild plugin esbuild-plugin-yaml to inline
 
 // initialize imports
 const debug = getDebug('blueprint:temporal-entity')
@@ -199,10 +199,8 @@ const debug = getDebug('blueprint:temporal-entity')
  *
  *     import { TemporalEntityBase } from '@transformation-dev/temporal-entity'
  *     import { throwIfNotDag } from '@transformation-dev/cloudflare-do-utils'
- *     import { parse as yamlParse } from 'yaml'
  *
- *     import widgetSchemaV1String from './schemas/widget.v1.yaml'  // example of an external schema in YAML
- *     const widgetSchemaV1 = yamlParse(widgetSchemaV1String)
+ *     import widgetSchemaV1 from './schemas/widget.v1.yaml'  // use esbuild plugin esbuild-plugin-yaml to inline
  *
  *     export class Entity extends TemporalEntityBase {
  *
@@ -213,7 +211,7 @@ const debug = getDebug('blueprint:temporal-entity')
  *             v1: {  // each version must start with 'v' but you can use anything after that
  *               supressPreviousValues: true,     // defaults to false if not specified
  *               granularity: 'minute',           // defaults to 'hour' if not specified
- *               schema: widgetSchema,
+ *               schema: widgetSchemaV1,
  *               additionalValidation(value) {
  *                 throwIfNotDag(value.dag)
  *               },

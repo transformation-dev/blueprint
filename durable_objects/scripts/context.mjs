@@ -14,6 +14,6 @@ export default await esbuild.context({
   //   '.yaml': 'text',
   // },
   plugins: [
-    yamlPlugin(),  // TODO: Now that this works, need to stop parsing yaml in the DO code
+    yamlPlugin(),
   ],
 })
