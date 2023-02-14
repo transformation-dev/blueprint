@@ -1,8 +1,12 @@
 // mono-repo imports
-import { responseMixin, HTTPError } from '@transformation-dev/cloudflare-do-utils'
+import { responseMixin, HTTPError, Debug, getDebug } from '@transformation-dev/cloudflare-do-utils'
+
+// intialize imports
+const debug = getDebug('blueprint:durable-objects:experimenter-v2')
 
 export class ExperimenterV2 {
   async hydrate() {
+    debug('hydrate()')
     if (this.hydrated) return
     this.value = await this.state.storage.get('value')
     this.twiceValue = await this.state.storage.get('twiceValue')
@@ -10,6 +14,7 @@ export class ExperimenterV2 {
   }
 
   constructor(state, env) {
+    Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
 
@@ -20,6 +25,8 @@ export class ExperimenterV2 {
   }
 
   async fetch(request) {
+    debug('fetch()')
+    debug('%s %s', request.method, request.url)
     switch (request.method) {
       case 'GET': {
         await this.hydrate()

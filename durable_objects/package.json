@@ -9,8 +9,8 @@
   },
   "scripts": {
     "publish": "npm run build && npx wrangler publish",
-    "build": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm --target=esnext --bundle --loader:.yaml=text && npm run test",
-    "dev:watch": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm  --bundle --loader:.yaml=text --watch",
+    "build": "scripts/build.mjs && npm run test",
+    "dev:watch": "scripts/watch.mjs",
     "dev": "wrangler dev --local",
     "test": "for file in test/*; do node --enable-source-maps $file | tap-spec; done",
     "test:current": "node --enable-source-maps test/tree.test.js | tap-spec",
@@ -26,6 +26,7 @@
     "yaml": "^2.2.1"
   },
   "devDependencies": {
+    "chokidar": "^3.5.3",
     "esbuild": "^0.17.2",
     "supports-color": "^9.3.1",
     "tap-spec": "^5.0.0",

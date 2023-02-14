@@ -6,11 +6,10 @@ import { getDebug, Debug } from './debug.js'
 import { findFirstID } from './id-string.js'
 
 // intialize imports
-const debug = getDebug('blueprint:api:do')
+const debug = getDebug('blueprint:cloudflare-do-utils:pages-do-proxy')
 
 export function pagesDOProxy(doNameString) {
   async function onRequest({ request, env, params }) {
-    console.log('got here')
     Debug.enable(env.DEBUG)
     debug('%s %s', request.method, request.url)
 
