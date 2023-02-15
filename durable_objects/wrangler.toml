@@ -1,6 +1,5 @@
 compatibility_date = "2023-02-11"
 name = "transformation-durable_objects"
-# type = "javascript"
 main = "index.mjs"
 
 [vars]
@@ -8,9 +7,6 @@ DEBUG = "blueprint:*"
 
 [durable_objects]
 bindings = [
-  # {name = "COUNTER", class_name = "Counter"},
-  # {name = "TEMPORAL_ENTITY", class_name = "TemporalEntity"},
-  # {name = "TREE", class_name = "Tree"},
   {name = "DO_API", class_name = "DurableAPI"},
 ]
 
