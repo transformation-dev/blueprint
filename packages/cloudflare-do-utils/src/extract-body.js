@@ -2,7 +2,7 @@
 import { deserialize as deserializeUngapSC } from '@ungap/structured-clone'
 
 // local imports
-import { decodeCBORSC } from './cbor'
+import { deserialize } from './serialization'
 
 export async function extractBody(r, clone = false) {
   let rToWorkOn
@@ -11,7 +11,7 @@ export async function extractBody(r, clone = false) {
   const contentType = rToWorkOn.headers.get('Content-Type')
   console.log('Content-Type:', contentType)
   if (contentType === 'application/cbor-sc') {
-    return decodeCBORSC(rToWorkOn)
+    return deserialize(rToWorkOn)
   } else if (contentType === 'application/json') {
     return rToWorkOn.json()
   } else if (contentType === 'application/vnd.ungap.structured-clone+json') {

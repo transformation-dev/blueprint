@@ -1,9 +1,9 @@
 // local imports
-import { encodeCBORSC } from './cbor.js'
+import { serialize } from './serialization.js'
 
 export const responseMixin = {
-  getResponse(body, status = 200, statusText = undefined) {
-    const headers = new Headers({ 'Content-Type': 'application/cbor-sc' })
+  getResponse(body, status = 200, statusText = undefined, contentType = 'application/cbor-sc') {
+    const headers = new Headers()
     headers.set('Content-ID', this.idString)
     if (this.current?.meta?.eTag) headers.set('ETag', this.current.meta.eTag)  // for TemportalEntity
     if (this.treeMeta?.eTag) headers.set('ETag', this.treeMeta.eTag)  // for Tree
@@ -11,10 +11,13 @@ export const responseMixin = {
       const cleanedStatusText = statusText.replaceAll('\n', ' ')
       headers.set('Status-Text', cleanedStatusText)
     }
-    if (body && typeof body === 'object') {
+    if (body != null) headers.set('Content-Type', contentType)
+    if (ArrayBuffer.isView(body)) {
+      return new Response(body, { status, headers })
+    } else if (body != null && typeof body === 'object') {
       const newBody = structuredClone(body)
       newBody.idString = this.idString
-      return new Response(encodeCBORSC(newBody), { status, headers })
+      return new Response(serialize(newBody, contentType), { status, headers })
     }
     return new Response(undefined, { status, headers })
   },

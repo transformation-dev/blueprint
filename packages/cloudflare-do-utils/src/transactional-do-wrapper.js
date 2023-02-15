@@ -56,10 +56,10 @@ export class TransactionalDOWrapperBase {
     }
 
     // set the options by combining the default options with the options for the specific type/version/environment
-    const environment = this.env.CF_ENV || '*'
+    const environment = this.env.CF_ENV ?? '*'
     const options = {}
-    const defaultOptions = this.constructor.types['*'].versions['*'].environments['*'] || {}
-    const lookedUpOptions = this.constructor.types[type].versions[version].environments[environment] || {}
+    const defaultOptions = this.constructor.types['*'].versions['*'].environments['*'] ?? {}
+    const lookedUpOptions = this.constructor.types[type].versions[version].environments[environment] ?? {}
     const keys = new Set([...Reflect.ownKeys(defaultOptions), ...Reflect.ownKeys(lookedUpOptions)])
     for (const key of keys) {
       options[key] = lookedUpOptions[key] ?? defaultOptions[key]

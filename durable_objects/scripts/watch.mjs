@@ -27,7 +27,7 @@ await build()
 
 console.log('watching...\n')
 
-const watcher = chokidar.watch('.', {
+const watcher = chokidar.watch(['.', '../packages/cloudflare-do-utils'], {
   atomic: true,  // this doesn't seem to debounce even when I set it to 1000 on MacOS so I implemented my own above
   ignored: [
     'node_modules',
@@ -38,6 +38,8 @@ const watcher = chokidar.watch('.', {
     '.c8rc.json',
     'watch.mjs',
     'scripts',
+    '../packages/cloudflare-do-utils/node_modules',
+    '../packages/cloudflare-do-utils/test',
   ],
 })
 watcher.on('change', rebuild)

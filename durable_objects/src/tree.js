@@ -3,7 +3,7 @@
 // monorepo imports
 import {
   responseMixin, throwIf, throwUnless, isIDString, getUUID, throwIfMediaTypeHeaderInvalid,
-  throwIfAcceptHeaderInvalid, decodeCBORSC, getIDStringFromInput, extractETag, getDebug, Debug,
+  throwIfAcceptHeaderInvalid, deserialize, getIDStringFromInput, extractETag, getDebug, Debug,
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
@@ -256,7 +256,7 @@ export class Tree {
   async POST(request) {
     try {
       throwIfMediaTypeHeaderInvalid(request)
-      const options = await decodeCBORSC(request)
+      const options = await deserialize(request)
       const [treeMeta, status] = await this.post(options)
       return this.getResponse(treeMeta, status)
     } catch (e) {
@@ -401,7 +401,7 @@ export class Tree {
   async PATCH(request) {
     try {
       throwIfMediaTypeHeaderInvalid(request)
-      const options = await decodeCBORSC(request)
+      const options = await deserialize(request)
       const eTag = extractETag(request)
       const [treeMeta, status] = await this.patch(options, eTag)
       return this.getResponse(treeMeta, status)

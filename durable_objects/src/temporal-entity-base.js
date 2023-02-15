@@ -8,7 +8,7 @@ import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 // monorepo imports
 import {
   throwIf, throwUnless, isIDString, throwIfMediaTypeHeaderInvalid, throwIfContentTypeHeaderInvalid, throwIfNotDag,
-  throwIfAcceptHeaderInvalid, responseMixin, getUUID, decodeCBORSC, extractETag, applyDelta, getDebug, Debug,
+  throwIfAcceptHeaderInvalid, responseMixin, getUUID, deserialize, extractETag, applyDelta, getDebug, Debug,
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
@@ -449,7 +449,7 @@ export class TemporalEntityBase {
   async DELETE(request) {
     try {
       throwIfContentTypeHeaderInvalid(request)
-      const options = await decodeCBORSC(request)
+      const options = await deserialize(request)
       const status = await this.delete(options.userID, options.validFrom, options.impersonatorID)
       return this.getStatusOnlyResponse(status)
     } catch (e) {
@@ -541,7 +541,7 @@ export class TemporalEntityBase {
     try {
       throwIfMediaTypeHeaderInvalid(request)
       throwUnless(this.idString, 'Cannot PUT when there is no prior value')
-      const options = await decodeCBORSC(request)
+      const options = await deserialize(request)
       const eTag = extractETag(request)
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
       return this.getResponse(current, this.nextStatus)
@@ -628,7 +628,7 @@ export class TemporalEntityBase {
   async PATCH(request) {
     try {
       throwIfMediaTypeHeaderInvalid(request)
-      const options = await decodeCBORSC(request)
+      const options = await deserialize(request)
       const eTag = extractETag(request)
       const current = await this.patch(options, eTag)
       return this.getResponse(current)
