@@ -1,5 +1,5 @@
 // 3rd party imports
-import { deserialize as deserializeUngapSC } from '@ungap/structured-clone'
+import { deserialize as deserializeUngapSC } from '@ungap/structured-clone'  // TODO: Move this to serialization.js
 
 // local imports
 import { deserialize } from './serialization'

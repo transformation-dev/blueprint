@@ -7,7 +7,7 @@ import { HTTPError } from './http-error.js'
 // iniialize imports
 const cborSC = new Encoder({ structuredClone: true })
 
-export async function deserialize(request) {
+export async function deserialize(request, contentType) {  // TODO: Take a contentType argument
   try {
     const ab = await request.arrayBuffer()
     const u8a = new Uint8Array(ab)
@@ -19,7 +19,7 @@ export async function deserialize(request) {
   }
 }
 
-export function serialize(o) {
+export function serialize(o, contentType) {  // TODO: Take a contentType argument
   try {
     const u8a = cborSC.encode(o)
     return u8a
