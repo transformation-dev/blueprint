@@ -41,6 +41,8 @@
     "typescript.validate.enable": false,
     "cSpell.words": [
       "cbor",
-      "miniflare"
+      "cygnetdigital",
+      "miniflare",
+      "SENDGRID"
     ]
 }
