@@ -24,12 +24,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/transformation-dev/blueprint/tree/master/packages/dragster"
+    "url": "git+https://github.com/transformation-dev/blueprint.git#master"
   },
   "scripts": {
     "test": "echo \"Error: run tests from root\" && exit 1"
   },
   "bugs": {
     "url": "https://github.com/transformation-dev/blueprint/issues"
-  }
+  },
+  "devDependencies": {}
 }

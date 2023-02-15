@@ -9,7 +9,7 @@
   import BreadcrumbsPanel from './BreadcrumbsPanel.svelte'
 
   // @ts-ignore
-  import structuredClone from '@ungap/structured-clone'  // TODO: Remove this polyfill when it'll pass tests in GitHub Actions
+  // import structuredClone from '@ungap/structured-clone'  // TODO: Maybe remove but maybe keep because this exposes the serialization/deserialization
   import chevronLeft from 'svelte-awesome/icons/chevron-left'
   import close from 'svelte-awesome/icons/close'
   import Icon from 'svelte-awesome'
@@ -144,8 +144,8 @@
     <!-- Search bar -->
     <div id="search-bar" class="flex flex-row items-center">
       <div id="search-bubble" class="mis8 mbs8 mbe8 flex flex-fill items-center">
-        <input id="search-input" type="text" class="flex-fill p4 pis8" placeholder="Search" bind:value={searchString} />
-        <button id="collapse-tree" on:click={clearSearch} class="flex inherit-colors">
+        <input id="search-input" type="text" class="flex-fill p4 pis8 focus-link" placeholder="Search" bind:value={searchString} />
+        <button id="clear-search" on:click={clearSearch} class="flex inherit-colors">
           <Icon data={close} class="m8" />
         </button>
       </div>
@@ -198,6 +198,7 @@
     margin-top: 0px;
     background-color:var(--agnostic-gray-mid-dark);
     border-radius: 4px;
+    border: 0px;
     color: var(--agnostic-primary-light);
   }
 
@@ -205,6 +206,17 @@
     color: var(--agnostic-primary-light);
     background-color: inherit;
     border: 0px;
+  }
+
+  /* Focusing the button with a keyboard will show a focus ring. */
+  .focus-link:focus-visible {
+    outline: 3px var(--agnostic-primary-light);
+  }
+  
+  /* Focusing the button with a mouse, touch, or stylus will make it look like a button is down. */
+  .focus-link:focus:not(:focus-visible) {
+    outline: 0px;
+    box-shadow: inset 1px 1px 5px black;
   }
 
 </style>

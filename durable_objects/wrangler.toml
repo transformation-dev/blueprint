@@ -1,21 +1,17 @@
-compatibility_date = "2022-02-11"
-
+compatibility_date = "2023-02-11"
 name = "transformation-durable_objects"
-# type = "javascript" is required to use the `[build]` section
-type = "javascript"
-workers_dev = true
+# type = "javascript"
+main = "index.mjs"
 
-[build.upload]
-# Upload the code directly from the src directory.
-dir = "./"
-# The "modules" upload format is required for all projects that export a Durable Objects class
-format = "modules"
-main = "./index.mjs"
+[vars]
+DEBUG = "blueprint:*"
 
 [durable_objects]
 bindings = [
-  {name = "COUNTER", class_name = "Counter"},
-  {name = "COUNTER", class_name = "PreviewCounter"},
+  # {name = "COUNTER", class_name = "Counter"},
+  # {name = "TEMPORAL_ENTITY", class_name = "TemporalEntity"},
+  # {name = "TREE", class_name = "Tree"},
+  {name = "DO_API", class_name = "DurableAPI"},
 ]
 
 [[migrations]]
@@ -23,5 +19,21 @@ tag = "v1" # Should be unique for each entry
 new_classes = ["Counter"]
 
 [[migrations]]
-tag = "v2" # Should be unique for each entry
+tag = "v2"
 new_classes = ["PreviewCounter"]
+
+[[migrations]]
+tag = "v3"
+new_classes = ["TemporalEntity"]
+
+[[migrations]]
+tag = "v4"
+new_classes = ["Tree"]
+
+[[migrations]]
+tag = "v5"
+deleted_classes = ["PreviewCounter", "Counter", "TemporalEntity", "Tree"]
+
+[[migrations]]
+tag = "v6"
+new_classes = ["DurableAPI"]

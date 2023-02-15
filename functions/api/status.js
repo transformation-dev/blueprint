@@ -7,11 +7,13 @@ export async function onRequestGet({ request, env, params }) {
   Debug.enable(env.DEBUG)
   debug('onRequestGet() called')
 
-  const stub = env.COUNTER.get(
-    env.COUNTER.idFromName('something'),
+  const stub = env.DO_API.get(
+    env.DO_API.idFromName('something'),
   )
-  const response = await stub.fetch('/increment')
+  const response = await stub.fetch('http://fake.host/counter/v1/increment')
+  console.log('response', response)
   const count = await response.json()
+
   const myResponse = {
     operationNormal: true,
     count,

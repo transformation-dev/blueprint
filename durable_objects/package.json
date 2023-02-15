@@ -1,13 +1,36 @@
 {
   "name": "@transformation-dev/durable_objects",
   "version": "1.0.0",
-  "description": "Something",
+  "description": "Durable objects for Transformation.dev blueprint",
+  "main": "./index.mjs",
+  "type": "module",
+  "directories": {
+    "test": "test"
+  },
   "scripts": {
     "publish": "npm run build && npx wrangler publish",
-    "build": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm --target=esnext --bundle",
-    "dev": "npx esbuild src/index.js --sourcemap --outfile=index.mjs --format=esm  --bundle --watch"
+    "build": "scripts/build.mjs && npm run test",
+    "dev:watch": "scripts/watch.mjs",
+    "dev": "wrangler dev --local",
+    "test": "for file in test/*; do node --enable-source-maps $file | tap-spec; done",
+    "test:current": "node --enable-source-maps test/tree.test.js | tap-spec",
+    "coverage": "c8 npm run test",
+    "coverage:report": "c8 report --reporter=html"
   },
   "dependencies": {
-    "debug": "^4.3.3"
+    "@cfworker/json-schema": "^1.12.5",
+    "@transformation-dev/accept": "file:packages/accept",
+    "@transformation-dev/cloudflare-do-utils": "file:packages/cloudflare-do-utils",
+    "deep-object-diff": "^1.1.9",
+    "nanoid": "^4.0.0"
+  },
+  "devDependencies": {
+    "chokidar": "^3.5.3",
+    "esbuild": "^0.17.2",
+    "esbuild-plugin-yaml": "^0.0.1",
+    "supports-color": "^9.3.1",
+    "tap-spec": "^5.0.0",
+    "tape": "^5.6.1",
+    "wrangler": "^2.9.1"
   }
 }

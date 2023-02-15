@@ -11,7 +11,7 @@ export async function onRequestGet({ request, env, params }) {
   const sessionID = request.headers.get('Cookie')?.split('sessionID=')[1]?.split(';')[0]
   debug('sessionID: %s', sessionID)
   if (!sessionID) {
-    return jsonResponse({ authenticated: false, message: 'Not logged in.', messageType: 'info' })
+    return jsonResponse({ authenticated: false, message: 'No session cookie. Log in again', messageType: 'info' })
   }
 
   // get session from SESSIONS
@@ -37,5 +37,6 @@ export async function onRequestGet({ request, env, params }) {
   }
 
   const session = JSON.parse(sessionString)
-  return jsonResponse({ authenticated: true, session })
+  // eslint-disable-next-line object-curly-newline
+  return jsonResponse({ authenticated: true, message: 'Authentication verified', messageType: 'info', session })
 }

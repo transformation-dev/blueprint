@@ -29,5 +29,11 @@ module.exports = {
     'no-multi-spaces': 'off',
     'max-len': ['error', 256],
     'no-unused-vars': 'warn',
+    'import/extensions': 'off',
+    'no-restricted-syntax': 'off',
+    'max-classes-per-file': 'off',
+    'import/no-extraneous-dependencies': ['error', { devDependencies: true, optionalDependencies: false }],
+    'object-curly-newline': 'off',
+    'space-before-function-paren': 'off',
   },
 }

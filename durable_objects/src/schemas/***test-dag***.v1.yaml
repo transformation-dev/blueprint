@@ -1,0 +1,25 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+
+definitions:
+  dagNode:
+    type: object
+    required:
+      - id
+    properties:
+      id:
+        type: string
+      children:
+        type: array
+        items:
+          "$ref": "#/definitions/dagNode"
+        default: []
+
+type: object
+required:
+  - a
+  - dag
+properties:
+  a:
+    type: number
+  dag:
+    "$ref": "#/definitions/dagNode"

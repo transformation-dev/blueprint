@@ -1,6 +1,6 @@
-# `@matrx/dragster`
+# `@transformation-dev/dragster`
 
-`@matrx/dragster` is a port of [Ben Smithett's dragster](http://bensmithett.github.io/dragster) to ES6. 
+`@transformation-dev/dragster` is a port of [Ben Smithett's dragster](http://bensmithett.github.io/dragster) to ES6. 
 It wraps the native dragenter/dragleave to behave like mouse event when hovering over child DOM elements.
 
 ## Differences from the original
@@ -21,14 +21,14 @@ It wraps the native dragenter/dragleave to behave like mouse event when hovering
 To install with npm
 
 ```bash
-npm install --save @matrx/dragster
+npm install --save @transformation-dev/dragster
 ```
 
 In a .svelte file
 
 ```html
 <script>
-  import {Dragster} from '@matrx/dragster'
+  import {Dragster} from '@transformation-dev/dragster'
 
   function addDragster(node) {
     return new Dragster(node)

@@ -1,0 +1,47 @@
+{
+  "name": "@transformation-dev/cloudflare-do-utils",
+  "version": "0.6.0",
+  "description": "Utilities for working with Cloudflare's Durable Objects",
+  "keywords": [
+    "cloudflare",
+    "durable object",
+    "durable objects",
+    "do",
+    "DurableObject",
+    "DurableObjects"
+  ],
+  "author": "Larry Maccherone <Larry@Maccherone.com>",
+  "homepage": "https://github.com/transformation-dev/blueprint/tree/master/packages/cloudflare-do-utils#readme",
+  "license": "MIT",
+  "main": "cloudflare-do-utils.js",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/transformation-dev/blueprint.git#master"
+  },
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "for file in test/*; do node --enable-source-maps $file | tap-spec; done",
+    "test:current": "node --enable-source-maps test/dag.test.js | tap-spec",
+    "coverage": "c8 npm run test",
+    "coverage:report": "c8 report --reporter=html"
+  },
+  "bugs": {
+    "url": "https://github.com/transformation-dev/blueprint/issues"
+  },
+  "dependencies": {
+    "@transformation-dev/accept": "file:packages/accept",
+    "@ungap/structured-clone": "^1.0.1",
+    "cbor-x": "1.4.1",
+    "debug": "^4.3.4"
+  },
+  "devDependencies": {
+    "tap-spec": "^5.0.0",
+    "tape": "^5.6.3"
+  }
+}

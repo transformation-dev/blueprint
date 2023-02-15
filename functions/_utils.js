@@ -1,8 +1,9 @@
 import Debug from 'debug'
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
 import { nanoid } from 'nanoid'
+import { Encoder } from 'cbor-x'
 // eslint-disable-next-line import/no-unresolved
-import { stringify } from '@ungap/structured-clone/json'
+
 import Accept from '@transformation-dev/accept'
 
 import { HTTPError } from '../src/utils'
@@ -13,7 +14,7 @@ export const jsonResponse = (value) => new Response(JSON.stringify(value), {
   headers: { 'Content-Type': 'application/json' },
 })
 
-const MEDIA_TYPES_SUPPORTED = ['application/sc+json', 'application/json']
+const MEDIA_TYPES_SUPPORTED = ['application/cbor-sc', 'application/json']  // cbor-sc is my name for cbor with structuredClone extension
 const MEDIA_TYPE_FOR_ERROR = 'application/json'
 
 function returnResponse(stringifiedBody, mediaType, status) {
@@ -30,9 +31,10 @@ function returnResponse(stringifiedBody, mediaType, status) {
   )
 }
 
-function stringifyBody(body, mediaType) {
-  if (mediaType === 'application/sc+json') {
-    return stringify(body)
+const cborSC = new Encoder({ structuredClone: true })
+function encodeBody(body, mediaType) {
+  if (mediaType === 'application/cbor-sc') {
+    return cborSC.encode(body)
   }
   return JSON.stringify(body)
 }
@@ -43,19 +45,19 @@ export const negotiatedResponse = (body, request, supported = MEDIA_TYPES_SUPPOR
   const mediaTypeIfError = MEDIA_TYPE_FOR_ERROR
 
   if (body instanceof Error) {
-    const stringifiedBody = stringifyBody(body, mediaTypeIfError)
+    const stringifiedBody = encodeBody(body, mediaTypeIfError)
     return returnResponse(stringifiedBody, mediaTypeIfError, body.statusCode || body.status || 500)
   }
 
   if (!MEDIA_TYPES_SUPPORTED.includes(mediaType)) {
     let message = `No acceptable Content-Type. Supported: ${JSON.stringify(supported)}`
-    if (supported.length === 1 && supported[0] === 'application/sc+json') {
-      message += '. See: https://github.com/ungap/structured-clone#tojson'
+    if (supported.length === 1 && supported[0] === 'application/cbor-sc') {
+      message += '. See: https://www.npmjs.com/package/cbor-x and use options = { structuredClone: true }'
     }
     return returnResponse(message, mediaTypeIfError, 406)
   }
 
-  return returnResponse(stringifyBody(body, mediaType), mediaType)
+  return returnResponse(encodeBody(body, mediaType), mediaType)
 }
 
 export const getDebug = (name, delay = 50) => {
