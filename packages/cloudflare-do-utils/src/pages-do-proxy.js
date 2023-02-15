@@ -5,7 +5,7 @@ import { extractBody } from './extract-body.js'
 import { getDebug, Debug } from './debug.js'
 import { findFirstID } from './id-string.js'
 
-// intialize imports
+// initialize imports
 const debug = getDebug('blueprint:cloudflare-do-utils:pages-do-proxy')
 
 export function pagesDOProxy(doNameString) {

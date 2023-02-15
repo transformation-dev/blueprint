@@ -1,7 +1,7 @@
 // mono-repo imports
 import { responseMixin, Debug, getDebug } from '@transformation-dev/cloudflare-do-utils'
 
-// intialize imports
+// initialize imports
 const debug = getDebug('blueprint:durable-objects:experimenter-v2')
 
 export class ExperimenterV2 {

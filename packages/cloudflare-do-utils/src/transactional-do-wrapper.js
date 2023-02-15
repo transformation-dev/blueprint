@@ -30,7 +30,7 @@ export class TransactionalDOWrapperBase {
   }
 
   async fetch(request) {
-    console.log('TransactionalDOWrapperBase.fetch() called')
+    debug('%s %s', request.method, request.url)
     // I'm relying upon the built-in input gating to prevent concurrent requests from starting before this one finishes.
     // However, it's unclear to me how exactly this works just reading the docs and posts about it. However, one thing
     // mentioned is that it kicks in once there is a storage operation, so we do a storage operation right away to rehydrate
@@ -39,7 +39,6 @@ export class TransactionalDOWrapperBase {
     await this.hydrate()
     const url = new URL(request.url)
     const pathArray = url.pathname.split('/')
-    debug('pathArray', pathArray)
     if (pathArray[0] === '') pathArray.shift()  // deal with leading slash
 
     // pull type/version from url and validate
@@ -69,7 +68,7 @@ export class TransactionalDOWrapperBase {
       return this.respondEarly(`TheClass for type/version/environment ${type}/${version}/${environment} or */*/* not found`, { status: 404 })
     }
 
-    console.log('options: %O', options)
+    debug('Options for type "%s" version "%s": %O', type, version, options)
 
     let requestToPassToWrappedDO
     if (options.flags.passFullUrl) {
@@ -93,7 +92,7 @@ export class TransactionalDOWrapperBase {
         if (responseInsideTransaction.status >= 400) {
           txn.rollback()  // explicit rollback whenever there is a non-2xx, non-3xx response
           this.classInstance = null  // reset the class instance so all memory will be rehydrated from storage on next request
-          console.log('Rolling back transaction. Status code: %s', responseInsideTransaction.status)
+          debug('Rolling back transaction because response had status code: %s', responseInsideTransaction.status)
         } else if (this.transactionalWrapperMeta == null) {
           // This next section checks to see if the DO is using any storage.
           // This preserves the Cloudflare behavior that a DO doesn't survive unless it has storage.
@@ -109,7 +108,7 @@ export class TransactionalDOWrapperBase {
         return responseInsideTransaction
       })
     } catch (e) {
-      // rollback is automatic on error
+      debug('Transaction was automatically rolled back because an error was thrown. Message: ', e.message)
       this.classInstance = null  // but we still need to reset the class instance so all memory will be rehydrated from storage on next request
       throw e  // Rethrowing to preserve the wrapped durable object's behavior. Ideally, the wrapped class returns a utils.getErrorResponse(e)
     }

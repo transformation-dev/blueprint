@@ -55,7 +55,7 @@ context('Concurrency Experimenter', () => {
       const idString = response.obj.idString
 
       cy.wrap(null).then(async () => {
-        response = await encodeFetchAndDecode(`/api/do/experimenter/v2/${idString}?namme=John`)  // intentional typo
+        response = await encodeFetchAndDecode(`/api/do/experimenter/v2/${idString}?nombre=John`)  // intentional typo
         expect(response.status).to.equal(500)
 
         cy.wrap(null).then(async () => {
