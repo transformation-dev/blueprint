@@ -67,51 +67,60 @@ export class TransactionalDOWrapperBase {
     if (options.TheClass == null) {
       return this.respondEarly(`TheClass for type/version/environment ${type}/${version}/${environment} or */*/* not found`, { status: 404 })
     }
-
     debug('Options for type "%s" version "%s": %O', type, version, options)
 
     let requestToPassToWrappedDO
     if (options.flags.passFullUrl) {
       requestToPassToWrappedDO = request
-      console.log('passing along full request. request.url: %s', request.url)
+      debug('Passing along full request. request.url: %s', request.url)
     } else {
       const joinedPath = pathArray.join('/')
       let urlToPassToWrappedDO = `http://fake.host/${joinedPath}`
       urlToPassToWrappedDO += request.url.slice(request.url.indexOf(joinedPath) + joinedPath.length)
-      console.log('urlToPassToWrappedDO', urlToPassToWrappedDO)
+      debug('URL to pass to wrapped DO: %s', urlToPassToWrappedDO)
       requestToPassToWrappedDO = new Request(urlToPassToWrappedDO, request)
     }
 
     let response
-    try {
-      response = await this.state.storage.transaction(async (txn) => {
-        const alteredState = { ...this.state, storage: txn }
-        if (this.classInstance == null) this.classInstance = new options.TheClass(alteredState, this.env)
-        else this.classInstance.state = alteredState  // Must reset this for each transaction. Means the DO must use this.state
-        const responseInsideTransaction = await this.classInstance.fetch(requestToPassToWrappedDO)
-        if (responseInsideTransaction.status >= 400) {
-          txn.rollback()  // explicit rollback whenever there is a non-2xx, non-3xx response
-          this.classInstance = null  // reset the class instance so all memory will be rehydrated from storage on next request
-          debug('Rolling back transaction because response had status code: %s', responseInsideTransaction.status)
-        } else if (this.transactionalWrapperMeta == null) {
-          // This next section checks to see if the DO is using any storage.
-          // This preserves the Cloudflare behavior that a DO doesn't survive unless it has storage.
-          // Without this check, our saving of the transactionalWrapperMeta would cause the DO to survive even if it didn't use storage.
-          const storageUsage = await txn.list({ limit: 1 })
-          if (storageUsage.size > 0) {
-            this.transactionalWrapperMeta = { type, version, environment }  // only type is checked for now but we'll store the others for migration purposes later
-            await this.state.storage.put('transactionalWrapperMeta', this.transactionalWrapperMeta)
-          } else {
-            this.classInstance = null
+
+    if (options.flags.disableUseOfTransaction) {
+      if (this.classInstance == null) this.classInstance = new options.TheClass(this.state, this.env)
+      response = await this.classInstance.fetch(requestToPassToWrappedDO)
+    } else {
+      try {
+        response = await this.state.storage.transaction(async (txn) => {
+          const alteredState = { ...this.state, storage: txn }
+          if (this.classInstance == null) this.classInstance = new options.TheClass(alteredState, this.env)
+          else this.classInstance.state = alteredState  // Must reset this for each transaction. Means the DO must use this.state
+          const responseInsideTransaction = await this.classInstance.fetch(requestToPassToWrappedDO)
+          if (responseInsideTransaction.status >= 400) {
+            txn.rollback()  // explicit rollback whenever there is a non-2xx, non-3xx response
+            this.classInstance = null  // reset the class instance so all memory will be rehydrated from storage on next request
+            debug('Rolling back transaction because response had status code: %s', responseInsideTransaction.status)
+            return responseInsideTransaction
           }
-        }
-        return responseInsideTransaction
-      })
-    } catch (e) {
-      debug('Transaction was automatically rolled back because an error was thrown. Message: ', e.message)
-      this.classInstance = null  // but we still need to reset the class instance so all memory will be rehydrated from storage on next request
-      throw e  // Rethrowing to preserve the wrapped durable object's behavior. Ideally, the wrapped class returns a utils.getErrorResponse(e)
+          return responseInsideTransaction
+        })
+      } catch (e) {
+        debug('Transaction was automatically rolled back because an error was thrown. Message: ', e.message)
+        this.classInstance = null  // but we still need to reset the class instance so all memory will be rehydrated from storage on next request
+        throw e  // Rethrowing to preserve the wrapped durable object's behavior. Ideally, the wrapped class returns a >=400 response instead of throwing an error.
+      }
+    }  // end if (options.flags.disableUseOfTransaction)
+
+    // This next section checks to see if the DO is using any storage.
+    // This preserves the Cloudflare behavior that a DO doesn't survive unless it has storage.
+    // Without this check, our saving of the transactionalWrapperMeta would cause the DO to survive even if the wrapped DO didn't use storage.
+    if (this.transactionalWrapperMeta == null) {
+      const storageUsage = await this.state.storage.list({ limit: 1 })
+      if (storageUsage.size > 0) {
+        this.transactionalWrapperMeta = { type, version, environment }  // only type is checked for now but we'll store the others for migration purposes later
+        await this.state.storage.put('transactionalWrapperMeta', this.transactionalWrapperMeta)
+      } else {
+        this.classInstance = null
+      }
     }
+
     return response
   }
 }

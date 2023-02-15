@@ -66,4 +66,24 @@ context('Concurrency Experimenter', () => {
       })
     })
   })
+
+  it('should not stay consistent', () => {
+    cy.wrap(null).then(async () => {
+      response = await encodeFetchAndDecode(`/api/do/experimenter/v3?name=Larry`)
+      expect(`HELLO ${response.obj.name.toUpperCase()}!`).to.equal(response.obj.greeting)
+      const idString = response.obj.idString
+
+      cy.wrap(null).then(async () => {
+        response = await encodeFetchAndDecode(`/api/do/experimenter/v3/${idString}?nombre=John`)  // intentional typo
+        expect(response.status).to.equal(500)
+
+        cy.wrap(null).then(async () => {
+          response = await encodeFetchAndDecode(`/api/do/experimenter/v3/${idString}`)
+          console.log(response.obj)
+          expect(response.obj.greeting).to.equal('HELLO LARRY!')
+          expect(response.obj.name == null).to.be.true
+        })
+      })
+    })
+  })
 })
