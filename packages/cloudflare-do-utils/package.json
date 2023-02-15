@@ -36,7 +36,6 @@
   },
   "dependencies": {
     "@transformation-dev/accept": "file:packages/accept",
-    "@ungap/structured-clone": "^1.0.1",
     "cbor-x": "1.5.1",
     "debug": "^4.3.4"
   },
