@@ -1,3 +1,5 @@
+// TODO: Turn this into a class that you can inject with a Serialization instance and the default contentType
+
 // local imports
 import { serialize } from './serialization.js'
 

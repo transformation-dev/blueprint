@@ -1,3 +1,5 @@
+// TODO: Turn this into a class, Serialization, that can be instantiated with a map of contentType to serialize/deserialize functions.
+
 // 3rd party imports
 import { Encoder, decode } from 'cbor-x'
 
