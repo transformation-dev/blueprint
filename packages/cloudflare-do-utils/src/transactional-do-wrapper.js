@@ -74,8 +74,11 @@ export class TransactionalDOWrapperBase {
     let requestToPassToWrappedDO
     if (options.flags.passFullUrl) {
       requestToPassToWrappedDO = request
+      console.log('passing along full request. request.url: %s', request.url)
     } else {
-      const urlToPassToWrappedDO = `http://fake.host/${pathArray.join('/')}`
+      const joinedPath = pathArray.join('/')
+      let urlToPassToWrappedDO = `http://fake.host/${joinedPath}`
+      urlToPassToWrappedDO += request.url.slice(request.url.indexOf(joinedPath) + joinedPath.length)
       console.log('urlToPassToWrappedDO', urlToPassToWrappedDO)
       requestToPassToWrappedDO = new Request(urlToPassToWrappedDO, request)
     }

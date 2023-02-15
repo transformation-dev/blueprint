@@ -21,4 +21,6 @@ This is what the Durable Object Runtime API Documentation says about transaction
 
 > Explicit transactions are no longer necessary. Any series of write operations with no intervening await will automatically be submitted atomically, and the system will prevent concurrent events from executing while awaiting a read operation (unless you use allowConcurrency: true). Therefore, a series of reads followed by a series of writes (with no other intervening I/O) are automatically atomic and behave like a transaction.
 
-And here Cloudflare
+And here Cloudflare "choose three"...
+
+I am hoping that the automatic in-memory caching discussed in the "choose three" post is still in effect when using transactions. Can someone from Cloudflare confirm this? If so, code using TransactionalDOWrapperBase should run as fast as an unwrapped class. However, even if this approach does effect performance, as I've shown here, it is much easier to write your classes so in-storage state is self-consistent, in-memory state is self-consistent, and consistency between memory and storage is also assured. It is likely worth the trade-off in all but the most extreme load scenarios. You get scalability out of Durable Objects by having more instances. If you are using a single instance enough for the possible performance hit to matter, you should probably be using a different approach. 

@@ -29,7 +29,9 @@ export function pagesDOProxy(doNameString) {
 
     // build the url to be passed to the durable object
     let url = 'http://fake.host/'
-    if (params.path) url = `http://fake.host/${params.path.join('/')}`
+    const joinedPath = params.path.join('/')
+    if (params.path) url = `http://fake.host/${joinedPath}`
+    url += request.url.slice(request.url.indexOf(joinedPath) + joinedPath.length)
     debug('url to pass to durable object: %O', url)
 
     const entityStub = env[doNameString].get(id)

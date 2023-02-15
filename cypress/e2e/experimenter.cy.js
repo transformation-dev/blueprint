@@ -46,58 +46,23 @@ async function encodeFetchAndDecode(url, options) {  // TODO: move this to a hel
 }
 
 context('Concurrency Experimenter', () => {
-  let idString
   let response
-  let successfulPostCount = 0
-  let successfulGetCount = 0
 
-  async function post() {
-    if (idString == null) {
-      response = await encodeFetchAndDecode('/api/do/experimenter/v1', { method: 'POST' })
-    } else {
-      response = await encodeFetchAndDecode(`/api/do/experimenter/v1/${idString}`, { method: 'POST' })
-    }
-    if (response.status >= 500) {
-    } else {
-      successfulPostCount++
-      if (idString == null) idString = response.obj.idString
-    }
-  }
-
-  async function getAndCheck() {
-    // if (idString != null) {
-      response = await encodeFetchAndDecode(`/api/do/experimenter/v1/${idString}`)
-      if (response.status >= 400) {
-        console.log('GET failed')
-      } else {
-        successfulGetCount++
-        const obj = response.obj
-        expect(obj.value).to.equal(obj.valueInMemory)
-        expect(obj.twiceValue).to.equal(obj.twiceValueInMemory)
-        expect(obj.value * 2).to.equal(obj.twiceValue)
-      }
-    // }
-  }
-
-  it('should stay consistent in spite of failing 50% of the time', () => {
+  it('should stay consistent', () => {
     cy.wrap(null).then(async () => {
-      let retries = 10
-      while (idString == null && retries > 0) {
-        await post()
-        retries--
-      }
-      const promises = []
-      for (let i = 0; i < 2; i++) {
-        if (Math.random() < 0.9) {
-          promises.push(post())
-        } else {
-          promises.push(getAndCheck())
-        }
-      }
+      response = await encodeFetchAndDecode(`/api/do/experimenter/v2?name=Larry`)
+      expect(`HELLO ${response.obj.name.toUpperCase()}!`).to.equal(response.obj.greeting)
+      const idString = response.obj.idString
+
       cy.wrap(null).then(async () => {
-        await Promise.all(promises)
-        console.log(`successfulPostCount: ${successfulPostCount}`)
-        console.log(`successfulGetCount: ${successfulGetCount}`)
+        response = await encodeFetchAndDecode(`/api/do/experimenter/v2/${idString}?namme=John`)  // intentional typo
+        expect(response.status).to.equal(500)
+
+        cy.wrap(null).then(async () => {
+          response = await encodeFetchAndDecode(`/api/do/experimenter/v2/${idString}`)
+          expect(`HELLO ${response.obj.name.toUpperCase()}!`).to.equal(response.obj.greeting)
+          expect(response.obj.name).to.equal('Larry')
+        })
       })
     })
   })
