@@ -1,5 +1,5 @@
 // 3rd party imports
-import { deserialize as deserializeUngapSC } from '@ungap/structured-clone'  // TODO: Move this to serialization.js
+// import { deserialize as deserializeUngapSC } from '@ungap/structured-clone'  // TODO: Move this to serialization.js
 
 // local imports
 import { deserialize } from './serialization'
@@ -14,9 +14,9 @@ export async function extractBody(r, clone = false) {
     return deserialize(rToWorkOn)
   } else if (contentType === 'application/json') {
     return rToWorkOn.json()
-  } else if (contentType === 'application/vnd.ungap.structured-clone+json') {
-    const json = await rToWorkOn.json()
-    return deserializeUngapSC(json)
+  // } else if (contentType === 'application/vnd.ungap.structured-clone+json') {
+  //   const json = await rToWorkOn.json()
+  //   return deserializeUngapSC(json)
   } else {
     return rToWorkOn.text()
   }
