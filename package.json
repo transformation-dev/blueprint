@@ -72,7 +72,7 @@
     "@transformation-dev/cloudflare-do-utils": "file:packages/cloudflare-do-utils",
     "cbor-x": "1.4.1",
     "debug": "^4.3.3",
-    "nanoid": "^3.3.4",
+    "nanoid": "^4.0.1",
     "sort-on": "^5.0.0",
     "svelte": "^3.55.1",
     "svelte-spa-router": "^3.2.0",
