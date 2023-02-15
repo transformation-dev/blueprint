@@ -51,7 +51,10 @@ export class DurableAPI extends TransactionalDOWrapperBase {
         },
         v3: {
           environments: {
-            preview: { TheClass: ExperimenterV2 },
+            preview: {
+              TheClass: ExperimenterV2,
+              flags: { disableUseOfTransaction: true },
+            },
             production: null,
             '*': {
               TheClass: ExperimenterV2,

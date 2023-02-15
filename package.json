@@ -75,7 +75,7 @@
     "nanoid": "^4.0.1",
     "sort-on": "^5.0.0",
     "svelte": "^3.55.1",
-    "svelte-spa-router": "^3.2.0",
+    "svelte-spa-router": "^3.3.0",
     "wrangler": "^2.9.1"
   },
   "workspaces": [
