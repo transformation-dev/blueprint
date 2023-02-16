@@ -1,8 +1,19 @@
 // 3rd party imports
-// import { deserialize as deserializeUngapSC } from '@ungap/structured-clone'  // TODO: Move this to serialization.js
+import { decode } from 'cbor-x'
 
 // local imports
-import { deserialize } from './serialization'
+import { HTTPError } from './http-error.js'
+
+async function deserializeCBOR(request) {  // TODO: Take a contentType argument
+  try {
+    const ab = await request.arrayBuffer()
+    const u8a = new Uint8Array(ab)
+    const o = decode(u8a)
+    return o
+  } catch (e) {
+    throw new HTTPError('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', 415)
+  }
+}
 
 export async function extractBody(r, clone = false) {
   let rToWorkOn
@@ -11,12 +22,9 @@ export async function extractBody(r, clone = false) {
   const contentType = rToWorkOn.headers.get('Content-Type')
   console.log('Content-Type:', contentType)
   if (contentType === 'application/cbor-sc') {
-    return deserialize(rToWorkOn)
+    return deserializeCBOR(rToWorkOn)
   } else if (contentType === 'application/json') {
     return rToWorkOn.json()
-  // } else if (contentType === 'application/vnd.ungap.structured-clone+json') {
-  //   const json = await rToWorkOn.json()
-  //   return deserializeUngapSC(json)
   } else {
     return rToWorkOn.text()
   }

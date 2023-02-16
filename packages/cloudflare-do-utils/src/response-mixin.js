@@ -14,7 +14,7 @@ export const responseMixin = {
       headers.set('Status-Text', cleanedStatusText)
     }
     if (body != null) headers.set('Content-Type', contentType)
-    if (ArrayBuffer.isView(body)) {
+    if (ArrayBuffer.isView(body)) {  // Assumes it's already been serialized regardless of contentType
       return new Response(body, { status, headers })
     } else if (body != null && typeof body === 'object') {
       const newBody = structuredClone(body)

@@ -1,15 +1,14 @@
 /// <reference types="Cypress" />
 
-import { Encoder, encode, decode } from 'cbor-x'
-const cborSC = new Encoder({ structuredClone: true })
+import { extractBody, serialize } from '@transformation-dev/cloudflare-do-utils'
+
+const contentType = 'application/json'
 
 async function encodeAndFetch(url, options) {  // TODO: move this to a helper file
   if (!options) options = {}
 
   if (options.body) {
-    const u8a = cborSC.encode(options.body)
-    // const u8a = encode(options.body)  // using this seems to fail regardless of how I decode
-    options.body = u8a
+    options.body = serialize(options.body, contentType)
   }
 
   let headers
@@ -19,10 +18,10 @@ async function encodeAndFetch(url, options) {  // TODO: move this to a helper fi
     headers = new Headers()
   }
   if (!headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/cbor-sc')
+    headers.set('Content-Type', contentType)
   }
   if (!headers.has('Accept')) {
-    headers.set('Accept', 'application/cbor-sc')
+    headers.set('Accept', contentType)
   }
   options.headers = headers
 
@@ -31,17 +30,7 @@ async function encodeAndFetch(url, options) {  // TODO: move this to a helper fi
 
 async function encodeFetchAndDecode(url, options) {  // TODO: move this to a helper file
   const response = await encodeAndFetch(url, options)
-  if (response.status >= 500) {
-    response.asText = await response.text()
-  } else {
-    const ab = await response.arrayBuffer()
-    if (ab) {
-      const u8a = new Uint8Array(ab)
-      response.obj = cborSC.decode(u8a)
-      // const o = decode(u8a)  // on the other hand, this works regardless of how I encode
-      response.asText = JSON.stringify(response.obj, null, 2)
-    }
-  }
+  response.obj = await extractBody(response)
   return response
 }
 

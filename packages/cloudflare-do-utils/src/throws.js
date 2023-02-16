@@ -18,19 +18,22 @@ export function throwUnless(condition, message, status = 400, body = null) {
 
 export function throwIfContentTypeHeaderInvalid(request) {
   const contentType = request.headers.get('Content-Type')
-  const mediaType = Accept.mediaType(contentType, MEDIA_TYPES_SUPPORTED)
-  throwUnless(mediaType, `The Content-Type for the incoming body, ${JSON.stringify(contentType)}, is unsupported`, 415)
+  const chosenMediaType = Accept.mediaType(contentType, MEDIA_TYPES_SUPPORTED)
+  throwUnless(chosenMediaType, `The Content-Type for the incoming body, ${JSON.stringify(contentType)}, is unsupported`, 415)
+  return chosenMediaType
 }
 
 export function throwIfAcceptHeaderInvalid(request) {
   const accept = request.headers.get('Accept')
-  const mediaType = Accept.mediaType(accept, MEDIA_TYPES_SUPPORTED)
-  throwUnless(mediaType, `None of your supplied Accept media types, ${JSON.stringify(accept)}, are supported`, 406)
+  const chosenMediaType = Accept.mediaType(accept, MEDIA_TYPES_SUPPORTED)
+  throwUnless(chosenMediaType, `None of your supplied Accept media types, ${JSON.stringify(accept)}, are supported`, 406)
+  return chosenMediaType
 }
 
 export function throwIfMediaTypeHeaderInvalid(request) {
-  throwIfContentTypeHeaderInvalid(request)
-  throwIfAcceptHeaderInvalid(request)
+  const contentType = throwIfContentTypeHeaderInvalid(request)
+  const acceptType = throwIfAcceptHeaderInvalid(request)
+  return { contentType, acceptType }
 }
 
 // Assumes that each node, including the root, is an object with an id property that is a string.
