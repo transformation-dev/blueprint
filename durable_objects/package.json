@@ -25,7 +25,6 @@
     "nanoid": "^4.0.0"
   },
   "devDependencies": {
-    "chokidar": "^3.5.3",
     "esbuild": "^0.17.2",
     "esbuild-plugin-yaml": "^0.0.1",
     "supports-color": "^9.3.1",

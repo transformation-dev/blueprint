@@ -10,9 +10,7 @@ export default await esbuild.context({
   bundle: true,
   format: 'esm',
   target: 'esnext',
-  // loader: {
-  //   '.yaml': 'text',
-  // },
+  logLevel: 'info',
   plugins: [
     yamlPlugin(),
   ],
