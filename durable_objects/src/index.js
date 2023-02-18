@@ -14,7 +14,7 @@ export * from './temporal-entity.js'  // Need this for unit testing TemporalEnti
 export * from './tree.js'  // And this is needed because Tree uses TemporalEntity
 export * from './counter.js'  // I don't think this is needed but I'm not sure
 
-// Worker that does nothing and is never used but necessary since durable objects require a worker
+// Worker that does nothing and is never used but necessary since durable objects require a Worker
 export default {}
 
 // Durable Object
@@ -28,7 +28,7 @@ export class DurableAPI extends TransactionalDOWrapperBase {
         '*': {
           environments: {
             '*': {
-              TheClass: TemporalEntity,
+              TheClass: TemporalEntity,  // Let TemporalEntity handle the type and version
               flags: {
                 passFullUrl: true,  // false will strip the type and version segments which allows you to use many DOs as-is
               },

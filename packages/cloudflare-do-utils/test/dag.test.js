@@ -4,51 +4,56 @@ import { throwIfNotDag } from '../src/throws.js'
 test('throwIfNotDag should not throw', (t) => {
   t.doesNotThrow(
     () => {
-      const dagNode = { id: 'DAGNode', label: 'DAG Node' }
+      const dagNode = {
+        id: 'DAGNode',
+        children: new Set([
+          {
+            id: 'DAGNode.1',
+          },
+        ]),
+      }
       const dag = {
         id: 'companyID',
-        children: [
+        children: new Set([
           {
             id: 'node1',
-            children: [
+            children: new Set([
               {
                 id: 'node1.1',
-                children: [
+                children: new Set([
                   {
                     id: 'node1.1.1',
-                    children: [
+                    children: new Set([
                       {
                         id: 'node1.1.1.1',
                         label: 'Node 1.1.1.1',
                       },
-                    ],
+                    ]),
                   },
                   {
                     id: 'node1.1.2',
-                    children: [],  // Intentionally has children but empty to test
+                    children: new Set(),  // Intentionally has children but empty to test
                   },
                   dagNode,
-                ],
+                ]),
               },
               {
                 id: 'node1.2',
-                children: [],
+                children: new Set(),
               },
               dagNode,
-            ],
+            ]),
           },
           {
             id: 'node2',
-            children: [],
           },
           {
             id: 'node3',  // Intentionally missing children to test
           },
           {
             id: 'node4',
-            children: [],
           },
-        ],
+        ]),
       }
       throwIfNotDag(dag)
     },
@@ -59,28 +64,29 @@ test('throwIfNotDag should not throw', (t) => {
     () => {
       const branch = {
         id: '10',
-        children: [
+        children: new Set([
           {
             id: '20',
           },
-        ],
+        ]),
       }
+
       const dag = {
         id: '1',
-        children: [
+        children: new Set([
           {
             id: '2',
-            children: [
+            children: new Set([
               branch,
-            ],
+            ]),
           },
           {
             id: '3',
-            children: [
+            children: new Set([
               branch,
-            ],
+            ]),
           },
-        ],
+        ]),
       }
       throwIfNotDag(dag)
     },
@@ -95,16 +101,16 @@ test('throwIfNotDag should throw', (t) => {
     () => {
       const dag = {
         id: 'companyID',
-        children: [
+        children: new Set([
           {
             id: '1',
-            children: [
+            children: new Set([
               {
                 id: '1',
               },
-            ],
+            ]),
           },
-        ],
+        ]),
       }
       throwIfNotDag(dag)
     },
@@ -115,16 +121,16 @@ test('throwIfNotDag should throw', (t) => {
     () => {
       const dag = {
         id: '1',
-        children: [
+        children: new Set([
           {
             id: '2',
-            children: [
+            children: new Set([
               {
                 id: '1',
               },
-            ],
+            ]),
           },
-        ],
+        ]),
       }
       throwIfNotDag(dag)
     },
@@ -135,14 +141,14 @@ test('throwIfNotDag should throw', (t) => {
     () => {
       const dag = {
         id: '1',
-        children: [
+        children: new Set([
           {
             id: '2',
           },
           {
             id: '2',
           },
-        ],
+        ]),
       }
       throwIfNotDag(dag)
     },

@@ -36,22 +36,23 @@ export function throwIfMediaTypeHeaderInvalid(request) {
   return { contentType, acceptType }
 }
 
-// Assumes that each node, including the root, is an object with an id property that is a string.
-// If the node also has a children property, it must be an array of nodes, recursively.
-export function throwIfNotDag(o, currentPath = []) {
-  throwUnless(o.id && typeof o.id === 'string', 'Each node, including the root, must have an id property that is a string', 400)
-  throwIf(o.children && !Array.isArray(o.children), 'If present, the children property must be an array', 400)
-  const newPath = [...currentPath, o.id]
+// Assumes that each node, including the root, is an object with an id or idString property that is a string.
+// If the node also has a children property, it must be a Set of nodes, recursively.
+export function throwIfNotDag(o, currentPath = new Set()) {
+  const id = o.id ?? o.idString
+  throwUnless(id != null && typeof id === 'string', 'Each node, including the root, must have an id or idString property that is a string', 400)
+  throwIf(o.children != null && !(o.children instanceof Set), 'If present, the children property must be an Set', 400)
   // Note, we have to do the ancestor check in the next line outside of the for loop because we need to detect a cycle as soon as possible
   // otherwise it will endlessly recurse down. I previously had an algorithm that found the leaves and then checked the ancestors of each leaf
   // and that didn't work.
-  throwUnless(new Set(newPath).size === newPath.length, `Not a valid DAG. The path ${JSON.stringify(newPath)} contains duplicate ids`, 400)
-  if (o.children && o.children.length > 0) {
+  const newPath = new Set(currentPath).add(id)
+  throwIf(currentPath.size === newPath.size, `Not a valid DAG. Id ${id} is an ancestor of itself.`, 400)
+  if (o.children != null && o.children.size > 0) {
     const siblings = []
     for (const child of o.children) {
       siblings.push(child.id)
       throwIfNotDag(child, newPath)
     }
-    throwUnless(new Set(siblings).size === siblings.length, `The children of ${o.id}, ${JSON.stringify(siblings)} contain duplicate ids`, 400)
+    throwUnless(new Set(siblings).size === siblings.length, `The children of ${id}, ${JSON.stringify(siblings)} contain duplicate ids`, 400)
   }
 }
