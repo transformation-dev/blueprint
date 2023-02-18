@@ -10,10 +10,11 @@ export function throwIf(condition, message, status = 400, body = null) {
   if (condition) {
     throw new HTTPError(message, status, body)
   }
+  return true
 }
 
 export function throwUnless(condition, message, status = 400, body = null) {
-  throwIf(!condition, message, status, body)
+  return throwIf(!condition, message, status, body)
 }
 
 export function throwIfContentTypeHeaderInvalid(request) {
@@ -41,18 +42,16 @@ export function throwIfMediaTypeHeaderInvalid(request) {
 export function throwIfNotDag(o, currentPath = new Set()) {
   const id = o.id ?? o.idString
   throwUnless(id != null && typeof id === 'string', 'Each node, including the root, must have an id or idString property that is a string', 400)
-  throwIf(o.children != null && !(o.children instanceof Set), 'If present, the children property must be an Set', 400)
-  // Note, we have to do the ancestor check in the next line outside of the for loop because we need to detect a cycle as soon as possible
-  // otherwise it will endlessly recurse down. I previously had an algorithm that found the leaves and then checked the ancestors of each leaf
-  // and that didn't work.
+  throwIf(o.children != null && !(o.children instanceof Set), 'If present, the children property must be a Set', 400)
   const newPath = new Set(currentPath).add(id)
-  throwIf(currentPath.size === newPath.size, `Not a valid DAG. Id ${id} is an ancestor of itself.`, 400)
+  throwIf(currentPath.size === newPath.size, `Not a valid DAG. ${id} is an ancestor of itself.`, 400)
   if (o.children != null && o.children.size > 0) {
     const siblings = []
     for (const child of o.children) {
-      siblings.push(child.id)
+      siblings.push(child.id ?? child.idString)
       throwIfNotDag(child, newPath)
     }
     throwUnless(new Set(siblings).size === siblings.length, `The children of ${id}, ${JSON.stringify(siblings)} contain duplicate ids`, 400)
   }
+  return true
 }
