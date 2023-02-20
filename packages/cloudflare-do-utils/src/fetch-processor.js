@@ -3,10 +3,17 @@ import { Encoder, decode } from 'cbor-x'
 
 // local imports
 import { HTTPError } from './http-error.js'
+import { throwIf } from './throws.js'
 
 export class FetchProcessor {
-  constructor(idString) {
+  constructor(parentThis, idString, request) {
+    this.parentThis = parentThis
     this.idString = idString
+    this.request = request
+
+    this.responseContentType = 'application/cbor'  // TODO: Use Accept header
+
+    this.warnings = []
   }
 
   static contentTypes = {}
@@ -16,27 +23,70 @@ export class FetchProcessor {
       this.contentTypes[contentType] = processors
     }
   }
+
+  response(body, status = 200, statusText = undefined, eTag = undefined) {
+    const headers = new Headers()
+    headers.set('Content-ID', this.idString)
+    if (eTag != null) headers.set('ETag', eTag)
+    if (statusText != null) {
+      const cleanedStatusText = statusText.replaceAll('\n', ' ')  // newlines are not allowed in HTTP headers
+      headers.set('Status-Text', cleanedStatusText)  // HTTP/2 requires Status-Text match the status, but this seems to work for now in Cloudflare TODO: Test this
+    }
+    if (body != null) {
+      headers.set('Content-Type', this.responseContentType)
+      if (typeof body === 'object') {
+        const newBody = structuredClone(body)  // TODO: C - Consider not cloning in production or preview
+        newBody.idString = this.idString
+        if (statusText != null) newBody.statusText = statusText
+        if (this.warnings.length > 0) newBody.warnings = this.warnings
+        return new Response(this.serialize(newBody), { status, headers })
+      }
+    }
+    return new Response(body, { status, headers })  // assumes body is already serialized or nullish
+  }
+
+  async serialize(o, contentType = this.responseContentType) {
+    try {
+      const { serialize } = this.constructor.contentTypes[contentType]
+      return serialize(o)
+    } catch (e) {
+      throw new HTTPError(`Error serializing the supplied body: ${e.message}`, 500)
+    }
+  }
+
+  async deserialize(request = this.request) {
+    const contentType = request.headers.get('Content-Type')
+    throwIf(contentType == null, 'No Content-Type header supplied', 400)
+    try {
+      const { deserialize } = this.constructor.contentTypes[contentType]
+      return deserialize(request)
+    } catch (e) {
+      throw new HTTPError(`Error serializing the supplied body: ${e.message}`, 500)
+    }
+  }
 }
 
-// CBOR
+// Register CBOR
 const cborSC = new Encoder({ structuredClone: true })
 async function serializeCBOR(o) {
-  try {
-    const u8a = cborSC.encode(o)
-    return u8a
-  } catch (e) {
-    throw new HTTPError(`Error encoding the supplied body: ${e.message}`, 500)
-  }
+  return cborSC.encode(o)
 }
 async function deserializeCBOR(request) {
-  try {
-    const ab = await request.arrayBuffer()
-    const u8a = new Uint8Array(ab)
-    const o = decode(u8a)
-    return o
-  } catch (e) {
-    throw new HTTPError('Error decoding your supplied body. Encode with npm package cbor-x using structured clone extension.', 415)
-  }
+  const ab = await request.arrayBuffer()
+  const u8a = new Uint8Array(ab)
+  return decode(u8a)
 }
 const processorsCBOR = { serialize: serializeCBOR, deserialize: deserializeCBOR }
-FetchProcessor.registerContentType(['application/cbor-sc', 'application/cbor'], processorsCBOR)
+FetchProcessor.registerContentType(['application/cbor', 'application/cbor-sc'], processorsCBOR)  // since cbor is first, it is the default
+
+// Register JSON
+async function serializeJSON(o) {
+  return JSON.stringify(o)
+}
+async function deserializeJSON(request) {
+  return request.json()
+}
+const processorsJSON = { serialize: serializeJSON, deserialize: deserializeJSON }
+FetchProcessor.registerContentType(['application/json'], processorsJSON)
+
+// TODO: Register text
