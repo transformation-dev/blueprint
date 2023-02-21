@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "echo 'WARNING: must run `npm run dev:durable_objects` and `npm run dev:durable_objects:watch` in separate terminals' && npm run build && wrangler pages dev --compatibility-date 2023-02-11 --binding NODE_ENV=development SENDGRID_LOGIN=$SENDGRID_LOGIN TESTING_OVERRIDE_CODE=$TESTING_OVERRIDE_CODE DEBUG=\"blueprint:*\" DEBUG_COLORS=1 --do DO_API=DurableAPI@transformation-durable_objects --kv SESSIONS --proxy 3000 -- vite --host",
+    "dev": "echo 'WARNING: must run `npm run dev:durable_objects` and `npm run dev:durable_objects:watch` in separate terminals' && npm run build && wrangler pages dev --compatibility-date 2023-02-11 --binding NODE_ENV=development SENDGRID_LOGIN=$SENDGRID_LOGIN TESTING_OVERRIDE_CODE=$TESTING_OVERRIDE_CODE DEBUG=$DEBUG DEBUG_COLORS=1 --do DO_API=DurableAPI@transformation-durable_objects --kv SESSIONS --proxy 3000 -- vite --host",
     "dev:durable_objects": "cd durable_objects && npm run dev",
     "dev:durable_objects:watch": "cd durable_objects && npm run dev:watch",
     "build": "npm run build:version.json && npm run build:ui",
@@ -13,7 +13,7 @@
     "build:sourcemaps": "npx vite build --config vite-sourcemaps.config.js",
     "preview": "vite preview",
     "start": "./parallel_commands.sh \"npm run start:durable_objects\" \"npm run start:pages\"",
-    "start:pages": "env BROWSER=none wrangler pages dev --compatibility-date 2023-02-11 --binding NODE_ENV=development SENDGRID_LOGIN=$SENDGRID_LOGIN TESTING_OVERRIDE_CODE=$TESTING_OVERRIDE_CODE DEBUG=\"blueprint:*\" DEBUG_COLORS=1 --do DO_API=DurableAPI@transformation-durable_objects --kv SESSIONS --proxy 3001 -- vite preview --host",
+    "start:pages": "env BROWSER=none wrangler pages dev --compatibility-date 2023-02-11 --binding NODE_ENV=development SENDGRID_LOGIN=$SENDGRID_LOGIN TESTING_OVERRIDE_CODE=$TESTING_OVERRIDE_CODE DEBUG=$DEBUG DEBUG_COLORS=1 --do DO_API=DurableAPI@transformation-durable_objects --kv SESSIONS --proxy 3001 -- vite preview --host",
     "start:durable_objects": "cd durable_objects && npm run dev",
     "build-and-start": "npm run build && npm run start",
     "build-and-start:pages": "npm run build:version.json && npm run build:ui && npm run start:pages",

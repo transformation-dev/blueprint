@@ -12,6 +12,16 @@ export default defineConfig({
     },
   },
 
+  server: {
+    port: 3000,
+    hmr: false,
+    // hrm: {
+    //   strictPort: true,
+    //   port: 3002,
+    //   clientPort: 3000,
+    // },
+  },
+
   preview: {
     port: 3001,
   },

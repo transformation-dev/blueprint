@@ -26,17 +26,17 @@ Reading this made me happy and I was further encouraged by this wonderful post o
 However, as I thought about it more, I became convinced that I still had a problem. The input and output gates discussed in that post provide automatic transactional atomicity in the case of a storage operation failure. But I personally am much more likely to make a coding mistake that causes the in-memory state of my durable object to become out of sync with storage and even for storage under two different keys to no longer be self-consistent. Take a look at the fetch handler for this simple DO and see if you can spot the flaw.
 
 ```javascript
-  async fetch(request) {
-    const url = new URL(request.url)
-    if (url.search === '') {  // if there is no query string, return the current state
-      return new Response(JSON.stringify({ name: this.name, greeting: this.greeting }))
-    } else {  // if there is a query string, update the state
-      this.name = url.searchParams.get('name')
-      this.state.storage.put('name', this.name)
-      this.greeting = `HELLO ${this.name.toUpperCase()}!`
-      this.state.storage.put('greeting', this.greeting)
-    }
+async fetch(request) {
+  const url = new URL(request.url)
+  if (url.search === '') {  // if there is no query string, return the current state
+    return new Response(JSON.stringify({ name: this.name, greeting: this.greeting }))
+  } else {  // if there is a query string, update the state
+    this.name = url.searchParams.get('name')
+    this.state.storage.put('name', this.name)
+    this.greeting = `HELLO ${this.name.toUpperCase()}!`
+    this.state.storage.put('greeting', this.greeting)
   }
+}
 ```
 
 Haven't spotted the problem yet? Here's a hint: What will happen if your first fetch is `http://fake.host/wrapped-do/?name=Larry` followed by `http://fake.host/wrapped-do/?nombre=Salvatore`? The first fetch goes as expected but on the second fetch `this.name` becomes `undefined` and that gets stored under the `name` key. This is because the search parameter is `nombre` instead of `name`. When you call `.toUpperCase()` on `undefined` it throws an error and the next `storage.put()` never occurs. The greeting will be out of sync with the name. The next fetch to get the current state with `http://fake.host/wrapped-do/` will respond with `{ name: undefined, greeting: 'HELLO LARRY!' }` and the two storage keys will also be in an inconsistent state.

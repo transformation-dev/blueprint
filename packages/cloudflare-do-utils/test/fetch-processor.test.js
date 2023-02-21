@@ -15,7 +15,7 @@ describe('FetchProcessor', () => {
     const repeatedObject = { b: 2 }
     const o = { a: 1, repeatedObject, repeatedObject2: repeatedObject }
     const processor = new FetchProcessor(
-      this,
+      {},
       'test-id',
       new Request('http://fake.host/experimenter/v1/', { headers: { 'Content-Type': contentType } }),
     )
@@ -35,12 +35,12 @@ describe('FetchProcessor', () => {
     expect(deserializedObject.repeatedObject).toBe(deserializedObject.repeatedObject2)
   })
 
-  it('should serialize and deserialize CBOR', async () => {
+  it('should serialize and deserialize JSON', async () => {
     const contentType = 'application/json'
     const repeatedObject = { b: 2 }
     const o = { a: 1, repeatedObject, repeatedObject2: repeatedObject }
     const processor = new FetchProcessor(
-      this,
+      {},
       'test-id',
       new Request('http://fake.host/experimenter/v1/', { headers: { 'Content-Type': contentType } }),
     )
