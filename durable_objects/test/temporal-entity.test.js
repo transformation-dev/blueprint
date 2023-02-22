@@ -213,7 +213,7 @@ test('TemporalEntity validation', async (t) => {
 })
 
 test('TemporalEntity DAG', async (t) => {
-  // t.test('valid DAG matching schema should not throw', async (t) => {
+  // t.test('valid DAG matching schema should not throw', async (t) => {  // TODO: re-enable this test once we revert to using Array for children
   //   const state = getStateMock()
   //   const te = new TemporalEntity(state, env, '***test-dag***', 'v1', 'testIDString')
 
