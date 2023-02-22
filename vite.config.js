@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+// eslint-disable-next-line import/no-unresolved
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 // https://vitejs.dev/config/
@@ -12,9 +13,9 @@ export default defineConfig({
     },
   },
 
-  // server: {
+  // server: {  // https://vitejs.dev/config/#server-options
   //   port: 3000,
-  //   hmr: false,
+  //   hmr: false,  // hmr was flacky because wrangler pages dev doesn't proxy websockets well, so I now use vite watch mode instead of vite dev mode
   //   // hrm: {
   //   //   strictPort: true,
   //   //   port: 3002,
