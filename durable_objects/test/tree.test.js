@@ -57,11 +57,11 @@ test('Tree parents and children', async (t) => {
     t.equal(response[1], 201, 'should get back 201 on successful node creation')
     let { lastValidFrom } = response[0].meta
     t.assert(
-      state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents.has('0'),
+      state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents.includes('0'),
       'should have correct parent on new node',
     )
     t.assert(
-      state.storage.data[`0/snapshot/${lastValidFrom}`].meta.children.has('1'),
+      state.storage.data[`0/snapshot/${lastValidFrom}`].meta.children.includes('1'),
       'should have correct child on root node',
     )
 
@@ -87,11 +87,11 @@ test('Tree parents and children', async (t) => {
     t.equal(response[1], 201, 'should get back 201 on successful node 2 creation')
     lastValidFrom = response[0].meta.lastValidFrom
     t.assert(
-      state.storage.data[`2/snapshot/${lastValidFrom}`].meta.parents.has('1'),
+      state.storage.data[`2/snapshot/${lastValidFrom}`].meta.parents.includes('1'),
       'should have correct parent on node 2',
     )
     t.assert(
-      state.storage.data[`1/snapshot/${lastValidFrom}`].meta.children.has('2'),
+      state.storage.data[`1/snapshot/${lastValidFrom}`].meta.children.includes('2'),
       'should have node 2 as child on node 1',
     )
 
@@ -109,12 +109,12 @@ test('Tree parents and children', async (t) => {
       t.assert(e.message.startsWith('Adding this branch would create a cycle'), 'should throw if parent does not exist')
       lastValidFrom = state.storage.data['testTreeID/treeMeta'].lastValidFrom
       t.equal(
-        state.storage.data[`2/snapshot/${lastValidFrom}`].meta.parents.size,
+        state.storage.data[`2/snapshot/${lastValidFrom}`].meta.parents.length,
         1,
         'should have 1 parent on node 2',
       )
       t.equal(
-        state.storage.data[`1/snapshot/${lastValidFrom}`].meta.children.size,
+        state.storage.data[`1/snapshot/${lastValidFrom}`].meta.children.length,
         1,
         'should have 1 child on node 1',
       )
@@ -124,7 +124,7 @@ test('Tree parents and children', async (t) => {
         'should have no children on node 2',
       )
       t.equal(
-        state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents.size,
+        state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents.length,
         1,
         'should have 1 parent on node 1',
       )
@@ -136,10 +136,10 @@ test('Tree parents and children', async (t) => {
       // operation: 'add',  // testing default operation by commenting this out
     }
     let { childTE, parentTE } = await tree.patch({ branch, userID: 'userY' })
-    t.assert(childTE.current.meta.parents.has('1'), 'should have correct 1st parent on childTE')
-    t.assert(childTE.current.meta.parents.has('0'), 'should have correct 2nd parent on childTE')
-    t.assert(parentTE.current.meta.children.has('1'), 'should have correct 1st child on parentTE')
-    t.assert(parentTE.current.meta.children.has('2'), 'should have correct 2nd child on parentTE')
+    t.assert(childTE.current.meta.parents.includes('1'), 'should have correct 1st parent on childTE')
+    t.assert(childTE.current.meta.parents.includes('0'), 'should have correct 2nd parent on childTE')
+    t.assert(parentTE.current.meta.children.includes('1'), 'should have correct 1st child on parentTE')
+    t.assert(parentTE.current.meta.children.includes('2'), 'should have correct 2nd child on parentTE')
 
     branch = {
       parent: 1,
@@ -149,9 +149,9 @@ test('Tree parents and children', async (t) => {
     response = await tree.patch({ branch, userID: 'userY' })
     childTE = response.childTE
     parentTE = response.parentTE
-    t.equal(childTE.current.meta.parents.size, 1, 'should have 1 parent on childTE')
-    t.assert(childTE.current.meta.parents.has('0'), 'should have correct parent on childTE')
-    t.equal(parentTE.current.meta.children.size, 0, 'should have 0 children on parentTE')
+    t.equal(childTE.current.meta.parents.length, 1, 'should have 1 parent on childTE')
+    t.assert(childTE.current.meta.parents.includes('0'), 'should have correct parent on childTE')
+    t.equal(parentTE.current.meta.children.length, 0, 'should have 0 children on parentTE')
 
     // console.log(state.storage.data)
 

@@ -6,44 +6,44 @@ describe('throwIfNotDag', () => {
   it('should not throw on DAG with repeated leaf nodes', () => {
     const dagNode = {
       id: 'DAGNode',
-      children: new Set([
+      children: [
         {
           id: 'DAGNode.1',
         },
-      ]),
+      ],
     }
 
     const dag = {
       id: 'companyID',
-      children: new Set([
+      children: [
         {
           id: 'node1',
-          children: new Set([
+          children: [
             {
               id: 'node1.1',
-              children: new Set([
+              children: [
                 {
                   id: 'node1.1.1',
-                  children: new Set([
+                  children: [
                     {
                       id: 'node1.1.1.1',
                       label: 'Node 1.1.1.1',
                     },
-                  ]),
+                  ],
                 },
                 {
                   id: 'node1.1.2',
-                  children: new Set(),  // Intentionally has children but empty to test
+                  children: [],  // Intentionally has children but empty to test
                 },
                 dagNode,
-              ]),
+              ],
             },
             {
               id: 'node1.2',
-              children: new Set(),
+              children: [],
             },
             dagNode,
-          ]),
+          ],
         },
         {
           id: 'node2',
@@ -54,7 +54,7 @@ describe('throwIfNotDag', () => {
         {
           id: 'node4',
         },
-      ]),
+      ],
     }
 
     const result = throwIfNotDag(dag)
@@ -64,45 +64,45 @@ describe('throwIfNotDag', () => {
   it('should not throw on diamond shaped DAG with children two levels below diamond', () => {
     const branch = {
       idString: '10',
-      children: new Set([
+      children: [
         {
           idString: '20',
         },
-      ]),
+      ],
     }
 
     const dag = {
       idString: '1',
-      children: new Set([
+      children: [
         {
           idString: '2',
-          children: new Set([
+          children: [
             branch,
-          ]),
+          ],
         },
         {
           idString: '3',
-          children: new Set([
+          children: [
             branch,
-          ]),
+          ],
         },
-      ]),
+      ],
     }
     const result = throwIfNotDag(dag)
     expect(result).toBe(true)
   })
 
-  it('should throw if children is not a Set', () => {
+  it('should throw if children is a Set', () => {
     const dag = {
       id: 'companyID',
-      children: [
+      children: new Set([
         {
           id: '1',
         },
-      ],
+      ]),
     }
 
-    expect(() => throwIfNotDag(dag)).toThrowError('must be a Set')
+    expect(() => throwIfNotDag(dag)).toThrowError('must be an Array')
   })
 
   it('should throw if no id or idString', () => {
@@ -124,50 +124,50 @@ describe('throwIfNotDag', () => {
   it('should throw if node is a child of itself', () => {
     const dag = {
       id: 'companyID',
-      children: new Set([
+      children: [
         {
           id: '1',
-          children: new Set([
+          children: [
             {
               id: '1',
             },
-          ]),
+          ],
         },
-      ]),
+      ],
     }
 
-    expect(() => throwIfNotDag(dag)).toThrowError('is an ancestor of itself')
+    expect(() => throwIfNotDag(dag)).toThrowError('contains duplicate ids')
   })
 
   it('should throw if a duplicate node is a two levels down', () => {
     const dag = {
       id: '1',
-      children: new Set([
+      children: [
         {
           id: '2',
-          children: new Set([
+          children: [
             {
               id: '1',
             },
-          ]),
+          ],
         },
-      ]),
+      ],
     }
 
-    expect(() => throwIfNotDag(dag)).toThrowError('is an ancestor of itself')
+    expect(() => throwIfNotDag(dag)).toThrowError('contains duplicate ids')
   })
 
   it('should throw if there are duplicate siblings', () => {
     const dag = {
       id: '1',
-      children: new Set([
+      children: [
         {
           id: '2',
         },
         {
           id: '2',
         },
-      ]),
+      ],
     }
 
     expect(() => throwIfNotDag(dag)).toThrowError('contain duplicate ids')

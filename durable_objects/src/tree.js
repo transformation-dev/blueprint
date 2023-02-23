@@ -162,7 +162,7 @@ export class Tree {
     const status = response[1]
     throwIf(status !== 200, `Could not get parent ${parent.idString}`, status)
     const { parents } = response[0].meta
-    if (status === 200 && parents != null && parents.size > 0) {
+    if (status === 200 && parents != null && parents.length > 0) {
       for (const p of parents) {
         throwIf(
           p === childIDString,
@@ -315,10 +315,9 @@ export class Tree {
    */
   async patchBranch({ branch, userID, validFrom, impersonatorID }) {
     const { parent, child } = branch
-    let { operation } = branch
-    if (operation == null) operation = 'add'
-    throwUnless(parent.toString() && child.toString(), 'body.branch with parent and child required when Tree PATCH patchBranch is called')
-    if (operation != null) throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
+    const { operation = 'add' } = branch
+    throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
+    throwUnless(parent != null && child != null, 'body.branch with parent and child required when Tree PATCH patchBranch is called')
 
     const [parentIDString, parentTemporalEntityOrIDString, parentValidFrom] = getIDStringFromInput(parent)
     const [childIDString, childTemporalEntityOrIDString, childValidFrom] = getIDStringFromInput(child)
@@ -330,8 +329,6 @@ export class Tree {
       await this.throwIfIDInAncestry(parentTemporalEntityOrIDString, childIDString)
     }
 
-    // TODO A: Implement a proxy for storage that holds all writes in memory and then commits them at the end of the request or not if there is an error
-
     // The validFrom in the calls below is only a suggestion to the TE because it might need to increment it by a millisecond if the prior validFrom is the same
     // so we can't gaurantee they'll be exactly the same. However, in real world the chances they'll be different is much lower than here in unit
     // testing because there is going some lag associated with storage that you don't see with an in-memory store used in testing.
@@ -339,8 +336,13 @@ export class Tree {
     // sides of a tick boundary is also very low. Besides, the chances that both the children and parents relationships matter for a moment in time
     // calculation is also very low.
     // Very low probability ^ 3 = not worth worrying about.
-    const childTE = await this.addOrDeleteOnSetInEntityMeta('parents', childTemporalEntityOrIDString, parentIDString, userID, validFrom, impersonatorID, operation)
-    const parentTE = await this.addOrDeleteOnSetInEntityMeta('children', parentTemporalEntityOrIDString, childIDString, userID, validFrom, impersonatorID, operation)
+    const childTE = await this.addOrDeleteOnRelationshipInEntityMeta('parents', childTemporalEntityOrIDString, parentIDString, userID, validFrom, impersonatorID, operation)
+    console.log('calling addOrDeleteOnRelationshipInEntityMeta')
+    console.log('children')
+    console.log('parentTemporalEntityOrIDString', parentTemporalEntityOrIDString)
+    console.log('childIDString', childIDString)
+    console.log('operation', operation)
+    const parentTE = await this.addOrDeleteOnRelationshipInEntityMeta('children', parentTemporalEntityOrIDString, childIDString, userID, validFrom, impersonatorID, operation)
 
     // TODO: If I ever get on a later version of miniflare that includes storage.delete, I can use the code below
     // if (childTE.current.meta.validFrom !== parentTE.current.meta.validFrom) {
@@ -359,26 +361,32 @@ export class Tree {
   //   await nodeTE.state.storage.put(`${nodeTE.idString}/entityMeta`, nodeTE.entityMeta)
   // }
 
-  async addOrDeleteOnSetInEntityMeta(metaFieldToAddTo, temporalEntityOrIDString, valueToAdd, userID, validFrom, impersonatorID, operation = 'add') {
+  async addOrDeleteOnRelationshipInEntityMeta(metaFieldToAlter, temporalEntityOrIDString, valueToAddOrDelete, userID, validFrom, impersonatorID, operation = 'add') {
     let idString
     let nodeTE
     if (typeof temporalEntityOrIDString === 'string' || temporalEntityOrIDString instanceof String) {  // so update by creating a new snapshot
       idString = temporalEntityOrIDString
       nodeTE = new TemporalEntity(this.state, this.env, undefined, undefined, idString)
       await nodeTE.hydrate()
-      const set = structuredClone(nodeTE.current.meta[metaFieldToAddTo]) || new Set()
-      set[operation](valueToAdd)
+      let a = structuredClone(nodeTE.current.meta[metaFieldToAlter]) || []
+      console.log('a', metaFieldToAlter, a)
+      if (operation === 'add') a.push(valueToAddOrDelete)
+      else if (operation === 'delete') a = a.filter((v) => v !== valueToAddOrDelete)
+      else throw new Error('Operation on call to addOrDeleteOnRelationshipInEntityMeta must be "add" or "delete"')
       const delta = { validFrom, userID }
       if (impersonatorID != null) delta.impersonatorID = impersonatorID
-      delta[metaFieldToAddTo] = set
+      delta[metaFieldToAlter] = a
+      console.log('delta', delta)
       await nodeTE.patchMetaDelta(delta)  // creates a new snapshot
     } else if (temporalEntityOrIDString instanceof TemporalEntityBase) {  // update in place without creating a new snapshot
       nodeTE = temporalEntityOrIDString
-      nodeTE.current.meta[metaFieldToAddTo] ??= new Set()
-      nodeTE.current.meta[metaFieldToAddTo][operation](valueToAdd)
+      nodeTE.current.meta[metaFieldToAlter] ??= []
+      if (operation === 'add') nodeTE.current.meta[metaFieldToAlter].push(valueToAddOrDelete)
+      else if (operation === 'delete') nodeTE.current.meta[metaFieldToAlter] = nodeTE.current.meta[metaFieldToAlter].filter((v) => v !== valueToAddOrDelete)
+      else throw new Error('Operation on call to addOrDeleteOnRelationshipInEntityMeta must be "add" or "delete"')
       await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`, nodeTE.current)
     } else {
-      throwIf(true, `${metaFieldToAddTo === 'children' ? 'parent' : 'child'} must be a string or a TemporalEntity`)
+      throwIf(true, `${metaFieldToAlter === 'children' ? 'parent' : 'child'} must be a string or a TemporalEntity`)
     }
 
     return nodeTE
