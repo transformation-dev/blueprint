@@ -603,10 +603,7 @@ export class TemporalEntityBase {
     await this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
 
     // apply metaDelta to current.meta and save it
-    console.log('this.current.meta', this.current.meta)
-    console.log('metaDelta', metaDelta)
     applyDelta(this.current.meta, metaDelta)
-    console.log('this.current.meta', this.current.meta)
     this.current.meta.previousValues = {}  // value never changes in a patchMetaDelta
     this.entityMeta.timeline.push(metaDelta.validFrom)
     await this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
