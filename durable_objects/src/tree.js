@@ -337,11 +337,6 @@ export class Tree {
     // calculation is also very low.
     // Very low probability ^ 3 = not worth worrying about.
     const childTE = await this.addOrDeleteOnRelationshipInEntityMeta('parents', childTemporalEntityOrIDString, parentIDString, userID, validFrom, impersonatorID, operation)
-    console.log('calling addOrDeleteOnRelationshipInEntityMeta')
-    console.log('children')
-    console.log('parentTemporalEntityOrIDString', parentTemporalEntityOrIDString)
-    console.log('childIDString', childIDString)
-    console.log('operation', operation)
     const parentTE = await this.addOrDeleteOnRelationshipInEntityMeta('children', parentTemporalEntityOrIDString, childIDString, userID, validFrom, impersonatorID, operation)
 
     // TODO: If I ever get on a later version of miniflare that includes storage.delete, I can use the code below
@@ -369,14 +364,12 @@ export class Tree {
       nodeTE = new TemporalEntity(this.state, this.env, undefined, undefined, idString)
       await nodeTE.hydrate()
       let a = structuredClone(nodeTE.current.meta[metaFieldToAlter]) || []
-      console.log('a', metaFieldToAlter, a)
       if (operation === 'add') a.push(valueToAddOrDelete)
       else if (operation === 'delete') a = a.filter((v) => v !== valueToAddOrDelete)
       else throw new Error('Operation on call to addOrDeleteOnRelationshipInEntityMeta must be "add" or "delete"')
       const delta = { validFrom, userID }
       if (impersonatorID != null) delta.impersonatorID = impersonatorID
       delta[metaFieldToAlter] = a
-      console.log('delta', delta)
       await nodeTE.patchMetaDelta(delta)  // creates a new snapshot
     } else if (temporalEntityOrIDString instanceof TemporalEntityBase) {  // update in place without creating a new snapshot
       nodeTE = temporalEntityOrIDString
