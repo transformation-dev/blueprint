@@ -30,7 +30,7 @@ async function encodeAndFetch(url, options) {  // TODO: move this to a helper fi
   }
   options.headers = headers
 
-  return await fetch(url, options)
+  return fetch(url, options)
 }
 
 async function encodeFetchAndDecode(url, options) {  // TODO: move this to a helper file
