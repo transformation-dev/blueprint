@@ -37,6 +37,7 @@ export function throwIfMediaTypeHeaderInvalid(request) {
   return { contentType, acceptType }
 }
 
+// Currently unused but worked when we were using the Set-based version of tree.js
 // Assumes that each node, including the root, is an object with an id or idString property that is a string.
 // If the node also has a children property, it must be a Set of nodes, recursively.
 export function throwIfNotDagUsingSets(o, currentPath = new Set()) {

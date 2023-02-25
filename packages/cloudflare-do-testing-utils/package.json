@@ -1,19 +1,23 @@
 {
-  "name": "@transformation-dev/cloudflare-do-utils",
+  "name": "@transformation-dev/cloudflare-do-testing-utils",
   "version": "0.6.1",
-  "description": "Utilities for working with Cloudflare's Durable Objects",
+  "description": "Utilities for testing Cloudflare's Durable Objects",
   "keywords": [
     "cloudflare",
     "durable object",
     "durable objects",
     "do",
     "DurableObject",
-    "DurableObjects"
+    "DurableObjects",
+    "testing",
+    "tests",
+    "unit test",
+    "test"
   ],
   "author": "Larry Maccherone <Larry@Maccherone.com>",
   "homepage": "https://github.com/transformation-dev/blueprint/tree/master/packages/cloudflare-do-utils#readme",
   "license": "MIT",
-  "main": "cloudflare-do-utils.js",
+  "main": "cloudflare-do-testing-utils.js",
   "type": "module",
   "publishConfig": {
     "access": "public"
@@ -33,12 +37,8 @@
     "url": "https://github.com/transformation-dev/blueprint/issues"
   },
   "dependencies": {
-    "@transformation-dev/accept": "file:packages/accept",
-    "cbor-x": "1.5.1",
-    "debug": "^4.3.4"
   },
   "devDependencies": {
-    "@transformation-dev/cloudflare-do-testing-utils": "file:packages/cloudflare-do-testing-utils",
     "@vitest/coverage-c8": "^0.28.5",
     "node-fetch": "^3.3.0",
     "vitest": "^0.28.5"

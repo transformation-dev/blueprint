@@ -17,7 +17,7 @@
   "main": "dragster.js",
   "type": "module",
   "directories": {
-    "test": "__tests__"
+    "test": "test"
   },
   "publishConfig": {
     "access": "public"
