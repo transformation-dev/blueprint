@@ -12,7 +12,8 @@
     "build": "scripts/build.mjs && vitest --run",
     "dev:watch": "scripts/watch.mjs",
     "dev:host": "npx wrangler dev --local",
-    "test": "vitest",
+    "test": "vitest --run",
+    "test:watch": "vitest",
     "coverage": "vitest --coverage"
   },
   "dependencies": {
