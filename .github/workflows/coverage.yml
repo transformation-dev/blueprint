@@ -55,10 +55,10 @@ jobs:
     #   env:
     #     CI: true
 
-    - name: Upload screenshots
-      uses: actions/upload-artifact@v3
-      if: ${{ always() }}
-      with:
-        name: test-screenshots
-        path: cypress/screenshots
+    # - name: Upload screenshots
+    #   uses: actions/upload-artifact@v3
+    #   if: ${{ always() }}
+    #   with:
+    #     name: test-screenshots
+    #     path: cypress/screenshots
 

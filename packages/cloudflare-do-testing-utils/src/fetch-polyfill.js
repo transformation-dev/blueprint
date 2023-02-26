@@ -1,5 +1,4 @@
-// import fetch, {
-import {
+import fetch, {
   // Blob,
   // blobFrom,
   // blobFromSync,
@@ -14,7 +13,7 @@ import {
 
 export function initFetchPolyfill() {
   if (!globalThis.fetch) {
-    // globalThis.fetch = fetch
+    globalThis.fetch = fetch
     globalThis.Headers = Headers
     globalThis.Request = Request
     globalThis.Response = Response

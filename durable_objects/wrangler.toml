@@ -8,6 +8,7 @@ DEBUG = "blueprint:*"
 [durable_objects]
 bindings = [
   {name = "DO_API", class_name = "DurableAPI"},
+  {name = "GREETER", class_name = "Greeter"},
 ]
 
 [[migrations]]
@@ -33,3 +34,7 @@ deleted_classes = ["PreviewCounter", "Counter", "TemporalEntity", "Tree"]
 [[migrations]]
 tag = "v6"
 new_classes = ["DurableAPI"]
+
+[[migrations]]
+tag = "v7"
+new_classes = ["Greeter"]

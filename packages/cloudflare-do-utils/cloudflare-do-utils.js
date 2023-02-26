@@ -1,4 +1,5 @@
 export * from './src/transactional-do-wrapper.js'
+export * from './src/versioning-transactional-do-wrapper.js'
 export * from './src/response-mixin.js'
 export * from './src/throws.js'
 export * from './src/http-error.js'

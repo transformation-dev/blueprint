@@ -1,7 +1,7 @@
 // 3rd party imports
 
 // mono-repo imports
-import { TransactionalDOWrapperBase } from '@transformation-dev/cloudflare-do-utils'
+import { VersioningTransactionalDOWrapperBase } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
 import { Experimenter } from './experimenter.js'
@@ -13,12 +13,13 @@ import { Tree } from './tree.js'
 export * from './temporal-entity.js'  // Need this for unit testing TemporalEntity which has imported YAML schemas
 export * from './tree.js'  // And this is needed because Tree uses TemporalEntity
 export * from './counter.js'  // I don't think this is needed but I'm not sure
+export * from './greeter.js'  // For demonstration purposes
 
 // Worker that does nothing and is never used but necessary since durable objects require a Worker
 export default {}
 
 // Durable Object
-export class DurableAPI extends TransactionalDOWrapperBase {
+export class DurableAPI extends VersioningTransactionalDOWrapperBase {
   // Since we're using the same type and version concept and url ordering as TemporalEntity, we can defer those differences to TemporalEntity.
   // This means that TemporalEntity can be the class for many different types below but the url gets passed into TemporalEntity
   // so it would further refine the type inside of TemporalEntity. They will still have different schemas, validation, migrations, etc.

@@ -6,8 +6,6 @@ export class Counter {
 
   // Handle HTTP requests from clients.
   async fetch(request) {
-    console.log('Counter.fetch() called')
-    console.log('request.url', request.url)
     const url = new URL(request.url)
 
     // Durable Object storage is automatically cached in-memory, so reading the
