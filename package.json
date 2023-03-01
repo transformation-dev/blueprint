@@ -10,7 +10,7 @@
     "cypress:run": "cypress run",
     "eslint": "npx eslint -c .eslintrc.cjs --ext .js,.svelte,.html .",
     "lint": "npm run eslint",
-    "postinstall": "cd durable_objects && npm install",
+    "postinstall-not-needed": "cd durable_objects && npm install",
     "build": "npm run build:version.json && npm run build:ui",
     "build:version.json": "printf '{\"sha\":\"' > ./public/version.json && printf $(git show -s --format=%H) >> ./public/version.json && echo '\"}' >> ./public/version.json",
     "build:ui": "npx vite build",
