@@ -26,21 +26,23 @@
     "test": "test"
   },
   "scripts": {
-    "test": "vitest",
-    "coverage": "vitest run --coverage"
+    "test": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules vitest",
+    "coverage": "NODE_OPTIONS=--experimental-vm-modules vitest run --coverage"
   },
   "bugs": {
     "url": "https://github.com/transformation-dev/blueprint/issues"
   },
   "dependencies": {
     "@transformation-dev/accept": "file:packages/accept",
-    "cbor-x": "1.5.1",
+    "cbor-x": "^1.5.1",
     "debug": "^4.3.4"
   },
   "devDependencies": {
     "@transformation-dev/cloudflare-do-testing-utils": "file:packages/cloudflare-do-testing-utils",
     "@vitest/coverage-c8": "^0.28.5",
     "node-fetch": "^3.3.0",
-    "vitest": "^0.28.5"
+    "vitest": "^0.29.1",
+    "vitest-environment-miniflare": "^2.12.1"
   }
 }

@@ -54,12 +54,12 @@ export class FetchProcessor {
     }
   }
 
-  async deserialize(request = this.request) {
-    const contentType = request.headers.get('Content-Type')
+  async deserialize(requestOrResponse = this.request) {
+    const contentType = requestOrResponse.headers.get('Content-Type')
     throwIf(contentType == null, 'No Content-Type header supplied', 400)
     try {
       const { deserialize } = this.constructor.contentTypes[contentType]
-      return deserialize(request)
+      return deserialize(requestOrResponse)
     } catch (e) {
       throw new HTTPError(`Error serializing the supplied body: ${e.message}`, 500)
     }
@@ -71,8 +71,8 @@ const cborSC = new Encoder({ structuredClone: true })
 async function serializeCBOR(o) {
   return cborSC.encode(o)
 }
-async function deserializeCBOR(request) {
-  const ab = await request.arrayBuffer()
+async function deserializeCBOR(requestOrResponse) {
+  const ab = await requestOrResponse.arrayBuffer()
   const u8a = new Uint8Array(ab)
   return decode(u8a)
 }
@@ -83,8 +83,8 @@ FetchProcessor.registerContentType(['application/cbor', 'application/cbor-sc'], 
 async function serializeJSON(o) {
   return JSON.stringify(o)
 }
-async function deserializeJSON(request) {
-  return request.json()
+async function deserializeJSON(requestOrResponse) {
+  return requestOrResponse.json()
 }
 const processorsJSON = { serialize: serializeJSON, deserialize: deserializeJSON }
 FetchProcessor.registerContentType(['application/json'], processorsJSON)

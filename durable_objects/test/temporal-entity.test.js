@@ -5,7 +5,7 @@
 import { describe, it, expect, assert } from 'vitest'
 
 // monorepo imports
-import { getStateMock, getEnvMock, initFetchPolyfill } from '@transformation-dev/cloudflare-do-testing-utils'
+import { getStateMock, getEnvMock, initFetchPolyfill } from '@transformation-dev/cloudflare-do-testing-utils'  // TODO: Remove all of this here and in the package because we don't need it with miniflare vitest integration
 
 // local imports
 import { TemporalEntity } from '../index.mjs'
@@ -13,7 +13,7 @@ import { TemporalEntity } from '../index.mjs'
 // initialize imports
 // const env = getEnvMock()  // defaults to DEBUG: 'blueprint:*'. call with getEnvMock({ DEBUG: 'something:*' }) to change debug scope filter
 const env = getEnvMock({})
-initFetchPolyfill()
+// initFetchPolyfill()
 
 describe('TemporalEntity accessing static properties in subclass', async () => {  // TODO: this test needs to move to the blueprint suite once TemporalEntityBase is in a package
   it('should have bogus property from subclass', () => {

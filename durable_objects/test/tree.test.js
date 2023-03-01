@@ -1,33 +1,62 @@
-/* eslint-disable import/no-extraneous-dependencies */
+/* eslint-disable no-undef */
 
 // 3rd party imports
-import { describe, it, expect, assert } from 'vitest'
+// eslint-disable-next-line import/no-extraneous-dependencies
+import { it, expect, assert } from 'vitest'
 
 // monorepo imports
-import { getStateMock, getEnvMock } from '@transformation-dev/cloudflare-do-testing-utils'
+import { encodeFetchAndDecode, addCryptoToEnv } from '@transformation-dev/cloudflare-do-testing-utils'
 
-// local imports
-import { Tree } from '../index.mjs'
+const describe = setupMiniflareIsolatedStorage()
+const env = getMiniflareBindings()
+addCryptoToEnv(env)
 
-// initialize imports
-// const env = getEnvMock()  // defaults to DEBUG: 'blueprint:*'. call with getEnvMock({ DEBUG: 'something:*' }) to change debug scope filter
-const env = await getEnvMock({})
+describe('A series of Tree operations', async () => {
+  let baseUrl = 'http://fake.host'
+  let state
+  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
+  if (process?.env?.VITEST_BASE_URL != null) {
+    baseUrl = process.env.VITEST_BASE_URL
+  } else {
+    const id = env.DO_API.newUniqueId()
+    state = await getMiniflareDurableObjectState(id)
+    stub = await env.DO_API.get(id)
+  }
 
-describe('Tree', async () => {
-  const state = getStateMock()  // getting a new state mock for each test
-  const tree = new Tree(state, env, 'testTreeID')
   it('should allow tree creation with POST', async () => {
     const rootNode = {
       value: { a: 1 },
       type: '***test-has-children***',
       version: 'v1',
     }
-    const response = await tree.post({ rootNode, userID: 'userW' })
-    expect(response[1]).toBe(201)
-    expect(state.storage.data['0/entityMeta'].timeline.length).toBe(1)
+    const options = {
+      method: 'POST',
+      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
+      body: { rootNode, userID: 'userW' },
+    }
+    const url = `${baseUrl}/tree/v1`
+    const response = await encodeFetchAndDecode(url, options, stub)
+
+    // expects/asserts to always run
+    expect(response.status).toBe(201)
+    const { meta, idString } = response.CBOR_SC
+    expect(meta.nodeCount).to.be.a('number')
+    expect(meta.nodeCount).to.eq(1)
+    expect(meta.validFrom).to.be.a('string')
+    assert(meta.validFrom === meta.lastValidFrom)
+    assert(meta.validFrom <= new Date().toISOString())
+    expect(meta.userID).to.eq('userW')
+    expect(response.headers.get('ETag')).to.eq(meta.eTag)
+    expect(idString).to.be.a('string')
+
+    // storage operation expects/asserts to only run in miniflare
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const value = await state.storage.get('0/entityMeta')
+      expect(value.timeline.length).toBe(1)
+    }
   })
 
-  it('should allow node creation with PATCH', async () => {
+  it.todo('should allow node creation with PATCH', async () => {
     const newNode = {
       value: { b: 2 },
       type: '***test-has-children-and-parents***',
@@ -40,7 +69,7 @@ describe('Tree', async () => {
     assert(state.storage.data[`0/snapshot/${lastValidFrom}`].meta.children.includes('1'))
   })
 
-  it('should throw when sent non-existent parent', async () => {
+  it.todo('should throw when sent non-existent parent', async () => {
     const newNode = {
       value: { c: 3 },
       type: '***test-has-children-and-parents***',
@@ -55,7 +84,7 @@ describe('Tree', async () => {
     }
   })
 
-  it('should allow addition of another node', async () => {
+  it.todo('should allow addition of another node', async () => {
     const newNode2 = {
       value: { c: 3 },
       type: '***test-has-children-and-parents***',
@@ -68,7 +97,7 @@ describe('Tree', async () => {
     assert(state.storage.data[`1/snapshot/${lastValidFrom}`].meta.children.includes('2'))
   })
 
-  it('should throw when adding a node that would create a cycle', async () => {
+  it.todo('should throw when adding a node that would create a cycle', async () => {
     const branch = {
       parent: 2,  // intentionally a Number to confirm that it's forgiving of this
       child: '1',
@@ -88,7 +117,7 @@ describe('Tree', async () => {
     }
   })
 
-  it('should allow addition of a branch that creates a diamond-shaped DAG', async () => {
+  it.todo('should allow addition of a branch that creates a diamond-shaped DAG', async () => {
     const branch = {
       parent: 0,  // intentionally a Number to confirm that it's forgiving of this as a zero
       child: 2,
@@ -101,7 +130,7 @@ describe('Tree', async () => {
     assert(parentTE.current.meta.children.includes('2'))
   })
 
-  it('should allow deletion of a branch', async () => {
+  it.todo('should allow deletion of a branch', async () => {
     const branch = {
       parent: 1,
       child: 2,

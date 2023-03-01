@@ -19,4 +19,4 @@ npm i @transformation-dev/cloudflare-do-utils
 
 ## `TransactionalDOWrapperBase`
 
-Read about the [TransactionalDOWrapperBase](https://medium.com/cloudflare-durable-objects-design-patterns/maintaining-consistent-state-56f5bb22dba9) 
+Read about the [TransactionalDOWrapperBase](https://medium.com/cloudflare-durable-objects-design-patterns/maintaining-consistent-state-56f5bb22dba9) on my [publication on Cloudflare Durable Objects Design Patterns](https://medium.com/cloudflare-durable-objects-design-patterns)

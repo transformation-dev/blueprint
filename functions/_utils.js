@@ -4,7 +4,13 @@ import { nanoid } from 'nanoid'
 import { Encoder } from 'cbor-x'
 // eslint-disable-next-line import/no-unresolved
 
-import Accept from '@transformation-dev/accept'
+// import Accept from '@transformation-dev/accept'
+const Accept = {}
+Accept.mediaType = (contentType, supported) => {
+  if (Array.isArray(contentType)) contentType = contentType[0]
+  if (supported.includes(contentType)) return contentType
+  return null
+}
 
 import { HTTPError } from '../src/utils'
 

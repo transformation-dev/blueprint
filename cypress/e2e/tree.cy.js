@@ -58,7 +58,7 @@ context('Tree', () => {
     }
     let options = {
       method: 'POST',
-      body: { rootNode, userID: 'UserW' },
+      body: { rootNode, userID: 'userW' },
     }
 
     cy.wrap(null).then(async () => {
@@ -70,7 +70,7 @@ context('Tree', () => {
       expect(meta.nodeCount).to.be.a('number')
       expect(meta.nodeCount).to.eq(1)
       expect(meta.validFrom).to.be.a('string')
-      expect(meta.userID).to.eq('UserW')
+      expect(meta.userID).to.eq('userW')
       expect(response.headers.get('ETag')).to.eq(meta.eTag)
 
       cy.wrap(null).then(async () => {

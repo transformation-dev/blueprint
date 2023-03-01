@@ -1,6 +1,6 @@
 compatibility_date = "2023-02-11"
 name = "transformation-durable_objects"
-main = "index.mjs"
+main = "./index.mjs"
 
 [vars]
 DEBUG = "blueprint:*"

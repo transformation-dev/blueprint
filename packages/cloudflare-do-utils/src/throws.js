@@ -1,5 +1,14 @@
+/* eslint-disable import/order */
+/* eslint-disable import/first */
 // mono-repo imports
-import Accept from '@transformation-dev/accept'  // TODO: Stop using this because only support application/cbor-sc and we don't support q values
+// TODO: Stop using this because only support application/cbor-sc and we don't support q values
+// import Accept from '@transformation-dev/accept'  // TODO: Stop using this because only support application/cbor-sc and we don't support q values
+// const Accept = require('@transformation-dev/accept')
+const Accept = {}
+Accept.mediaType = (contentType, supported) => {
+  if (supported.includes(contentType)) return contentType
+  return null
+}
 
 // local imports
 import { HTTPError } from './http-error.js'

@@ -9,21 +9,22 @@
   },
   "scripts": {
     "publish": "npm run build && npx wrangler publish",
-    "build": "scripts/build.mjs && vitest --run",
+    "build": "scripts/build.mjs && NODE_OPTIONS=--experimental-vm-modules vitest --run",
     "dev:watch": "scripts/watch.mjs",
     "dev:host": "npx wrangler dev --local",
-    "test": "vitest --run",
-    "test:watch": "vitest",
-    "coverage": "vitest --coverage"
+    "test": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules vitest",
+    "coverage": "NODE_OPTIONS=--experimental-vm-modules vitest --coverage"
   },
   "dependencies": {
     "@cfworker/json-schema": "^1.12.5",
     "@transformation-dev/accept": "file:packages/accept",
     "@transformation-dev/cloudflare-do-utils": "file:packages/cloudflare-do-utils",
     "deep-object-diff": "^1.1.9",
-    "nanoid": "^4.0.0"
+    "nanoid": "^4.0.1"
   },
   "devDependencies": {
+    "@modyfi/vite-plugin-yaml": "^1.0.4",
     "@transformation-dev/cloudflare-do-testing-utils": "file:packages/cloudflare-do-testing-utils",
     "esbuild": "^0.17.10",
     "esbuild-plugin-yaml": "^0.0.1",

@@ -2,11 +2,7 @@
 import { describe, it, expect, expectTypeOf } from 'vitest'
 
 // local imports
-import { initFetchPolyfill } from '@transformation-dev/cloudflare-do-testing-utils'  // Adds Request, Response, Headers to globalThis
 import { FetchProcessor } from '../src/fetch-processor.js'
-
-// initialize imports
-initFetchPolyfill()
 
 describe('FetchProcessor', () => {
   it('should have some content type processors', () => {
@@ -34,6 +30,8 @@ describe('FetchProcessor', () => {
       },
     )
     const deserializedObject = await processor.deserialize(newRequest)
+    console.log('deserializedObject', deserializedObject instanceof Object, deserializedObject)
+    console.log('o', o instanceof Object, o)
     expect(deserializedObject).toStrictEqual(o)
     expect(deserializedObject.repeatedObject).toBe(deserializedObject.repeatedObject2)
   })
