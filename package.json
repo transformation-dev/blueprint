@@ -28,6 +28,7 @@
     "@cypress/code-coverage": "^3.10.0",
     "@sveltejs/vite-plugin-svelte": "^2.0.2",
     "@vitest/coverage-c8": "^0.29.2",
+    "@vitest/coverage-istanbul": "^0.29.2",
     "agnostic-svelte": "^1.1.22",
     "bulma": "^0.9.3",
     "bulma-badge": "^3.0.1",
