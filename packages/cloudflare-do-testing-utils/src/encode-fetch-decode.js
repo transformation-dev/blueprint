@@ -26,8 +26,9 @@ export async function encodeAndFetch(url, options, stub) {  // TODO: move this t
   }
   options.headers = headers
 
-  if (stub != null) return stub.fetch(url, options)
-  return fetch(url, options)
+  const request = new Request(url, options)
+  if (stub != null) return stub.fetch(request)
+  return fetch(request)
 }
 
 export async function encodeFetchAndDecode(url, options, stub) {  // TODO: move this to a helper file

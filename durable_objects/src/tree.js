@@ -97,7 +97,7 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Flags in TemporalEnti
  *
  * */
 export class Tree {
-  constructor(state, env, idString) {  // idString is only used in unit tests and composition. Cloudflare only passes in two parameters.
+  constructor(state, env, idString) {  // idString is only used in tests and composition. Cloudflare only passes in two parameters.
     Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
@@ -180,7 +180,7 @@ export class Tree {
 
   // The body and return is always a CBOR-SC object
   async fetch(request) {
-    debug('%s %s', request.method, request.url)
+    debug('fetch() called with %s %s', request.method, request.url)
     try {
       const url = new URL(request.url)
       const pathArray = url.pathname.split('/')

@@ -4,6 +4,7 @@
 // 3rd party imports
 import { diff } from 'deep-object-diff'
 import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
+import { load as yamlLoad } from 'js-yaml'
 
 // monorepo imports
 import {
@@ -12,9 +13,11 @@ import {
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
-import testDagSchemaV1 from './schemas/***test-dag***.v1.yaml'  // uses esbuild plugin esbuild-plugin-yaml to inline
+// eslint-disable-next-line import/no-unresolved
+import testDagSchemaV1String from './schemas/***test-dag***.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
 
 // initialize imports
+const testDagSchemaV1 = yamlLoad(testDagSchemaV1String)  // convert yaml string to javascript object
 const debug = getDebug('blueprint:temporal-entity')
 
 // The DurableObject storage API has no way to list just the keys so we have to keep track of all the
@@ -369,7 +372,6 @@ export class TemporalEntityBase {
     return { validFrom, validFromDate }
   }
 
-  // The body and return is always a CBOR-SC object
   // eslint-disable-next-line consistent-return
   async fetch(request, urlString) {  // urlString is only used when called in composition by another durable object sharing state and env
     debug('%s %s', request.method, urlString || request.url)

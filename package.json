@@ -19,7 +19,7 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
     "test:live": "NODE_OPTIONS=--experimental-vm-modules VITEST_BASE_URL=http://127.0.0.1:8788/api/do vitest --run",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules vitest",
-    "coverage": "NODE_OPTIONS=--experimental-vm-modules vitest --coverage",
+    "coverage": "NODE_OPTIONS=--experimental-vm-modules vitest --coverage --run",
     "syncpack:fix": "npx syncpack fix-mismatches"
   },
   "devDependencies": {
@@ -28,7 +28,6 @@
     "@cypress/code-coverage": "^3.10.0",
     "@sveltejs/vite-plugin-svelte": "^2.0.2",
     "@vitest/coverage-c8": "^0.29.2",
-    "@vitest/coverage-istanbul": "^0.29.2",
     "agnostic-svelte": "^1.1.22",
     "bulma": "^0.9.3",
     "bulma-badge": "^3.0.1",

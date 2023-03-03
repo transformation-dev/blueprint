@@ -5,6 +5,9 @@ const scriptPath = path.join(__dirname, "index.mjs")
 
 export default defineConfig({
   test: {
+    // deps: {
+    //   registerNodeLoader: true,
+    // },
     // setupFiles: [
     //   path.join(__dirname, "test/_global-crypto.js"),
     // ],
