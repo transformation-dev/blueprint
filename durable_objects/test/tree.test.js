@@ -8,7 +8,7 @@ import { it, expect, assert } from 'vitest'
 import { encodeFetchAndDecode, addCryptoToEnv } from '@transformation-dev/cloudflare-do-testing-utils'
 
 // local imports
-import { Tree } from '../src/tree.js'
+import { DurableAPI } from '../src/index.js'
 
 const describe = setupMiniflareIsolatedStorage()
 const env = getMiniflareBindings()
@@ -25,8 +25,7 @@ describe('A series of Tree operations', async () => {
     const id = env.DO_API.newUniqueId()
     state = await getMiniflareDurableObjectState(id)
     // stub = await env.DO_API.get(id)  // this is how Cloudflare suggests but doing it the way below allows vitest --coverage to work
-    const tree = new Tree(state, env, id.toString())
-    stub = tree
+    stub = new DurableAPI(state, env, id.toString())
   }
 
   it('should allow tree creation with POST', async () => {
