@@ -333,13 +333,19 @@ export class TemporalEntityBase {
     // validation
     throwUnless(this.idString, 'Entity id is required', 404)
 
+    // console.log('this.idString: %O', this.idString)
+
     // hydrate #entityMeta
     this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { timeline: [] }
+
+    // console.log('this.entityMeta: %O', this.entityMeta)
 
     // hydrate #current
     if (this.entityMeta.timeline.length > 0) {
       this.current = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}`)
     }
+
+    // console.log('this.current: %O', this.current)
 
     // preferably, this.type and this.version are set earlier, but if not, we'll try to set them here from this.current.meta
     if (this.type == null && this.current?.meta?.type != null) this.type = this.current.meta.type

@@ -3,11 +3,11 @@ import { Encoder, decode } from 'cbor-x'
 
 const cborSC = new Encoder({ structuredClone: true })
 
-export async function encodeAndFetch(url, options, stub) {  // TODO: move this to a helper file
+export async function encodeAndFetch(url, options, stub) {
   if (!options) options = {}
 
   if (options.body) {
-    const u8a = cborSC.encode(options.body)
+    const u8a = cborSC.encode(options.body)  // TODO: Use FetchProcessor instead of directly encoding
     // const u8a = encode(options.body)  // using this seems to fail regardless of how I decode
     options.body = u8a
   }
@@ -31,7 +31,7 @@ export async function encodeAndFetch(url, options, stub) {  // TODO: move this t
   return fetch(request)
 }
 
-export async function encodeFetchAndDecode(url, options, stub) {  // TODO: move this to a helper file
+export async function encodeFetchAndDecode(url, options, stub) {  // TODO: use FetchProcessor instead of directly decoding
   const response = await encodeAndFetch(url, options, stub)
   const ab = await response.arrayBuffer()
   if (ab) {

@@ -2,7 +2,7 @@
 
 // 3rd party imports
 // eslint-disable-next-line import/no-extraneous-dependencies
-import { it, expect, assert } from 'vitest'
+import { describe, it, expect, assert } from 'vitest'
 
 // monorepo imports
 import { encodeFetchAndDecode, addCryptoToEnv } from '@transformation-dev/cloudflare-do-testing-utils'
@@ -10,7 +10,7 @@ import { encodeFetchAndDecode, addCryptoToEnv } from '@transformation-dev/cloudf
 // local imports
 import { DurableAPI } from '../src/index.js'
 
-const describe = setupMiniflareIsolatedStorage()
+// const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks
 const env = getMiniflareBindings()
 await addCryptoToEnv(env)
 env.DEBUG = 'blueprint:*'
@@ -27,6 +27,8 @@ describe('A series of Tree operations', async () => {
     // stub = await env.DO_API.get(id)  // this is how Cloudflare suggests but doing it the way below allows vitest --coverage to work
     stub = new DurableAPI(state, env, id.toString())
   }
+  const coreUrl = `${baseUrl}/tree/v1`
+  let url = coreUrl
 
   it('should allow tree creation with POST', async () => {
     const rootNode = {
@@ -39,7 +41,6 @@ describe('A series of Tree operations', async () => {
       // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
       body: { rootNode, userID: 'userW' },
     }
-    const url = `${baseUrl}/tree/v1`
     const response = await encodeFetchAndDecode(url, options, stub)
 
     // expects/asserts to always run
@@ -52,7 +53,9 @@ describe('A series of Tree operations', async () => {
     assert(meta.validFrom <= new Date().toISOString())
     expect(meta.userID).to.eq('userW')
     expect(response.headers.get('ETag')).to.eq(meta.eTag)
+    expect(response.headers.get('Content-ID')).to.eq(idString)
     expect(idString).to.be.a('string')
+    url += `/${idString}`
 
     // storage operation expects/asserts to only run in miniflare
     if (process?.env?.VITEST_BASE_URL == null) {
@@ -61,17 +64,30 @@ describe('A series of Tree operations', async () => {
     }
   })
 
-  it.todo('should allow node creation with PATCH', async () => {
+  it('should allow node creation with PATCH', async () => {
     const newNode = {
       value: { b: 2 },
       type: '***test-has-children-and-parents***',
       version: 'v1',
     }
-    const response = await tree.patch({ addNode: { newNode, parent: '0' }, userID: 'userX' })
-    expect(response[1]).toBe(201)
-    const { lastValidFrom } = response[0].meta
-    assert(state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents.includes('0'))
-    assert(state.storage.data[`0/snapshot/${lastValidFrom}`].meta.children.includes('1'))
+    const options = {
+      method: 'PATCH',
+      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
+      body: { addNode: { newNode, parent: '0' }, userID: 'userX' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
+    expect(response.status).toBe(201)
+    const { meta } = response.CBOR_SC
+    const { lastValidFrom } = meta
+    expect(meta.nodeCount).to.eq(2)
+    assert(meta.validFrom <= meta.lastValidFrom)
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const child = await state.storage.get(`1/snapshot/${lastValidFrom}`)
+      assert(child.meta.parents.includes('0'))
+      const root = await state.storage.get(`0/snapshot/${lastValidFrom}`)
+      assert(root.meta.children.includes('1'))
+    }
   })
 
   it.todo('should throw when sent non-existent parent', async () => {
