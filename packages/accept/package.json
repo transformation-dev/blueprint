@@ -17,8 +17,6 @@
     "accept",
     "accept-encoding"
   ],
-  "devDependencies": {},
-  "scripts": {},
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/transformation-dev/blueprint/issues"

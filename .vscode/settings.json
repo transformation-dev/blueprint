@@ -38,5 +38,11 @@
         "editor.tabSize": 2
     },
     "debug.internalConsoleOptions": "neverOpen",
-    "typescript.validate.enable": false
+    "typescript.validate.enable": false,
+    "cSpell.words": [
+      "cbor",
+      "cygnetdigital",
+      "miniflare",
+      "SENDGRID"
+    ]
 }

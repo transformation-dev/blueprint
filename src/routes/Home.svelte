@@ -19,7 +19,7 @@
 
 <h2 class="routetitle">Home!</h2>
 
-<p>This is really Home</p>
+<p>This is the final Home</p>
 
 {#await status() then value}
   <p>the value is {JSON.stringify(value, null, 2)}</p>

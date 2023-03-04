@@ -5,7 +5,7 @@ import { extractBody } from './extract-body.js'
 import { getDebug, Debug } from './debug.js'
 import { findFirstID } from './id-string.js'
 
-// intialize imports
+// initialize imports
 const debug = getDebug('blueprint:cloudflare-do-utils:pages-do-proxy')
 
 export function pagesDOProxy(doNameString) {
@@ -24,18 +24,25 @@ export function pagesDOProxy(doNameString) {
     if (idString != null) {
       id = env[doNameString].idFromString(idString)
     } else {
-      id = ['production', 'preview'].includes(env.CF_ENV) ? env[doNameString].newUniqueId() : env[doNameString].idFromName(crypto.randomUUID()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
+      // id = ['production', 'preview'].includes(env.CF_ENV) ? env[doNameString].newUniqueId() : env[doNameString].idFromName(crypto.randomUUID()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
+      id = env[doNameString].newUniqueId()
     }
 
     // build the url to be passed to the durable object
     let url = 'http://fake.host/'
-    if (params.path) url = `http://fake.host/${params.path.join('/')}`
+    if (params.path != null && params.path.length > 0) {
+      const joinedPath = params?.path?.join('/') ?? ''
+      url += joinedPath
+      url += request.url.slice(request.url.indexOf(joinedPath) + joinedPath.length)
+    } else {
+      url += request.url.slice(request.url.lastIndexOf('/') + 1)
+    }
     debug('url to pass to durable object: %O', url)
 
     const entityStub = env[doNameString].get(id)
     const response = await entityStub.fetch(url, request)
     if (response.status >= 400) {
-      debug('DO_API.fetch() to %O failed with status: %O', url, response.status)  // TODO: replace 'DO_API' with the durable object's name
+      debug(`${doNameString}.fetch() to %O failed with status: %O`, url, response.status)
       const body = await extractBody(response, true)
       debug('Error body:\n%O', body)
     }

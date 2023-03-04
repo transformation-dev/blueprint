@@ -17,7 +17,7 @@
   "main": "dragster.js",
   "type": "module",
   "directories": {
-    "test": "__tests__"
+    "test": "test"
   },
   "publishConfig": {
     "access": "public"
@@ -31,6 +31,5 @@
   },
   "bugs": {
     "url": "https://github.com/transformation-dev/blueprint/issues"
-  },
-  "devDependencies": {}
+  }
 }

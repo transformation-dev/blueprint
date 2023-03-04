@@ -3,7 +3,7 @@
 // monorepo imports
 import {
   responseMixin, throwIf, throwUnless, isIDString, getUUID, throwIfMediaTypeHeaderInvalid,
-  throwIfAcceptHeaderInvalid, deserialize, getIDStringFromInput, extractETag, getDebug, Debug,
+  throwIfAcceptHeaderInvalid, extractBody, getIDStringFromInput, extractETag, getDebug, Debug,
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
@@ -97,7 +97,7 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Flags in TemporalEnti
  *
  * */
 export class Tree {
-  constructor(state, env, idString) {  // idString is only used in unit tests and composition. Cloudflare only passes in two parameters.
+  constructor(state, env, idString) {  // idString is only used in tests and composition. Cloudflare only passes in two parameters.
     Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
@@ -162,7 +162,7 @@ export class Tree {
     const status = response[1]
     throwIf(status !== 200, `Could not get parent ${parent.idString}`, status)
     const { parents } = response[0].meta
-    if (status === 200 && parents != null && parents.size > 0) {
+    if (status === 200 && parents != null && parents.length > 0) {
       for (const p of parents) {
         throwIf(
           p === childIDString,
@@ -180,7 +180,7 @@ export class Tree {
 
   // The body and return is always a CBOR-SC object
   async fetch(request) {
-    debug('%s %s', request.method, request.url)
+    debug('fetch() called with %s %s', request.method, request.url)
     try {
       const url = new URL(request.url)
       const pathArray = url.pathname.split('/')
@@ -256,7 +256,7 @@ export class Tree {
   async POST(request) {
     try {
       throwIfMediaTypeHeaderInvalid(request)
-      const options = await deserialize(request)
+      const options = await extractBody(request)
       const [treeMeta, status] = await this.post(options)
       return this.getResponse(treeMeta, status)
     } catch (e) {
@@ -298,7 +298,7 @@ export class Tree {
     await this.state.storage.put(`${this.idString}/treeMeta`, this.treeMeta)
 
     const responseFromGet = await this.get()
-    return [responseFromGet[0], 201]
+    return [responseFromGet[0], 200]  // using 200 eventhough it is creating a new resource that can be accessed via its own url because this uses a PATCH operation. If we added the node with a POST, we would use 201
   }
 
   /**
@@ -315,10 +315,11 @@ export class Tree {
    */
   async patchBranch({ branch, userID, validFrom, impersonatorID }) {
     const { parent, child } = branch
-    let { operation } = branch
-    if (operation == null) operation = 'add'
-    throwUnless(parent.toString() && child.toString(), 'body.branch with parent and child required when Tree PATCH patchBranch is called')
-    if (operation != null) throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
+    const { operation = 'add' } = branch
+    throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
+    throwUnless(parent != null && child != null, 'body.branch with parent and child required when Tree PATCH patchBranch is called')
+
+    await this.hydrate()
 
     const [parentIDString, parentTemporalEntityOrIDString, parentValidFrom] = getIDStringFromInput(parent)
     const [childIDString, childTemporalEntityOrIDString, childValidFrom] = getIDStringFromInput(child)
@@ -330,55 +331,59 @@ export class Tree {
       await this.throwIfIDInAncestry(parentTemporalEntityOrIDString, childIDString)
     }
 
-    // TODO A: Implement a proxy for storage that holds all writes in memory and then commits them at the end of the request or not if there is an error
+    const childTE = await this.addOrDeleteOnRelationshipInEntityMeta('parents', childTemporalEntityOrIDString, parentIDString, userID, validFrom, impersonatorID, operation)
+    const parentTE = await this.addOrDeleteOnRelationshipInEntityMeta('children', parentTemporalEntityOrIDString, childIDString, userID, validFrom, impersonatorID, operation)
 
-    // The validFrom in the calls below is only a suggestion to the TE because it might need to increment it by a millisecond if the prior validFrom is the same
-    // so we can't gaurantee they'll be exactly the same. However, in real world the chances they'll be different is much lower than here in unit
-    // testing because there is going some lag associated with storage that you don't see with an in-memory store used in testing.
-    // Besides, we can live with them being a millisecond off in real world usage because the chances of the two validFrom values being on different
-    // sides of a tick boundary is also very low. Besides, the chances that both the children and parents relationships matter for a moment in time
-    // calculation is also very low.
-    // Very low probability ^ 3 = not worth worrying about.
-    const childTE = await this.addOrDeleteOnSetInEntityMeta('parents', childTemporalEntityOrIDString, parentIDString, userID, validFrom, impersonatorID, operation)
-    const parentTE = await this.addOrDeleteOnSetInEntityMeta('children', parentTemporalEntityOrIDString, childIDString, userID, validFrom, impersonatorID, operation)
+    // TODO: Be sure to have similar code to below when deleting a branch or moving a branch. It's less DRY but have an explicit patchMoveBranch() method that doesn't call patchBranch() twice otherwise the code below might get called three times.
+    // The validFrom in the calls above are only a suggestion to the TE because it might need to increment it by a millisecond if the prior validFrom is the same
+    // so we can't gaurantee they'll be exactly the same. The code below fixes that but is a bit of a hack.
+    let newValidFrom = childTE.current.meta.validFrom
+    if (childTE.current.meta.validFrom !== parentTE.current.meta.validFrom) {
+      newValidFrom = childTE.current.meta.validFrom > parentTE.current.meta.validFrom ? childTE.current.meta.validFrom : parentTE.current.meta.validFrom
+      await this.constructor.updateValidFromWithoutSnapshot(childTE, newValidFrom)
+      await this.constructor.updateValidFromWithoutSnapshot(parentTE, newValidFrom)
+    }
 
-    // TODO: If I ever get on a later version of miniflare that includes storage.delete, I can use the code below
-    // if (childTE.current.meta.validFrom !== parentTE.current.meta.validFrom) {
-    //   const newValidFrom = childTE.current.meta.validFrom > parentTE.current.meta.validFrom ? childTE.current.meta.validFrom : parentTE.current.meta.validFrom
-    //   await this.constructor.updateValidFromWithoutSnapshot(childTE, newValidFrom)
-    //   await this.constructor.updateValidFromWithoutSnapshot(parentTE, newValidFrom)
-    // }
-    return { childTE, parentTE }
+    this.treeMeta.lastValidFrom = newValidFrom
+    this.treeMeta.eTag = getUUID(this.env)
+    await this.state.storage.put(`${this.idString}/treeMeta`, this.treeMeta)
+
+    const responseFromGet = await this.get()
+    return [responseFromGet[0], 200]
   }
 
-  // static async updateValidFromWithoutSnapshot(nodeTE, newValidFrom) {
-  //   await nodeTE.state.storage.delete(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`, nodeTE.current)
-  //   await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${newValidFrom}`, nodeTE.current)
-  //   nodeTE.entityMeta.timeline.pop()
-  //   nodeTE.entityMeta.timeline.push(newValidFrom)
-  //   await nodeTE.state.storage.put(`${nodeTE.idString}/entityMeta`, nodeTE.entityMeta)
-  // }
+  static async updateValidFromWithoutSnapshot(nodeTE, newValidFrom) {
+    await nodeTE.state.storage.delete(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`)
+    await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${newValidFrom}`, nodeTE.current)
+    nodeTE.entityMeta.timeline.pop()
+    nodeTE.entityMeta.timeline.push(newValidFrom)
+    await nodeTE.state.storage.put(`${nodeTE.idString}/entityMeta`, nodeTE.entityMeta)
+  }
 
-  async addOrDeleteOnSetInEntityMeta(metaFieldToAddTo, temporalEntityOrIDString, valueToAdd, userID, validFrom, impersonatorID, operation = 'add') {
+  async addOrDeleteOnRelationshipInEntityMeta(metaFieldToAlter, temporalEntityOrIDString, valueToAddOrDelete, userID, validFrom, impersonatorID, operation = 'add') {
     let idString
     let nodeTE
     if (typeof temporalEntityOrIDString === 'string' || temporalEntityOrIDString instanceof String) {  // so update by creating a new snapshot
       idString = temporalEntityOrIDString
       nodeTE = new TemporalEntity(this.state, this.env, undefined, undefined, idString)
       await nodeTE.hydrate()
-      const set = structuredClone(nodeTE.current.meta[metaFieldToAddTo]) || new Set()
-      set[operation](valueToAdd)
+      let a = structuredClone(nodeTE.current.meta[metaFieldToAlter]) || []
+      if (operation === 'add') a.push(valueToAddOrDelete)
+      else if (operation === 'delete') a = a.filter((v) => v !== valueToAddOrDelete)
+      else throw new Error('Operation on call to addOrDeleteOnRelationshipInEntityMeta must be "add" or "delete"')
       const delta = { validFrom, userID }
       if (impersonatorID != null) delta.impersonatorID = impersonatorID
-      delta[metaFieldToAddTo] = set
+      delta[metaFieldToAlter] = a
       await nodeTE.patchMetaDelta(delta)  // creates a new snapshot
     } else if (temporalEntityOrIDString instanceof TemporalEntityBase) {  // update in place without creating a new snapshot
       nodeTE = temporalEntityOrIDString
-      nodeTE.current.meta[metaFieldToAddTo] ??= new Set()
-      nodeTE.current.meta[metaFieldToAddTo][operation](valueToAdd)
+      nodeTE.current.meta[metaFieldToAlter] ??= []
+      if (operation === 'add') nodeTE.current.meta[metaFieldToAlter].push(valueToAddOrDelete)
+      else if (operation === 'delete') nodeTE.current.meta[metaFieldToAlter] = nodeTE.current.meta[metaFieldToAlter].filter((v) => v !== valueToAddOrDelete)
+      else throw new Error('Operation on call to addOrDeleteOnRelationshipInEntityMeta must be "add" or "delete"')
       await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`, nodeTE.current)
     } else {
-      throwIf(true, `${metaFieldToAddTo === 'children' ? 'parent' : 'child'} must be a string or a TemporalEntity`)
+      throwIf(true, `${metaFieldToAlter === 'children' ? 'parent' : 'child'} must be a string or a TemporalEntity`)
     }
 
     return nodeTE
@@ -401,7 +406,7 @@ export class Tree {
   async PATCH(request) {
     try {
       throwIfMediaTypeHeaderInvalid(request)
-      const options = await deserialize(request)
+      const options = await extractBody(request)
       const eTag = extractETag(request)
       const [treeMeta, status] = await this.patch(options, eTag)
       return this.getResponse(treeMeta, status)

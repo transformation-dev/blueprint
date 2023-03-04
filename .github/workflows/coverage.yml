@@ -35,6 +35,7 @@ jobs:
         SENDGRID_LOGIN: ${{ secrets.SENDGRID_LOGIN }}
         TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
       run: |
+        npm run build:durable_objects
         npm run coverage
 
     - name: Upload coverage files to Codecov
@@ -54,10 +55,10 @@ jobs:
     #   env:
     #     CI: true
 
-    - name: Upload screenshots
-      uses: actions/upload-artifact@v3
-      if: ${{ always() }}
-      with:
-        name: test-screenshots
-        path: cypress/screenshots
+    # - name: Upload screenshots
+    #   uses: actions/upload-artifact@v3
+    #   if: ${{ always() }}
+    #   with:
+    #     name: test-screenshots
+    #     path: cypress/screenshots
 

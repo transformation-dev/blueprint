@@ -1,160 +1,265 @@
-/* eslint-disable object-curly-newline */
-/* eslint-disable no-unused-vars */
-/* eslint-disable no-shadow */
-import test from 'tape'
-import { Tree } from '../index.mjs'
+/* eslint-disable no-undef */
 
-let crypto
-const env = {}
-// env.DEBUG = 'blueprint:*'  // uncomment to see debug output
-env.DEBUG_COLORS = 1
-try {
-  crypto = await import('crypto')
-  env.crypto = crypto
-} catch (err) {
-  throw new Error('crypto support not available!')
-}
+// 3rd party imports
+// eslint-disable-next-line import/no-extraneous-dependencies
+import { describe, it, expect, assert } from 'vitest'
 
-class StorageMock {
-  constructor(initialData = {}) {
-    this.data = structuredClone(initialData)
+// monorepo imports
+import { encodeFetchAndDecode, addCryptoToEnv } from '@transformation-dev/cloudflare-do-testing-utils'
+
+// local imports
+import { DurableAPI } from '../src/index.js'
+
+// const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks
+const env = getMiniflareBindings()
+await addCryptoToEnv(env)
+env.DEBUG = 'blueprint:*'
+
+describe('A series of Tree operations', async () => {
+  let baseUrl = 'http://fake.host'
+  let state
+  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
+  if (process?.env?.VITEST_BASE_URL != null) {
+    baseUrl = process.env.VITEST_BASE_URL
+  } else {
+    const id = env.DO_API.newUniqueId()
+    state = await getMiniflareDurableObjectState(id)
+    // stub = await env.DO_API.get(id)  // this is how Cloudflare suggests but doing it the way below allows vitest --coverage to work
+    stub = new DurableAPI(state, env, id.toString())
   }
+  const coreUrl = `${baseUrl}/tree/v1`
+  let url = coreUrl
 
-  async put(key, value) {
-    this.data[key] = structuredClone(value)
-  }
-
-  async get(key) {
-    return structuredClone(this.data[key])
-  }
-}
-
-function getStateMock(initialData = {}) {
-  return { storage: new StorageMock(initialData) }
-}
-
-test('Tree parents and children', async (t) => {
-  t.test('Create a Tree and do stuff to it', async (t) => {
-    const state = getStateMock()
-    const tree = new Tree(state, env, 'testTreeID')
-
-    let response
+  it('should allow tree creation with POST', async () => {
     const rootNode = {
       value: { a: 1 },
       type: '***test-has-children***',
       version: 'v1',
     }
-    response = await tree.post({ rootNode, userID: 'userW' })
-    t.equal(response[1], 201, 'should get back 201 on successful tree and root node creation')
-    t.equal(state.storage.data['0/entityMeta'].timeline.length, 1, 'should have 1 entry in timeline after 1st put')
+    const options = {
+      method: 'POST',
+      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
+      body: { rootNode, userID: 'userW' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
 
+    // expects/asserts to always run
+    expect(response.status).toBe(201)
+    const { meta, idString } = response.CBOR_SC
+    expect(meta.nodeCount).to.be.a('number')
+    expect(meta.nodeCount).to.eq(1)
+    expect(meta.validFrom).to.be.a('string')
+    assert(meta.validFrom === meta.lastValidFrom)
+    assert(meta.validFrom <= new Date().toISOString())
+    expect(meta.userID).to.eq('userW')
+    expect(response.headers.get('ETag')).to.eq(meta.eTag)
+    expect(response.headers.get('Content-ID')).to.eq(idString)
+    expect(idString).to.be.a('string')
+    url += `/${idString}`
+
+    // storage operation expects/asserts to only run in miniflare
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const value = await state.storage.get('0/entityMeta')
+      expect(value.timeline.length).toBe(1)
+    }
+  })
+
+  it('should allow node creation with PATCH', async () => {
     const newNode = {
       value: { b: 2 },
       type: '***test-has-children-and-parents***',
       version: 'v1',
     }
-    response = await tree.patch({ addNode: { newNode, parent: '0' }, userID: 'userX' })
-    t.equal(response[1], 201, 'should get back 201 on successful node creation')
-    let { lastValidFrom } = response[0].meta
-    t.assert(
-      state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents.has('0'),
-      'should have correct parent on new node',
-    )
-    t.assert(
-      state.storage.data[`0/snapshot/${lastValidFrom}`].meta.children.has('1'),
-      'should have correct child on root node',
-    )
-
-    try {
-      const newNode = {
-        value: { c: 3 },
-        type: '***test-has-children-and-parents***',
-        version: 'v1',
-      }
-      response = await tree.patch({ addNode: { newNode, parent: '999' }, userID: 'userY' })
-      t.fail('async thrower did not throw')
-    } catch (e) {
-      t.equal(e.status, 404, 'should see status 404 in e.status')
-      t.assert(e.message.endsWith('TemporalEntity not found'), 'should throw if parent does not exist')
+    const options = {
+      method: 'PATCH',
+      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
+      body: { addNode: { newNode, parent: '0' }, userID: 'userX' },
     }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    expect(response.status).toBe(200)
+    const { meta } = response.CBOR_SC
+    const { lastValidFrom } = meta
+    expect(meta.nodeCount).to.eq(2)
+    assert(meta.validFrom <= meta.lastValidFrom)
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const child = await state.storage.get(`1/snapshot/${lastValidFrom}`)
+      assert(child.meta.parents.includes('0'))
+      const root = await state.storage.get(`0/snapshot/${lastValidFrom}`)
+      assert(root.meta.children.includes('1'))
+    }
+  })
 
+  it('should respond with error when sent non-existent parent', async () => {
+    const newNode = {
+      value: { c: 3 },
+      type: '***test-has-children-and-parents***',
+      version: 'v1',
+    }
+    const options = {
+      method: 'PATCH',
+      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
+      body: { addNode: { newNode, parent: '999' }, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    expect(response.status).toBe(404)
+    expect(response.CBOR_SC.error.message).toMatch('TemporalEntity not found')
+  })
+
+  let lastValidFrom
+
+  it('should allow addition of another node', async () => {
     const newNode2 = {
       value: { c: 3 },
       type: '***test-has-children-and-parents***',
       version: 'v1',
     }
-    response = await tree.patch({ addNode: { newNode: newNode2, parent: 1 }, userID: 'userY' })  // parent intentionally a Number to confirm that it's forgiving of this
-    t.equal(response[1], 201, 'should get back 201 on successful node 2 creation')
-    lastValidFrom = response[0].meta.lastValidFrom
-    t.assert(
-      state.storage.data[`2/snapshot/${lastValidFrom}`].meta.parents.has('1'),
-      'should have correct parent on node 2',
-    )
-    t.assert(
-      state.storage.data[`1/snapshot/${lastValidFrom}`].meta.children.has('2'),
-      'should have node 2 as child on node 1',
-    )
-
-    try {
-      const branch = {
-        parent: 2,  // intentionally a Number to confirm that it's forgiving of this
-        child: '1',
-        operation: 'add',
-      }
-      response = await tree.patch({ branch, userID: 'userY' })
-      lastValidFrom = response.childTE.current.meta.validFrom
-      t.fail('async thrower did not throw')
-    } catch (e) {
-      t.equal(e.status, 409, 'should see status 409 in e.status')
-      t.assert(e.message.startsWith('Adding this branch would create a cycle'), 'should throw if parent does not exist')
-      lastValidFrom = state.storage.data['testTreeID/treeMeta'].lastValidFrom
-      t.equal(
-        state.storage.data[`2/snapshot/${lastValidFrom}`].meta.parents.size,
-        1,
-        'should have 1 parent on node 2',
-      )
-      t.equal(
-        state.storage.data[`1/snapshot/${lastValidFrom}`].meta.children.size,
-        1,
-        'should have 1 child on node 1',
-      )
-      t.equal(
-        state.storage.data[`2/snapshot/${lastValidFrom}`].meta.children,
-        undefined,
-        'should have no children on node 2',
-      )
-      t.equal(
-        state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents.size,
-        1,
-        'should have 1 parent on node 1',
-      )
+    const options = {
+      method: 'PATCH',
+      body: { addNode: { newNode: newNode2, parent: 1 }, userID: 'userY' },
     }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    expect(response.status).toBe(200)
+    const { meta } = response.CBOR_SC
+    lastValidFrom = meta.lastValidFrom
+    expect(meta.nodeCount).to.eq(3)
+    assert(meta.validFrom <= meta.lastValidFrom)
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
+      assert(node2.meta.parents.includes('1'))
+      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
+      assert(node1.meta.children.includes('2'))
+    }
+  })
 
-    let branch = {
+  it('should respond with error when adding a node that would create a cycle', async () => {
+    const branch = {
+      parent: 2,  // intentionally a Number to confirm that it's forgiving of this
+      child: '1',
+      operation: 'add',
+    }
+    const options = {
+      method: 'PATCH',
+      body: { branch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    const { error } = response.CBOR_SC
+    expect(response.status).toBe(409)
+    expect(error.message).toMatch('Adding this branch would create a cycle')
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
+      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
+      expect(node2.meta.parents.length).toBe(1)
+      expect(node1.meta.children.length).toBe(1)
+      expect(node2.meta.children).toBeUndefined()
+      expect(node1.meta.parents.length).toBe(1)
+    }
+  })
+
+  it('should allow addition of a branch that creates a diamond-shaped DAG', async () => {
+    const branch = {
       parent: 0,  // intentionally a Number to confirm that it's forgiving of this as a zero
       child: 2,
       // operation: 'add',  // testing default operation by commenting this out
     }
-    let { childTE, parentTE } = await tree.patch({ branch, userID: 'userY' })
-    t.assert(childTE.current.meta.parents.has('1'), 'should have correct 1st parent on childTE')
-    t.assert(childTE.current.meta.parents.has('0'), 'should have correct 2nd parent on childTE')
-    t.assert(parentTE.current.meta.children.has('1'), 'should have correct 1st child on parentTE')
-    t.assert(parentTE.current.meta.children.has('2'), 'should have correct 2nd child on parentTE')
+    const options = {
+      method: 'PATCH',
+      body: { branch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    expect(response.status).toBe(200)
+    const { meta } = response.CBOR_SC
+    lastValidFrom = meta.lastValidFrom
+    expect(meta.nodeCount).to.eq(3)
+    assert(meta.validFrom <= meta.lastValidFrom)
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
+      const node0 = await state.storage.get(`0/snapshot/${lastValidFrom}`)
+      assert(node2.meta.parents.includes('0'))
+      assert(node0.meta.children.includes('2'))
+    }
+  })
 
-    branch = {
+  it('should allow deletion of a branch', async () => {
+    const branch = {
       parent: 1,
       child: 2,
       operation: 'delete',
     }
-    response = await tree.patch({ branch, userID: 'userY' })
-    childTE = response.childTE
-    parentTE = response.parentTE
-    t.equal(childTE.current.meta.parents.size, 1, 'should have 1 parent on childTE')
-    t.assert(childTE.current.meta.parents.has('0'), 'should have correct parent on childTE')
-    t.equal(parentTE.current.meta.children.size, 0, 'should have 0 children on parentTE')
+    const options = {
+      method: 'PATCH',
+      body: { branch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    expect(response.status).toBe(200)
+    const { meta } = response.CBOR_SC
+    lastValidFrom = meta.lastValidFrom
+    expect(meta.nodeCount).to.eq(3)
+    assert(meta.validFrom <= meta.lastValidFrom)
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
+      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
+      expect(node2.meta.parents.length).toBe(1)
+      assert(node2.meta.parents.includes('0'))
+      expect(node1.meta.children.length).toBe(0)
+    }
+  })
 
-    // console.log(state.storage.data)
+  it('should "fail silently" when deleting the same branch again', async () => {
+    const branch = {
+      parent: 1,
+      child: 2,
+      operation: 'delete',
+    }
+    const options = {
+      method: 'PATCH',
+      body: { branch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    expect(response.status).toBe(200)
+  })
 
-    t.end()
+  it.todo('should allow moving a branch', async () => {
+    const moveBranch = {
+      node: 2,
+      currentParent: 0,
+      newParent: 1,
+    }
+    const options = {
+      method: 'PATCH',
+      body: { moveBranch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
+    expect(response.status).toBe(200)
+
+    const { meta } = response.CBOR_SC
+    lastValidFrom = meta.lastValidFrom
+    expect(meta.nodeCount).to.eq(3)
+    assert(meta.validFrom <= meta.lastValidFrom)
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
+      assert(node2.meta.parents.includes('1'))
+      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
+      assert(node1.meta.children.includes('2'))
+    }
+  })
+
+  it.todo('should return the entire tree fully hydrated on GET with options.hydrated: true', async () => {
+    // Don't allow application/json
+    // What about orphaned nodes? I'm thinking we should always return them { tree, orphans }
+  })
+
+  it.todo('should allow deleting a node', async () => {
+    // What should the tree look like when retrieved with GET in this instance? Maybe we need an options.includeDeletedNodes: true
+  })
+
+  it.todo('should allow patching a node', async () => {
+  })
+
+  it.todo('should allow POST to the tree to add a node (alias for PATCH addNode)', async () => {
+  })
+
+  it.todo('should return the tree outline on GET', async () => {
+    // Don't allow application/json
   })
 })

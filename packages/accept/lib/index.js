@@ -46,3 +46,5 @@ exports.parseAll = function (requestHeaders) {
         mediaTypes: exports.mediaTypes(requestHeaders.accept)
     };
 };
+
+export default { mediaTypes: exports.mediaTypes, mediaType: exports.mediaType };

@@ -4,17 +4,20 @@
 // 3rd party imports
 import { diff } from 'deep-object-diff'
 import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
+import { load as yamlLoad } from 'js-yaml'
 
 // monorepo imports
 import {
   throwIf, throwUnless, isIDString, throwIfMediaTypeHeaderInvalid, throwIfContentTypeHeaderInvalid, throwIfNotDag,
-  throwIfAcceptHeaderInvalid, responseMixin, getUUID, deserialize, extractETag, applyDelta, getDebug, Debug,
+  throwIfAcceptHeaderInvalid, responseMixin, getUUID, extractETag, applyDelta, getDebug, Debug, extractBody,
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
-import testDagSchemaV1 from './schemas/***test-dag***.v1.yaml'  // uses esbuild plugin esbuild-plugin-yaml to inline
+// eslint-disable-next-line import/no-unresolved
+import testDagSchemaV1String from './schemas/***test-dag***.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
 
 // initialize imports
+const testDagSchemaV1 = yamlLoad(testDagSchemaV1String)  // convert yaml string to javascript object
 const debug = getDebug('blueprint:temporal-entity')
 
 // The DurableObject storage API has no way to list just the keys so we have to keep track of all the
@@ -330,13 +333,19 @@ export class TemporalEntityBase {
     // validation
     throwUnless(this.idString, 'Entity id is required', 404)
 
+    // console.log('this.idString: %O', this.idString)
+
     // hydrate #entityMeta
     this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { timeline: [] }
+
+    // console.log('this.entityMeta: %O', this.entityMeta)
 
     // hydrate #current
     if (this.entityMeta.timeline.length > 0) {
       this.current = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}`)
     }
+
+    // console.log('this.current: %O', this.current)
 
     // preferably, this.type and this.version are set earlier, but if not, we'll try to set them here from this.current.meta
     if (this.type == null && this.current?.meta?.type != null) this.type = this.current.meta.type
@@ -369,7 +378,6 @@ export class TemporalEntityBase {
     return { validFrom, validFromDate }
   }
 
-  // The body and return is always a CBOR-SC object
   // eslint-disable-next-line consistent-return
   async fetch(request, urlString) {  // urlString is only used when called in composition by another durable object sharing state and env
     debug('%s %s', request.method, urlString || request.url)
@@ -449,7 +457,7 @@ export class TemporalEntityBase {
   async DELETE(request) {
     try {
       throwIfContentTypeHeaderInvalid(request)
-      const options = await deserialize(request)
+      const options = await extractBody(request)
       const status = await this.delete(options.userID, options.validFrom, options.impersonatorID)
       return this.getStatusOnlyResponse(status)
     } catch (e) {
@@ -541,7 +549,7 @@ export class TemporalEntityBase {
     try {
       throwIfMediaTypeHeaderInvalid(request)
       throwUnless(this.idString, 'Cannot PUT when there is no prior value')
-      const options = await deserialize(request)
+      const options = await extractBody(request)
       const eTag = extractETag(request)
       const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
       return this.getResponse(current, this.nextStatus)
@@ -628,7 +636,7 @@ export class TemporalEntityBase {
   async PATCH(request) {
     try {
       throwIfMediaTypeHeaderInvalid(request)
-      const options = await deserialize(request)
+      const options = await extractBody(request)
       const eTag = extractETag(request)
       const current = await this.patch(options, eTag)
       return this.getResponse(current)

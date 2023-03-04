@@ -1,6 +1,10 @@
+/* eslint-disable no-shadow */
+/* eslint-disable no-undef */
+/* eslint-disable no-param-reassign */
 /// <reference types="Cypress" />
 
 import { Encoder, encode, decode } from 'cbor-x'
+
 const cborSC = new Encoder({ structuredClone: true })
 
 async function encodeAndFetch(url, options) {  // TODO: move this to a helper file
@@ -26,7 +30,7 @@ async function encodeAndFetch(url, options) {  // TODO: move this to a helper fi
   }
   options.headers = headers
 
-  return await fetch(url, options)
+  return fetch(url, options)
 }
 
 async function encodeFetchAndDecode(url, options) {  // TODO: move this to a helper file
@@ -42,7 +46,6 @@ async function encodeFetchAndDecode(url, options) {  // TODO: move this to a hel
 }
 
 context('Tree', () => {
-
   // TODO: Test to confirm that for DAGs the nodes that are referenced twice are actually the same object; === rather than just deep.eq
   // TODO: Tests for every TemporalEntity method
   // TODO: Tests for Tree errors and unhappy paths
@@ -55,7 +58,7 @@ context('Tree', () => {
     }
     let options = {
       method: 'POST',
-      body: { rootNode, userID: 'UserW' },
+      body: { rootNode, userID: 'userW' },
     }
 
     cy.wrap(null).then(async () => {
@@ -67,7 +70,7 @@ context('Tree', () => {
       expect(meta.nodeCount).to.be.a('number')
       expect(meta.nodeCount).to.eq(1)
       expect(meta.validFrom).to.be.a('string')
-      expect(meta.userID).to.eq('UserW')
+      expect(meta.userID).to.eq('userW')
       expect(response.headers.get('ETag')).to.eq(meta.eTag)
 
       cy.wrap(null).then(async () => {
@@ -78,7 +81,7 @@ context('Tree', () => {
           const response = await encodeFetchAndDecode(`/api/do/tree/v1/${idString}/node/***test-has-children***/v1/0`, undefined)
           expect(response.status).to.eq(200)
           expect(response.CBOR_SC.idString).to.eq('0')
-          
+
           const newNode = {
             value: { b: 2 },
             type: '***test-has-children-and-parents***',
@@ -97,12 +100,12 @@ context('Tree', () => {
               const response = await encodeFetchAndDecode(`/api/do/tree/v1/${idString}/node/***test-has-children***/v1/0`, undefined)
               expect(response.status).to.eq(200)
 
-              expect(response.CBOR_SC.meta.children.has('1')).to.be.true
+              expect(response.CBOR_SC.meta.children.includes('1')).to.be.true
 
               cy.wrap(null).then(async () => {
                 const response = await encodeFetchAndDecode(`/api/do/tree/v1/${idString}/node/***test-has-children-and-parents***/v1/1`, undefined)
                 expect(response.status).to.eq(200)
-                expect(response.CBOR_SC.meta.parents.has('0')).to.be.true
+                expect(response.CBOR_SC.meta.parents.includes('0')).to.be.true
               })
             })
           })
