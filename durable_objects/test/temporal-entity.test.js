@@ -8,7 +8,8 @@ import { describe, it, expect, assert } from 'vitest'
 import { getStateMock, getEnvMock, initFetchPolyfill } from '@transformation-dev/cloudflare-do-testing-utils'  // TODO: Remove all of this here and in the package because we don't need it with miniflare vitest integration
 
 // local imports
-import { TemporalEntity } from '../index.mjs'
+// import { TemporalEntity } from '../index.mjs'
+import { TemporalEntity } from '../src/index.js'
 
 // initialize imports
 // const env = getEnvMock()  // defaults to DEBUG: 'blueprint:*'. call with getEnvMock({ DEBUG: 'something:*' }) to change debug scope filter

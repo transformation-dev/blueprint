@@ -298,7 +298,7 @@ export class Tree {
     await this.state.storage.put(`${this.idString}/treeMeta`, this.treeMeta)
 
     const responseFromGet = await this.get()
-    return [responseFromGet[0], 201]
+    return [responseFromGet[0], 200]  // using 200 eventhough it is creating a new resource that can be accessed via its own url because this uses a PATCH operation. If we added the node with a POST, we would use 201
   }
 
   /**
@@ -319,6 +319,8 @@ export class Tree {
     throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
     throwUnless(parent != null && child != null, 'body.branch with parent and child required when Tree PATCH patchBranch is called')
 
+    await this.hydrate()
+
     const [parentIDString, parentTemporalEntityOrIDString, parentValidFrom] = getIDStringFromInput(parent)
     const [childIDString, childTemporalEntityOrIDString, childValidFrom] = getIDStringFromInput(child)
     if (parentValidFrom != null && parentValidFrom > validFrom) validFrom = parentValidFrom
@@ -329,32 +331,34 @@ export class Tree {
       await this.throwIfIDInAncestry(parentTemporalEntityOrIDString, childIDString)
     }
 
-    // The validFrom in the calls below is only a suggestion to the TE because it might need to increment it by a millisecond if the prior validFrom is the same
-    // so we can't gaurantee they'll be exactly the same. However, in real world the chances they'll be different is much lower than here in unit
-    // testing because there is going some lag associated with storage that you don't see with an in-memory store used in testing.
-    // Besides, we can live with them being a millisecond off in real world usage because the chances of the two validFrom values being on different
-    // sides of a tick boundary is also very low. Besides, the chances that both the children and parents relationships matter for a moment in time
-    // calculation is also very low.
-    // Very low probability ^ 3 = not worth worrying about.
     const childTE = await this.addOrDeleteOnRelationshipInEntityMeta('parents', childTemporalEntityOrIDString, parentIDString, userID, validFrom, impersonatorID, operation)
     const parentTE = await this.addOrDeleteOnRelationshipInEntityMeta('children', parentTemporalEntityOrIDString, childIDString, userID, validFrom, impersonatorID, operation)
 
-    // TODO: If I ever get on a later version of miniflare that includes storage.delete, I can use the code below
-    // if (childTE.current.meta.validFrom !== parentTE.current.meta.validFrom) {
-    //   const newValidFrom = childTE.current.meta.validFrom > parentTE.current.meta.validFrom ? childTE.current.meta.validFrom : parentTE.current.meta.validFrom
-    //   await this.constructor.updateValidFromWithoutSnapshot(childTE, newValidFrom)
-    //   await this.constructor.updateValidFromWithoutSnapshot(parentTE, newValidFrom)
-    // }
-    return { childTE, parentTE }
+    // TODO: Be sure to have similar code to below when deleting a branch or moving a branch. It's less DRY but have an explicit patchMoveBranch() method that doesn't call patchBranch() twice otherwise the code below might get called three times.
+    // The validFrom in the calls above are only a suggestion to the TE because it might need to increment it by a millisecond if the prior validFrom is the same
+    // so we can't gaurantee they'll be exactly the same. The code below fixes that but is a bit of a hack.
+    let newValidFrom = childTE.current.meta.validFrom
+    if (childTE.current.meta.validFrom !== parentTE.current.meta.validFrom) {
+      newValidFrom = childTE.current.meta.validFrom > parentTE.current.meta.validFrom ? childTE.current.meta.validFrom : parentTE.current.meta.validFrom
+      await this.constructor.updateValidFromWithoutSnapshot(childTE, newValidFrom)
+      await this.constructor.updateValidFromWithoutSnapshot(parentTE, newValidFrom)
+    }
+
+    this.treeMeta.lastValidFrom = newValidFrom
+    this.treeMeta.eTag = getUUID(this.env)
+    await this.state.storage.put(`${this.idString}/treeMeta`, this.treeMeta)
+
+    const responseFromGet = await this.get()
+    return [responseFromGet[0], 200]
   }
 
-  // static async updateValidFromWithoutSnapshot(nodeTE, newValidFrom) {
-  //   await nodeTE.state.storage.delete(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`, nodeTE.current)
-  //   await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${newValidFrom}`, nodeTE.current)
-  //   nodeTE.entityMeta.timeline.pop()
-  //   nodeTE.entityMeta.timeline.push(newValidFrom)
-  //   await nodeTE.state.storage.put(`${nodeTE.idString}/entityMeta`, nodeTE.entityMeta)
-  // }
+  static async updateValidFromWithoutSnapshot(nodeTE, newValidFrom) {
+    await nodeTE.state.storage.delete(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`)
+    await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${newValidFrom}`, nodeTE.current)
+    nodeTE.entityMeta.timeline.pop()
+    nodeTE.entityMeta.timeline.push(newValidFrom)
+    await nodeTE.state.storage.put(`${nodeTE.idString}/entityMeta`, nodeTE.entityMeta)
+  }
 
   async addOrDeleteOnRelationshipInEntityMeta(metaFieldToAlter, temporalEntityOrIDString, valueToAddOrDelete, userID, validFrom, impersonatorID, operation = 'add') {
     let idString

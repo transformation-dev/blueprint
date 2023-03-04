@@ -76,8 +76,7 @@ describe('A series of Tree operations', async () => {
       body: { addNode: { newNode, parent: '0' }, userID: 'userX' },
     }
     const response = await encodeFetchAndDecode(url, options, stub)
-    console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
-    expect(response.status).toBe(201)
+    expect(response.status).toBe(200)
     const { meta } = response.CBOR_SC
     const { lastValidFrom } = meta
     expect(meta.nodeCount).to.eq(2)
@@ -90,76 +89,148 @@ describe('A series of Tree operations', async () => {
     }
   })
 
-  it.todo('should throw when sent non-existent parent', async () => {
+  it('should respond with error when sent non-existent parent', async () => {
     const newNode = {
       value: { c: 3 },
       type: '***test-has-children-and-parents***',
       version: 'v1',
     }
-    try {
-      await tree.patch({ addNode: { newNode, parent: '999' }, userID: 'userY' })
-      assert(false)
-    } catch (e) {
-      expect(e.status).toBe(404)
-      expect(e.message).toMatch('TemporalEntity not found')
+    const options = {
+      method: 'PATCH',
+      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
+      body: { addNode: { newNode, parent: '999' }, userID: 'userY' },
     }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    expect(response.status).toBe(404)
+    expect(response.CBOR_SC.error.message).toMatch('TemporalEntity not found')
   })
 
-  it.todo('should allow addition of another node', async () => {
+  let lastValidFrom
+
+  it('should allow addition of another node', async () => {
     const newNode2 = {
       value: { c: 3 },
       type: '***test-has-children-and-parents***',
       version: 'v1',
     }
-    const response = await tree.patch({ addNode: { newNode: newNode2, parent: 1 }, userID: 'userY' })  // parent intentionally a Number to confirm that it's forgiving of this
-    expect(response[1]).toBe(201)
-    const { lastValidFrom } = response[0].meta
-    assert(state.storage.data[`2/snapshot/${lastValidFrom}`].meta.parents.includes('1'))
-    assert(state.storage.data[`1/snapshot/${lastValidFrom}`].meta.children.includes('2'))
+    const options = {
+      method: 'PATCH',
+      body: { addNode: { newNode: newNode2, parent: 1 }, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    expect(response.status).toBe(200)
+    const { meta } = response.CBOR_SC
+    lastValidFrom = meta.lastValidFrom
+    expect(meta.nodeCount).to.eq(3)
+    assert(meta.validFrom <= meta.lastValidFrom)
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
+      assert(node2.meta.parents.includes('1'))
+      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
+      assert(node1.meta.children.includes('2'))
+    }
   })
 
-  it.todo('should throw when adding a node that would create a cycle', async () => {
+  it('should respond with error when adding a node that would create a cycle', async () => {
     const branch = {
       parent: 2,  // intentionally a Number to confirm that it's forgiving of this
       child: '1',
       operation: 'add',
     }
-    try {
-      await tree.patch({ branch, userID: 'userY' })
-      assert(false)
-    } catch (e) {
-      expect(e.status).toBe(409)
-      expect(e.message).toMatch('Adding this branch would create a cycle')
-      const { lastValidFrom } = state.storage.data['testTreeID/treeMeta']
-      expect(state.storage.data[`2/snapshot/${lastValidFrom}`].meta.parents.length).toBe(1)
-      expect(state.storage.data[`1/snapshot/${lastValidFrom}`].meta.children.length).toBe(1)
-      expect(state.storage.data[`2/snapshot/${lastValidFrom}`].meta.children).toBeUndefined()
-      expect(state.storage.data[`1/snapshot/${lastValidFrom}`].meta.parents.length).toBe(1)
+    const options = {
+      method: 'PATCH',
+      body: { branch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    const { error } = response.CBOR_SC
+    expect(response.status).toBe(409)
+    expect(error.message).toMatch('Adding this branch would create a cycle')
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
+      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
+      expect(node2.meta.parents.length).toBe(1)
+      expect(node1.meta.children.length).toBe(1)
+      expect(node2.meta.children).toBeUndefined()
+      expect(node1.meta.parents.length).toBe(1)
     }
   })
 
-  it.todo('should allow addition of a branch that creates a diamond-shaped DAG', async () => {
+  it('should allow addition of a branch that creates a diamond-shaped DAG', async () => {
     const branch = {
       parent: 0,  // intentionally a Number to confirm that it's forgiving of this as a zero
       child: 2,
       // operation: 'add',  // testing default operation by commenting this out
     }
-    const { childTE, parentTE } = await tree.patch({ branch, userID: 'userY' })
-    assert(childTE.current.meta.parents.includes('1'))
-    assert(childTE.current.meta.parents.includes('0'))
-    assert(parentTE.current.meta.children.includes('1'))
-    assert(parentTE.current.meta.children.includes('2'))
+    const options = {
+      method: 'PATCH',
+      body: { branch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    expect(response.status).toBe(200)
+    const { meta } = response.CBOR_SC
+    lastValidFrom = meta.lastValidFrom
+    expect(meta.nodeCount).to.eq(3)
+    assert(meta.validFrom <= meta.lastValidFrom)
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
+      const node0 = await state.storage.get(`0/snapshot/${lastValidFrom}`)
+      assert(node2.meta.parents.includes('0'))
+      assert(node0.meta.children.includes('2'))
+    }
   })
 
-  it.todo('should allow deletion of a branch', async () => {
+  it('should allow deletion of a branch', async () => {
     const branch = {
       parent: 1,
       child: 2,
       operation: 'delete',
     }
-    const { childTE, parentTE } = await tree.patch({ branch, userID: 'userY' })
-    expect(childTE.current.meta.parents.length).toBe(1)
-    assert(childTE.current.meta.parents.includes('0'))
-    expect(parentTE.current.meta.children.length).toBe(0)
+    const options = {
+      method: 'PATCH',
+      body: { branch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
+    expect(response.status).toBe(200)
+    const { meta } = response.CBOR_SC
+    lastValidFrom = meta.lastValidFrom
+    console.log('lastValidFrom: %O: ', lastValidFrom)
+    expect(meta.nodeCount).to.eq(3)
+    assert(meta.validFrom <= meta.lastValidFrom)
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
+      console.log('node2: %O: ', node2)
+      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
+      console.log('node1: %O: ', node1)
+
+      console.log('storage list: %O: ', await state.storage.list())
+      expect(node2.meta.parents.length).toBe(1)
+      assert(node2.meta.parents.includes('0'))
+      expect(node1.meta.children.length).toBe(0)
+    }
+  })
+
+  it.todo('should "fail silently" when deleting a branch that does not exist', async () => {
+  })
+
+  it.todo('should allow moving a branch', async () => {
+  })
+
+  it.todo('should return the entire tree fully hydrated on GET with hydrated: true', async () => {
+    // Don't allow application/json
+  })
+
+  it.todo('should allow deleting a node', async () => {
+    // What should GET look like in this instance?
+  })
+
+  it.todo('should allow patching a node', async () => {
+  })
+
+  it.todo('should allow POST to the tree to add a node (alias for PATCH addNode)', async () => {
+  })
+
+  it.todo('should return the tree outline on GET', async () => {
+    // Don't allow application/json
   })
 })

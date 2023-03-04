@@ -6,6 +6,11 @@ const scriptPath = path.join(__dirname, "durable_objects/index.mjs")
 export default defineConfig({
   test: {
     coverage: {
+      all: true,
+      include: [
+        'packages/**/src/**/*.js',
+        'durable_objects/**/src/**/*.js',
+      ],
       provider: 'c8',
       // provider: 'istanbul',
     },
