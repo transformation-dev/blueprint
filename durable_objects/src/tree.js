@@ -15,24 +15,6 @@ const debug = getDebug('blueprint:tree')
 
 /*
 
-TODO A0: Create a wrapper class that will ensure memory and storage state are always in sync and storage self-consistent.
-
-    You can import many different classes into this wrapper, but it will choose which one it is upon creation and use
-    that one for ever more. You have to deleteAll on the storage contents to reassign it to a different class but we can provide
-    a method in the wrapper class to do that.
-
-    The original purpose of this is to address a concurrency worry I had once I started to compose my DOs with reusable
-    parts. For instance, Tree uses TemporalEntity in composition.
-
-    It replaces state.storage with the trx from a transaction.
-
-    It also implements optimistic concurrency.
-
-    In the future, I may also figure out a way to use this to implement versioning of the class code itself as opposed
-    to the entity schemas as is done in TemporalEntity. This could solve the worry I have about using the same DO class
-    for preview and production. I could deply the preview versions along side the older versions of the classes and dynamically
-    pick the right version based on the environment. Maybe even implement a compatibility date approach like Cloudflare's itself.
-
 org-tree: {  // Tree
   treeMeta: {
     nodeCount: number,  // start at 0

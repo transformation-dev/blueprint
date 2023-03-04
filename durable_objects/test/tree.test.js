@@ -252,6 +252,9 @@ describe('A series of Tree operations', async () => {
     }
   })
 
+  it.todo('should return an error if a branch move creates a cycle', async () => {
+  })
+
   it.todo('should return the entire tree fully hydrated on GET with options.hydrated: true', async () => {
     // Don't allow application/json
     // What about orphaned nodes? I'm thinking we should always return them { tree, orphans }
