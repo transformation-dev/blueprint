@@ -190,30 +190,58 @@ describe('A series of Tree operations', async () => {
       body: { branch, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub)
-    console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
     expect(response.status).toBe(200)
     const { meta } = response.CBOR_SC
     lastValidFrom = meta.lastValidFrom
-    console.log('lastValidFrom: %O: ', lastValidFrom)
     expect(meta.nodeCount).to.eq(3)
     assert(meta.validFrom <= meta.lastValidFrom)
     if (process?.env?.VITEST_BASE_URL == null) {
       const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
-      console.log('node2: %O: ', node2)
       const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
-      console.log('node1: %O: ', node1)
-
-      console.log('storage list: %O: ', await state.storage.list())
       expect(node2.meta.parents.length).toBe(1)
       assert(node2.meta.parents.includes('0'))
       expect(node1.meta.children.length).toBe(0)
     }
   })
 
-  it.todo('should "fail silently" when deleting a branch that does not exist', async () => {
+  it('should "fail silently" when deleting the same branch again', async () => {
+    const branch = {
+      parent: 1,
+      child: 2,
+      operation: 'delete',
+    }
+    const options = {
+      method: 'PATCH',
+      body: { branch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    expect(response.status).toBe(200)
   })
 
   it.todo('should allow moving a branch', async () => {
+    const moveBranch = {
+      node: 2,
+      currentParent: 0,
+      newParent: 1,
+    }
+    const options = {
+      method: 'PATCH',
+      body: { moveBranch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
+    expect(response.status).toBe(200)
+
+    const { meta } = response.CBOR_SC
+    lastValidFrom = meta.lastValidFrom
+    expect(meta.nodeCount).to.eq(3)
+    assert(meta.validFrom <= meta.lastValidFrom)
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
+      assert(node2.meta.parents.includes('1'))
+      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
+      assert(node1.meta.children.includes('2'))
+    }
   })
 
   it.todo('should return the entire tree fully hydrated on GET with hydrated: true', async () => {

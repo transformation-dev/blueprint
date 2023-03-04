@@ -6,14 +6,11 @@ import { VersioningTransactionalDOWrapperBase } from '@transformation-dev/cloudf
 // local imports
 import { Experimenter } from './experimenter.js'
 import { ExperimenterV2 } from './experimenter-v2.js'
-import { Counter } from './counter.js'
 import { TemporalEntity } from './temporal-entity.js'
 import { Tree } from './tree.js'
 
 export * from './temporal-entity.js'  // Need this for unit testing TemporalEntity which has imported YAML schemas
 export * from './tree.js'  // And this is needed because Tree uses TemporalEntity
-export * from './counter.js'  // I don't think this is needed but I'm not sure
-export * from './greeter.js'  // For demonstration purposes
 
 // Worker that does nothing and is never used but necessary since durable objects require a Worker
 export default {}
@@ -76,20 +73,6 @@ export class DurableAPI extends VersioningTransactionalDOWrapperBase {
       versions: {
         v1: {
           environments: { '*': { TheClass: Tree } },
-        },
-      },
-    },
-    counter: {
-      versions: {
-        v1: {
-          environments: {
-            '*': {
-              TheClass: Counter,
-              flags: {
-                passFullUrl: false,  // false is the default but it's overridden in */*/* above
-              },
-            },
-          },
         },
       },
     },

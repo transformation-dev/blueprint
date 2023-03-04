@@ -7,6 +7,9 @@ export default defineConfig({
   test: {
     coverage: {
       all: true,
+      exclude: [
+        "**/pages-do-proxy.js"
+      ],
       include: [
         'packages/**/src/**/*.js',
         'durable_objects/**/src/**/*.js',
