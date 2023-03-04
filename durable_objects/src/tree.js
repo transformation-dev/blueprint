@@ -303,6 +303,58 @@ export class Tree {
 
   /**
    *
+   * # patchMoveBranch
+   *
+   * Moves a branch from one place in the tree to another.
+   *
+   * Unlike patchBranch, this only accepts IDs for node, currentParent, and newParent
+   */
+  async patchMoveBranch({ moveBranch, userID, validFrom, impersonatorID }) {
+    let { node, currentParent, newParent } = moveBranch
+    throwIf(
+      node == null || currentParent == null || newParent == null,
+      'body.moveBranch with node, currentParent, and newParent required when Tree PATCH patchMoveBranch is called',
+    )
+    node = node.toString()
+    currentParent = currentParent.toString()
+    newParent = newParent.toString()
+    throwIf(
+      node === currentParent || node === newParent || currentParent === newParent,
+      'node, currentParent, and newParent must all be different when Tree PATCH patchMoveBranch is called',
+    )
+
+    await this.hydrate()
+
+    await this.throwIfIDInAncestry(newParent, node)
+
+    // metaFieldToAlter, temporalEntityOrIDString, valueToAddOrDelete, userID, validFrom, impersonatorID, operation = 'add'
+    const nodeTE = await this.addOrDeleteOnRelationshipInEntityMeta('parents', node, currentParent, userID, validFrom, impersonatorID, 'delete')
+    await this.addOrDeleteOnRelationshipInEntityMeta('parents', nodeTE, newParent, userID, validFrom, impersonatorID, 'add')
+    const currentParentTE = await this.addOrDeleteOnRelationshipInEntityMeta('children', currentParent, node, userID, validFrom, impersonatorID, 'delete')
+    const newParentTE = await this.addOrDeleteOnRelationshipInEntityMeta('children', newParent, node, userID, validFrom, impersonatorID, 'add')
+
+    // The validFrom in the calls above are only a suggestion to the TE because it might need to increment it by a millisecond if the prior validFrom is the same
+    // The code below fixes that but is a bit of a hack.
+    const validFromArray = [nodeTE, currentParentTE, newParentTE].map((te) => te.current.meta.validFrom)
+    let newValidFrom = validFromArray[0]
+    if (new Set(validFromArray).size > 1) {  // meaning they are not all the same
+      validFromArray.sort()
+      newValidFrom = validFromArray.at(-1)
+      await this.constructor.updateValidFromWithoutSnapshot(nodeTE, newValidFrom)
+      await this.constructor.updateValidFromWithoutSnapshot(currentParentTE, newValidFrom)
+      await this.constructor.updateValidFromWithoutSnapshot(newParentTE, newValidFrom)
+    }
+
+    this.treeMeta.lastValidFrom = newValidFrom
+    this.treeMeta.eTag = getUUID(this.env)
+    await this.state.storage.put(`${this.idString}/treeMeta`, this.treeMeta)
+
+    const responseFromGet = await this.get()
+    return [responseFromGet[0], 200]
+  }
+
+  /**
+   *
    * # patchBranch
    *
    * Adds or deletes a branch to the tree mutating the children and parents fields of the parent and child respectively.
@@ -336,7 +388,7 @@ export class Tree {
 
     // TODO: Be sure to have similar code to below when deleting a branch or moving a branch. It's less DRY but have an explicit patchMoveBranch() method that doesn't call patchBranch() twice otherwise the code below might get called three times.
     // The validFrom in the calls above are only a suggestion to the TE because it might need to increment it by a millisecond if the prior validFrom is the same
-    // so we can't gaurantee they'll be exactly the same. The code below fixes that but is a bit of a hack.
+    // The code below fixes that but is a bit of a hack.
     let newValidFrom = childTE.current.meta.validFrom
     if (childTE.current.meta.validFrom !== parentTE.current.meta.validFrom) {
       newValidFrom = childTE.current.meta.validFrom > parentTE.current.meta.validFrom ? childTE.current.meta.validFrom : parentTE.current.meta.validFrom
@@ -395,6 +447,7 @@ export class Tree {
 
     if (options.addNode != null) return this.patchAddNode(options)
     if (options.branch != null) return this.patchBranch(options)  // does not use eTag because it's idempotent
+    if (options.moveBranch != null) return this.patchMoveBranch(options)  // does not use eTag because ???
 
     return throwIf(
       true,

@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@transformation-dev/cloudflare-do-testing-utils": "file:packages/cloudflare-do-testing-utils",
-    "@vitest/coverage-c8": "^0.28.5",
+    "@vitest/coverage-c8": "^0.29.2",
     "node-fetch": "^3.3.0",
     "vitest": "^0.29.1",
     "vitest-environment-miniflare": "^2.12.1"
