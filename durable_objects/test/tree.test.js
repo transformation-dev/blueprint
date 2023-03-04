@@ -244,12 +244,13 @@ describe('A series of Tree operations', async () => {
     }
   })
 
-  it.todo('should return the entire tree fully hydrated on GET with hydrated: true', async () => {
+  it.todo('should return the entire tree fully hydrated on GET with options.hydrated: true', async () => {
     // Don't allow application/json
+    // What about orphaned nodes? I'm thinking we should always return them { tree, orphans }
   })
 
   it.todo('should allow deleting a node', async () => {
-    // What should GET look like in this instance?
+    // What should the tree look like when retrieved with GET in this instance? Maybe we need an options.includeDeletedNodes: true
   })
 
   it.todo('should allow patching a node', async () => {
