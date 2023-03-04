@@ -40,7 +40,7 @@
     "cbor-x": "^1.5.1"
   },
   "devDependencies": {
-    "@vitest/coverage-c8": "^0.28.5",
+    "@vitest/coverage-c8": "^0.29.2",
     "node-fetch": "^3.3.0"
   }
 }

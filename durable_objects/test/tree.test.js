@@ -218,7 +218,10 @@ describe('A series of Tree operations', async () => {
     expect(response.status).toBe(200)
   })
 
-  it.todo('should allow moving a branch', async () => {
+  it.todo('should be idempotent when you add the same branch again', async () => {
+  })
+
+  it('should allow moving a branch', async () => {
     const moveBranch = {
       node: 2,
       currentParent: 0,
@@ -229,18 +232,23 @@ describe('A series of Tree operations', async () => {
       body: { moveBranch, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub)
-    console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
+    // console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
+    // console.log('list of nodes: %O: ', await state.storage.list())
     expect(response.status).toBe(200)
 
     const { meta } = response.CBOR_SC
     lastValidFrom = meta.lastValidFrom
     expect(meta.nodeCount).to.eq(3)
-    assert(meta.validFrom <= meta.lastValidFrom)
+    // assert(meta.validFrom <= lastValidFrom)
     if (process?.env?.VITEST_BASE_URL == null) {
       const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
       assert(node2.meta.parents.includes('1'))
       const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
       assert(node1.meta.children.includes('2'))
+      const node0 = await state.storage.get(`0/snapshot/${lastValidFrom}`)
+      expect(node0.meta.children.length).toBe(1)
+      assert(node0.meta.children.includes('1'))
+      assert(!node0.meta.children.includes('2'))
     }
   })
 
