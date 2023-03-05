@@ -126,8 +126,10 @@ describe('A series of Tree operations', async () => {
     if (process?.env?.VITEST_BASE_URL == null) {
       const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
       assert(node2.meta.parents.includes('1'))
+      expect(node2.meta.parents).to.have.lengthOf(1)
       const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
       assert(node1.meta.children.includes('2'))
+      expect(node1.meta.children).to.have.lengthOf(1)
     }
   })
 
@@ -175,7 +177,41 @@ describe('A series of Tree operations', async () => {
       const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
       const node0 = await state.storage.get(`0/snapshot/${lastValidFrom}`)
       assert(node2.meta.parents.includes('0'))
+      expect(node2.meta.parents).to.have.lengthOf(2)
       assert(node0.meta.children.includes('2'))
+      expect(node0.meta.children).to.have.lengthOf(2)
+    }
+  })
+
+  it('should be "fail silently" when you add the same branch again', async () => {
+    // TODO: Confirm that we don't end up with the child or parent duplicated
+    // It should probably not have new snapshots but maybe it's OK?
+    const branch = {
+      parent: 0,  // intentionally a Number to confirm that it's forgiving of this as a zero
+      child: 2,
+      // operation: 'add',  // testing default operation by commenting this out
+    }
+    const options = {
+      method: 'PATCH',
+      body: { branch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub)
+    expect(response.status).toBe(200)
+    const { meta } = response.CBOR_SC
+    lastValidFrom = meta.lastValidFrom
+    expect(meta.nodeCount).to.eq(3)
+    assert(meta.validFrom <= meta.lastValidFrom)
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2EntityMeta = await state.storage.get('2/entityMeta')
+      const node2LastValidFrom = node2EntityMeta.timeline.at(-1)
+      const node2 = await state.storage.get(`2/snapshot/${node2LastValidFrom}`)
+      const node0EntityMeta = await state.storage.get('0/entityMeta')
+      const node0LastValidFrom = node0EntityMeta.timeline.at(-1)
+      const node0 = await state.storage.get(`0/snapshot/${node0LastValidFrom}`)
+      assert(node2.meta.parents.includes('0'))
+      expect(node2.meta.parents.length).toBe(2)
+      assert(node0.meta.children.includes('2'))
+      expect(node0.meta.children.length).toBe(2)
     }
   })
 
@@ -216,9 +252,15 @@ describe('A series of Tree operations', async () => {
     }
     const response = await encodeFetchAndDecode(url, options, stub)
     expect(response.status).toBe(200)
-  })
-
-  it.todo('should be idempotent when you add the same branch again', async () => {
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const node2EntityMeta = await state.storage.get('2/entityMeta')
+      const node2LastValidFrom = node2EntityMeta.timeline.at(-1)
+      const node1EntityMeta = await state.storage.get('1/entityMeta')
+      const node1LastValidFrom = node1EntityMeta.timeline.at(-1)
+      // confirm that no new snapshots were created
+      expect(lastValidFrom).to.eq(node2LastValidFrom)
+      expect(lastValidFrom).to.eq(node1LastValidFrom)
+    }
   })
 
   it('should allow moving a branch', async () => {
@@ -239,7 +281,7 @@ describe('A series of Tree operations', async () => {
     const { meta } = response.CBOR_SC
     lastValidFrom = meta.lastValidFrom
     expect(meta.nodeCount).to.eq(3)
-    // assert(meta.validFrom <= lastValidFrom)
+    assert(meta.validFrom <= lastValidFrom)
     if (process?.env?.VITEST_BASE_URL == null) {
       const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
       assert(node2.meta.parents.includes('1'))
@@ -255,22 +297,19 @@ describe('A series of Tree operations', async () => {
   it.todo('should return an error if a branch move creates a cycle', async () => {
   })
 
-  it.todo('should return the entire tree fully hydrated on GET with options.hydrated: true', async () => {
+  it.todo('should return the tree outline with ?includeTree=true', async () => {
     // Don't allow application/json
-    // What about orphaned nodes? I'm thinking we should always return them { tree, orphans }
   })
 
-  it.todo('should allow deleting a node', async () => {
-    // What should the tree look like when retrieved with GET in this instance? Maybe we need an options.includeDeletedNodes: true
+  it.todo('should work with ?includeTree=true&includeDeletedNodes=true', async () => {
   })
 
-  it.todo('should allow patching a node', async () => {
+  it.todo('should allow deleting a node as a pass-through operation', async () => {
+  })
+
+  it.todo('should allow patching a node as a pass-through operation', async () => {
   })
 
   it.todo('should allow POST to the tree to add a node (alias for PATCH addNode)', async () => {
-  })
-
-  it.todo('should return the tree outline on GET', async () => {
-    // Don't allow application/json
   })
 })

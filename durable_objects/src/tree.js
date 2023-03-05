@@ -130,6 +130,28 @@ export class Tree {
     return { validFrom, validFromDate }
   }
 
+  async isChildOf(parent, childIDString) {
+    if (!(parent instanceof TemporalEntityBase)) {
+      parent = new TemporalEntity(this.state, this.env, undefined, undefined, parent)
+    }
+    const response = await parent.get()
+    const parentCurrent = response[0]
+    const children = parentCurrent.meta.children || []
+    if (children.includes(childIDString)) return true
+    else return false
+  }
+
+  async isParentOf(child, parentIDString) {
+    if (!(child instanceof TemporalEntityBase)) {
+      child = new TemporalEntity(this.state, this.env, undefined, undefined, child)
+    }
+    const response = await child.get()
+    const childCurrent = response[0]
+    const parents = childCurrent.meta.parents || []
+    if (parents.includes(parentIDString)) return true
+    else return false
+  }
+
   async throwIfIDInAncestry(parent, childIDString, pathFromAncestorToNewChild) {
     if (!(parent instanceof TemporalEntityBase)) {
       parent = new TemporalEntity(this.state, this.env, undefined, undefined, parent)
@@ -295,21 +317,45 @@ export class Tree {
     let { node, currentParent, newParent } = moveBranch
     throwIf(
       node == null || currentParent == null || newParent == null,
-      'body.moveBranch with node, currentParent, and newParent required when Tree PATCH patchMoveBranch is called',
+      'body.moveBranch with node, currentParent, and newParent required when Tree PATCH moveBranch is called',
     )
     node = node.toString()
     currentParent = currentParent.toString()
     newParent = newParent.toString()
     throwIf(
       node === currentParent || node === newParent || currentParent === newParent,
-      'node, currentParent, and newParent must all be different when Tree PATCH patchMoveBranch is called',
+      'node, currentParent, and newParent must all be different when Tree PATCH moveBranch is called',
     )
+
+    // This didn't work because the multiple operations on the child.meta.parents created two snapshots
+    // let branch = { parent: currentParent, child: node, operation: 'delete' }
+    // await this.patchBranch({ branch, userID, validFrom, impersonatorID })
+    // branch = { parent: newParent, child: node, operation: 'add' }
+    // return this.patchBranch({ branch, userID, validFrom, impersonatorID })
 
     await this.hydrate()
 
-    await this.throwIfIDInAncestry(newParent, node)
+    const isCurrentParentOf = await this.isParentOf(node, currentParent)
+    const isCurrentChildOf = await this.isChildOf(currentParent, node)
+    if (!isCurrentChildOf && !isCurrentParentOf) {  // return silently if branch doesn't exist
+      return this.get()
+    }
+    throwIf(
+      (isCurrentParentOf && !isCurrentChildOf) || (!isCurrentParentOf && isCurrentChildOf),
+      'Tree is in a corrupt state. One side of a branch is inconsistent with the other. This should never happen.',
+    )
 
-    // metaFieldToAlter, temporalEntityOrIDString, valueToAddOrDelete, userID, validFrom, impersonatorID, operation = 'add'
+    await this.throwIfIDInAncestry(newParent, node)
+    const isNewParentOf = await this.isParentOf(node, newParent)
+    const isNewChildOf = await this.isChildOf(newParent, node)
+    if (isNewChildOf && isNewParentOf) {  // return silently if branch already exists
+      return this.get()
+    }
+    throwIf(
+      (isNewParentOf && !isNewChildOf) || (!isNewParentOf && isNewChildOf),
+      'Tree is in a corrupt state. One side of a branch is inconsistent with the other. This should never happen.',
+    )
+
     const nodeTE = await this.addOrDeleteOnRelationshipInEntityMeta('parents', node, currentParent, userID, validFrom, impersonatorID, 'delete')
     await this.addOrDeleteOnRelationshipInEntityMeta('parents', nodeTE, newParent, userID, validFrom, impersonatorID, 'add')
     const currentParentTE = await this.addOrDeleteOnRelationshipInEntityMeta('children', currentParent, node, userID, validFrom, impersonatorID, 'delete')
@@ -331,8 +377,7 @@ export class Tree {
     this.treeMeta.eTag = getUUID(this.env)
     await this.state.storage.put(`${this.idString}/treeMeta`, this.treeMeta)
 
-    const responseFromGet = await this.get()
-    return [responseFromGet[0], 200]
+    return this.get()
   }
 
   /**
@@ -350,6 +395,7 @@ export class Tree {
   async patchBranch({ branch, userID, validFrom, impersonatorID }) {
     const { parent, child } = branch
     const { operation = 'add' } = branch
+    const { options = {} } = branch
     throwUnless(['add', 'delete'].includes(operation), 'body.branch.operation must be "add" or "delete"')
     throwUnless(parent != null && child != null, 'body.branch with parent and child required when Tree PATCH patchBranch is called')
 
@@ -360,9 +406,26 @@ export class Tree {
     if (parentValidFrom != null && parentValidFrom > validFrom) validFrom = parentValidFrom
     if (childValidFrom != null && childValidFrom > validFrom) validFrom = childValidFrom
 
+    throwIf(parentIDString === childIDString, 'parent and child cannot be the same')
+
+    const isParentOf = await this.isParentOf(childTemporalEntityOrIDString, parentIDString)
+    const isChildOf = await this.isChildOf(parentTemporalEntityOrIDString, childIDString)
+    throwIf(
+      (isParentOf && !isChildOf) || (!isParentOf && isChildOf),
+      'Tree is in a corrupt state. One side of a branch is inconsistent with the other. This should never happen.',
+    )
+
     if (operation === 'add') {
-      throwIf(parentIDString === childIDString, 'parent and child cannot be the same')
       await this.throwIfIDInAncestry(parentTemporalEntityOrIDString, childIDString)
+      if (isChildOf && isParentOf) {  // return silently if branch already exists
+        return this.get(undefined, options)
+      }
+    }
+
+    if (operation === 'delete') {
+      if (!isChildOf && !isParentOf) {  // return silently if branch doesn't exist
+        return this.get(undefined, options)
+      }
     }
 
     const childTE = await this.addOrDeleteOnRelationshipInEntityMeta('parents', childTemporalEntityOrIDString, parentIDString, userID, validFrom, impersonatorID, operation)
@@ -382,8 +445,7 @@ export class Tree {
     this.treeMeta.eTag = getUUID(this.env)
     await this.state.storage.put(`${this.idString}/treeMeta`, this.treeMeta)
 
-    const responseFromGet = await this.get()
-    return [responseFromGet[0], 200]
+    return this.get(undefined, options)
   }
 
   static async updateValidFromWithoutSnapshot(nodeTE, newValidFrom) {
@@ -401,19 +463,27 @@ export class Tree {
       idString = temporalEntityOrIDString
       nodeTE = new TemporalEntity(this.state, this.env, undefined, undefined, idString)
       await nodeTE.hydrate()
-      let a = structuredClone(nodeTE.current.meta[metaFieldToAlter]) || []
-      if (operation === 'add') a.push(valueToAddOrDelete)
-      else if (operation === 'delete') a = a.filter((v) => v !== valueToAddOrDelete)
+      let a = nodeTE.current.meta[metaFieldToAlter] || []
+      if (operation === 'add') {
+        if (a.includes(valueToAddOrDelete)) return nodeTE
+        const s = new Set(a)
+        s.add(valueToAddOrDelete)
+        a = [...s]
+      } else if (operation === 'delete') a = a.filter((v) => v !== valueToAddOrDelete)
       else throw new Error('Operation on call to addOrDeleteOnRelationshipInEntityMeta must be "add" or "delete"')
       const delta = { validFrom, userID }
       if (impersonatorID != null) delta.impersonatorID = impersonatorID
       delta[metaFieldToAlter] = a
-      await nodeTE.patchMetaDelta(delta)  // creates a new snapshot
+      await nodeTE.patchMetaDelta(delta)
     } else if (temporalEntityOrIDString instanceof TemporalEntityBase) {  // update in place without creating a new snapshot
       nodeTE = temporalEntityOrIDString
       nodeTE.current.meta[metaFieldToAlter] ??= []
-      if (operation === 'add') nodeTE.current.meta[metaFieldToAlter].push(valueToAddOrDelete)
-      else if (operation === 'delete') nodeTE.current.meta[metaFieldToAlter] = nodeTE.current.meta[metaFieldToAlter].filter((v) => v !== valueToAddOrDelete)
+      const a = nodeTE.current.meta[metaFieldToAlter]
+      if (operation === 'add') {
+        const s = new Set(a)
+        s.add(valueToAddOrDelete)
+        nodeTE.current.meta[metaFieldToAlter] = [...s]
+      } else if (operation === 'delete') nodeTE.current.meta[metaFieldToAlter] = a.filter((v) => v !== valueToAddOrDelete)
       else throw new Error('Operation on call to addOrDeleteOnRelationshipInEntityMeta must be "add" or "delete"')
       await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`, nodeTE.current)
     } else {
@@ -451,12 +521,14 @@ export class Tree {
     }
   }
 
-  async get(eTag) {
+  async get(eTag, options) {
     await this.hydrate()
-    // Note, we don't check for deleted here because we want to be able to get the treeMeta even if the entity is deleted
     if (eTag != null && eTag === this.treeMeta.eTag) return [undefined, 304]
-    const tree = {}  // TODO: Build the tree
-    const response = { meta: this.treeMeta, tree }
+    const response = { meta: this.treeMeta }
+    if (options?.includeTree) {
+      response.tree = {}  // TODO: Build the tree. Be sure to consider options?.includeDeletedNodes
+      response.orphans = []  // simply an array of ids that are not in the tree. Use treeMeta.nodeCount.
+    }
     return [response, 200]
   }
 
@@ -464,7 +536,14 @@ export class Tree {
     try {
       throwIfAcceptHeaderInvalid(request)
       const eTag = extractETag(request)
-      const [response, status] = await this.get(eTag)
+      // TODO: Extract options from query string
+      const url = new URL(request.url)
+      const options = {
+        includeTree: url.searchParams.get('includeTree').toLowerCase() === 'true',
+        includeDeletedNodes: url.searchParams.get('includeDeletedNodes').toLowerCase() === 'true',
+      }
+      throwIf(options.includeDeletedNodes && !options.includeTree, 'includeDeletedNodes requires includeTree')
+      const [response, status] = await this.get(eTag, options)
       if (status === 304) return this.getStatusOnlyResponse(304)
       return this.getResponse(response)
     } catch (e) {
