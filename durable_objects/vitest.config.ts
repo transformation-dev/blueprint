@@ -5,6 +5,8 @@ const scriptPath = path.join(__dirname, "index.mjs")
 
 export default defineConfig({
   test: {
+    silent: false,
+    verbose: true,
     coverage: {
       all: true,
       include: [

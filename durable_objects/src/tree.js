@@ -23,11 +23,9 @@ org-tree: {  // Tree
     validFrom: string,  // The ISO string when the tree was created
     lastValidFrom: string,  // The ISO string when the tree/branches (not the nodes) were last modified
   }
-  tree: {
-    index: { <nodeIDString>: <nodeStub> } where <nodeStub> is { id: string, label: string, children: Set(<nodeStub>) },
-    orphans: Set(<nodeIDString>),
-    root: <nodeStub>,
-  },
+  tree: <nodeStub> where <nodeStub> = { id: string, label: string, children: [<nodeStub>] } and the first id is 0 meaning the root node,
+  orphans: [<nodeIDString>],
+  idString: string,
 }
 
 org-tree-root-node: {  // TemporalEntity w/ org-tree-root-node type. Flag in TemporalEntity type for hasChildren
@@ -335,6 +333,8 @@ export class Tree {
 
     await this.hydrate()
 
+    validFrom = this.deriveValidFrom(validFrom).validFrom
+
     const isCurrentParentOf = await this.isParentOf(node, currentParent)
     const isCurrentChildOf = await this.isChildOf(currentParent, node)
     if (!isCurrentChildOf && !isCurrentParentOf) {  // return silently if branch doesn't exist
@@ -401,6 +401,8 @@ export class Tree {
 
     await this.hydrate()
 
+    validFrom = this.deriveValidFrom(validFrom).validFrom
+
     const [parentIDString, parentTemporalEntityOrIDString, parentValidFrom] = getIDStringFromInput(parent)
     const [childIDString, childTemporalEntityOrIDString, childValidFrom] = getIDStringFromInput(child)
     if (parentValidFrom != null && parentValidFrom > validFrom) validFrom = parentValidFrom
@@ -448,7 +450,7 @@ export class Tree {
     return this.get(undefined, options)
   }
 
-  static async updateValidFromWithoutSnapshot(nodeTE, newValidFrom) {
+  static async updateValidFromWithoutSnapshot(nodeTE, newValidFrom) {  // TODO: Move this to TemporalEntityBase
     await nodeTE.state.storage.delete(`${nodeTE.idString}/snapshot/${nodeTE.current.meta.validFrom}`)
     await nodeTE.state.storage.put(`${nodeTE.idString}/snapshot/${newValidFrom}`, nodeTE.current)
     nodeTE.entityMeta.timeline.pop()
@@ -475,7 +477,7 @@ export class Tree {
       if (impersonatorID != null) delta.impersonatorID = impersonatorID
       delta[metaFieldToAlter] = a
       await nodeTE.patchMetaDelta(delta)
-    } else if (temporalEntityOrIDString instanceof TemporalEntityBase) {  // update in place without creating a new snapshot
+    } else if (temporalEntityOrIDString instanceof TemporalEntityBase) {  // update in place without creating a new snapshot  // TODO: This is bad separation of concerns. We should have a method on TemporalEntityBase that does this.
       nodeTE = temporalEntityOrIDString
       nodeTE.current.meta[metaFieldToAlter] ??= []
       const a = nodeTE.current.meta[metaFieldToAlter]
@@ -521,13 +523,63 @@ export class Tree {
     }
   }
 
-  async get(eTag, options) {
+  async buildTree(options, nodeIdString = '0', currentNodeBeingVisited = {}, alreadyVisited = {}) {
+    const nodeTE = new TemporalEntity(this.state, this.env, undefined, undefined, nodeIdString)
+    const responseFromGet = await nodeTE.get(undefined, options.asOfISOString)  // TODO: Implement asOf functionality. For now, TE.get(eTag) expects an eTag, but we are chaning that
+    throwIf(responseFromGet[1] !== 200, `Error getting node ${nodeIdString}`, responseFromGet.status)
+    const nodeCurrent = responseFromGet[0]
+    // TODO: if options say to skip deleted, check here
+    currentNodeBeingVisited.id = nodeIdString
+    currentNodeBeingVisited.label = nodeCurrent.value.label
+    const { children } = nodeCurrent.meta
+    if (children != null && children.length > 0) {
+      const promises = []
+      currentNodeBeingVisited.children = []
+      for (const childIdString of children) {
+        if (alreadyVisited[childIdString] != null) {
+          currentNodeBeingVisited.children.push(alreadyVisited[childIdString])
+        } else {
+          const newNode = {}
+          currentNodeBeingVisited.children.push(newNode)
+          alreadyVisited[childIdString] = newNode
+          promises.push(this.buildTree(options, childIdString, newNode, alreadyVisited))
+        }
+      }
+      await Promise.all(promises)
+    }
+
+    return currentNodeBeingVisited
+  }
+
+  async get(ifModifiedSinceISOString, options) {
+    if (options != null) {
+      throwIf(options.includeDeletedNodes && !options.includeTree, 'includeDeletedNodes requires includeTree')
+      throwIf(options.asOf && !options?.includeTree, 'asOf requires includeTree')
+      throwIf(  // TODO: Change this to a warning where asOf takes precedence and If-Modified-Since is ignored
+        options.asOf != null && ifModifiedSinceISOString != null,
+        'use either asOf or If-Modified-Since header, not both',
+      )
+      options.asOfISOString = options?.asOf ? new Date(options.asOf).toISOString() : undefined
+    } else {
+      options = { includeTree: false }
+    }
     await this.hydrate()
-    if (eTag != null && eTag === this.treeMeta.eTag) return [undefined, 304]
+    if (ifModifiedSinceISOString != null && ifModifiedSinceISOString >= this.treeMeta.lastValidFrom) return [undefined, 304]
     const response = { meta: this.treeMeta }
     if (options?.includeTree) {
-      response.tree = {}  // TODO: Build the tree. Be sure to consider options?.includeDeletedNodes
-      response.orphans = []  // simply an array of ids that are not in the tree. Use treeMeta.nodeCount.
+      throwIf(
+        ifModifiedSinceISOString == null && options?.asOfISOString == null,
+        'Tree building is expensive. You must provide an If-Modified-Since header or asOf option/query parameter to get the tree.',
+      )
+      // const cachedGetResponse = await this.storage.get(`${this.idString}/cachedGetResponse`)
+      // if (cachedGetResponse?.meta?.lastValidFrom <= dateThatTakesPrecendence) {
+      if (false) {
+        return [cachedGetResponse, 200]
+      } else {
+        response.tree = await this.buildTree(options)  // TODO: Build the tree. Be sure to consider options?.includeDeletedNodes
+        response.orphans = []  // simply an array of ids that are not in the tree. Use treeMeta.nodeCount.
+        this.state.storage.put(`${this.idString}/cachedGetResponse`, response)
+      }
     }
     return [response, 200]
   }
@@ -535,15 +587,15 @@ export class Tree {
   async GET(request) {
     try {
       throwIfAcceptHeaderInvalid(request)
-      const eTag = extractETag(request)
-      // TODO: Extract options from query string
+      const ifModifiedSince = request.headers.get('If-Modified-Since')
+      const ifModifiedSinceISOString = ifModifiedSince ? new Date(ifModifiedSince).toISOString() : undefined
       const url = new URL(request.url)
       const options = {
-        includeTree: url.searchParams.get('includeTree').toLowerCase() === 'true',
-        includeDeletedNodes: url.searchParams.get('includeDeletedNodes').toLowerCase() === 'true',
+        includeTree: url.searchParams.get('includeTree')?.toLowerCase() !== 'false',  // default is true
+        includeDeletedNodes: url.searchParams.get('includeDeletedNodes')?.toLowerCase() === 'true',  // default is false
+        asOf: url.searchParams.get('asOf'),
       }
-      throwIf(options.includeDeletedNodes && !options.includeTree, 'includeDeletedNodes requires includeTree')
-      const [response, status] = await this.get(eTag, options)
+      const [response, status] = await this.get(ifModifiedSinceISOString, options)
       if (status === 304) return this.getStatusOnlyResponse(304)
       return this.getResponse(response)
     } catch (e) {

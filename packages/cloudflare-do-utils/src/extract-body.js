@@ -20,7 +20,6 @@ export async function extractBody(r, clone = false) {
   if (clone) rToWorkOn = r.clone()
   else rToWorkOn = r
   const contentType = rToWorkOn.headers.get('Content-Type')
-  console.log('Content-Type:', contentType)
   if (contentType === 'application/cbor-sc') {
     return deserializeCBOR(rToWorkOn)
   } else if (contentType === 'application/json') {

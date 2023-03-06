@@ -5,6 +5,7 @@ const scriptPath = path.join(__dirname, "durable_objects/index.mjs")
 
 export default defineConfig({
   test: {
+    silent: false,
     coverage: {
       all: true,
       exclude: [

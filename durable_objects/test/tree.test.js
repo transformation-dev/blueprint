@@ -8,12 +8,14 @@ import { describe, it, expect, assert } from 'vitest'
 import { encodeFetchAndDecode, addCryptoToEnv } from '@transformation-dev/cloudflare-do-testing-utils'
 
 // local imports
-import { DurableAPI } from '../src/index.js'
+import { DurableAPI, TemporalEntity } from '../src/index.js'
 
 // const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks
 const env = getMiniflareBindings()
 await addCryptoToEnv(env)
-env.DEBUG = 'blueprint:*'
+// env.DEBUG = 'blueprint:*'
+// env.DEBUG = 'blueprint:tree'
+env.DEBUG = 'nothing'
 
 describe('A series of Tree operations', async () => {
   let baseUrl = 'http://fake.host'
@@ -32,8 +34,8 @@ describe('A series of Tree operations', async () => {
 
   it('should allow tree creation with POST', async () => {
     const rootNode = {
-      value: { a: 1 },
-      type: '***test-has-children***',
+      value: { label: 'root (aka node0)' },
+      type: '***test-has-children***',  // TODO: Use a real schema
       version: 'v1',
     }
     const options = {
@@ -57,7 +59,7 @@ describe('A series of Tree operations', async () => {
     expect(idString).to.be.a('string')
     url += `/${idString}`
 
-    // storage operation expects/asserts to only run in miniflare
+    // storage operation expects/asserts to only run in miniflare (aka not live over http)
     if (process?.env?.VITEST_BASE_URL == null) {
       const value = await state.storage.get('0/entityMeta')
       expect(value.timeline.length).toBe(1)
@@ -66,7 +68,7 @@ describe('A series of Tree operations', async () => {
 
   it('should allow node creation with PATCH', async () => {
     const newNode = {
-      value: { b: 2 },
+      value: { label: 'node1' },
       type: '***test-has-children-and-parents***',
       version: 'v1',
     }
@@ -91,7 +93,7 @@ describe('A series of Tree operations', async () => {
 
   it('should respond with error when sent non-existent parent', async () => {
     const newNode = {
-      value: { c: 3 },
+      value: { label: 'node2' },
       type: '***test-has-children-and-parents***',
       version: 'v1',
     }
@@ -109,7 +111,7 @@ describe('A series of Tree operations', async () => {
 
   it('should allow addition of another node', async () => {
     const newNode2 = {
-      value: { c: 3 },
+      value: { label: 'node2' },
       type: '***test-has-children-and-parents***',
       version: 'v1',
     }
@@ -181,6 +183,41 @@ describe('A series of Tree operations', async () => {
       assert(node0.meta.children.includes('2'))
       expect(node0.meta.children).to.have.lengthOf(2)
     }
+  })
+
+  it('should return the tree outline with ?includeTree=true', async () => {
+    // TODO: Why is error status undefined?
+    const response = await encodeFetchAndDecode(`${url}?includeTree=true&asOf=${new Date().toISOString()}`, undefined, stub)
+    console.log('response.CBOR_SC.tree: %s: ', JSON.stringify(response.CBOR_SC.tree, null, 2))
+    expect(response.status).toBe(200)
+    expect(response.CBOR_SC.tree).to.deep.eq({
+      id: '0',
+      label: 'root (aka node0)',
+      children: [
+        {
+          id: '1',
+          label: 'node1',
+          children: [
+            {
+              id: '2',
+              label: 'node2',
+            },
+          ],
+        },
+        {
+          id: '2',
+          label: 'node2',
+        },
+      ],
+    })
+    // this next line confirms that node2 is only transmitted once eventhough it shows up twice in the tree
+    expect(response.CBOR_SC.tree.children[0].children[0]).toBe(response.CBOR_SC.tree.children[1])
+  })
+
+  it.todo('should return also work with text/yaml Content-Type', () => {
+  })
+
+  it.todo('should return error with application/json Content-Type', () => {
   })
 
   it('should be "fail silently" when you add the same branch again', async () => {
@@ -295,10 +332,6 @@ describe('A series of Tree operations', async () => {
   })
 
   it.todo('should return an error if a branch move creates a cycle', async () => {
-  })
-
-  it.todo('should return the tree outline with ?includeTree=true', async () => {
-    // Don't allow application/json
   })
 
   it.todo('should work with ?includeTree=true&includeDeletedNodes=true', async () => {
