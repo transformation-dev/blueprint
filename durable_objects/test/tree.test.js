@@ -185,33 +185,45 @@ describe('A series of Tree operations', async () => {
     }
   })
 
+  const tree = {
+    id: '0',
+    label: 'root (aka node0)',
+    children: [
+      {
+        id: '1',
+        label: 'node1',
+        children: [
+          {
+            id: '2',
+            label: 'node2',
+          },
+        ],
+      },
+      {
+        id: '2',
+        label: 'node2',
+      },
+    ],
+  }
+
   it('should return the tree outline with ?includeTree=true', async () => {
     // TODO: Why is error status undefined?
     const response = await encodeFetchAndDecode(`${url}?includeTree=true&asOf=${new Date().toISOString()}`, undefined, stub)
-    console.log('response.CBOR_SC.tree: %s: ', JSON.stringify(response.CBOR_SC.tree, null, 2))
+    // console.log('response.CBOR_SC.tree: %s: ', JSON.stringify(response.CBOR_SC.tree, null, 2))
     expect(response.status).toBe(200)
-    expect(response.CBOR_SC.tree).to.deep.eq({
-      id: '0',
-      label: 'root (aka node0)',
-      children: [
-        {
-          id: '1',
-          label: 'node1',
-          children: [
-            {
-              id: '2',
-              label: 'node2',
-            },
-          ],
-        },
-        {
-          id: '2',
-          label: 'node2',
-        },
-      ],
-    })
+    expect(response.CBOR_SC.fromCache).toBe(false)
+    expect(response.CBOR_SC.tree).to.deep.eq(tree)
     // this next line confirms that node2 is only transmitted once eventhough it shows up twice in the tree
     expect(response.CBOR_SC.tree.children[0].children[0]).toBe(response.CBOR_SC.tree.children[1])
+    if (process?.env?.VITEST_BASE_URL == null) {
+      // console.log('list of nodes: %O: ', await state.storage.list())
+    }
+  })
+
+  it('should use the cachedGetResponse on second call to GET', async () => {
+    const response = await encodeFetchAndDecode(`${url}?includeTree=true&asOf=${new Date().toISOString()}`, undefined, stub)
+    expect(response.CBOR_SC.fromCache).toBe(true)
+    expect(response.CBOR_SC.tree).to.deep.eq(tree)
   })
 
   it.todo('should return also work with text/yaml Content-Type', () => {

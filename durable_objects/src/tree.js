@@ -571,13 +571,15 @@ export class Tree {
         ifModifiedSinceISOString == null && options?.asOfISOString == null,
         'Tree building is expensive. You must provide an If-Modified-Since header or asOf option/query parameter to get the tree.',
       )
-      // const cachedGetResponse = await this.storage.get(`${this.idString}/cachedGetResponse`)
-      // if (cachedGetResponse?.meta?.lastValidFrom <= dateThatTakesPrecendence) {
-      if (false) {
+      const isoStringThatTakesPrecendence = options?.asOfISOString ?? ifModifiedSinceISOString
+      const cachedGetResponse = await this.state.storage.get(`${this.idString}/cachedGetResponse`)
+      if (cachedGetResponse?.meta?.lastValidFrom <= isoStringThatTakesPrecendence) {
+        cachedGetResponse.fromCache = true
         return [cachedGetResponse, 200]
       } else {
         response.tree = await this.buildTree(options)  // TODO: Build the tree. Be sure to consider options?.includeDeletedNodes
         response.orphans = []  // simply an array of ids that are not in the tree. Use treeMeta.nodeCount.
+        response.fromCache = false
         this.state.storage.put(`${this.idString}/cachedGetResponse`, response)
       }
     }
