@@ -43,7 +43,7 @@ describe('A series of Tree operations', async () => {
       // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
       body: { rootNode, userID: 'userW' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
 
     // expects/asserts to always run
     expect(response.status).toBe(201)
@@ -77,7 +77,7 @@ describe('A series of Tree operations', async () => {
       // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
       body: { addNode: { newNode, parent: '0' }, userID: 'userX' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
     const { meta } = response.CBOR_SC
     const { lastValidFrom } = meta
@@ -102,7 +102,7 @@ describe('A series of Tree operations', async () => {
       // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
       body: { addNode: { newNode, parent: '999' }, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(404)
     expect(response.CBOR_SC.error.message).toMatch('TemporalEntity not found')
   })
@@ -119,7 +119,7 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { addNode: { newNode: newNode2, parent: 1 }, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
     const { meta } = response.CBOR_SC
     lastValidFrom = meta.lastValidFrom
@@ -145,7 +145,7 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { branch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     const { error } = response.CBOR_SC
     expect(response.status).toBe(409)
     expect(error.message).toMatch('Adding this branch would create a cycle')
@@ -169,7 +169,7 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { branch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
     const { meta } = response.CBOR_SC
     lastValidFrom = meta.lastValidFrom
@@ -210,6 +210,7 @@ describe('A series of Tree operations', async () => {
     // TODO: Why is error status undefined?
     const response = await encodeFetchAndDecode(`${url}?includeTree=true&asOf=${new Date().toISOString()}`, undefined, stub)
     // console.log('response.CBOR_SC.tree: %s: ', JSON.stringify(response.CBOR_SC.tree, null, 2))
+    // console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
     expect(response.status).toBe(200)
     expect(response.CBOR_SC.fromCache).toBe(false)
     expect(response.CBOR_SC.tree).to.deep.eq(tree)
@@ -244,7 +245,7 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { branch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
     const { meta } = response.CBOR_SC
     lastValidFrom = meta.lastValidFrom
@@ -274,7 +275,7 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { branch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
     const { meta } = response.CBOR_SC
     lastValidFrom = meta.lastValidFrom
@@ -299,7 +300,7 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { branch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
     if (process?.env?.VITEST_BASE_URL == null) {
       const node2EntityMeta = await state.storage.get('2/entityMeta')
@@ -322,7 +323,7 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { moveBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     // console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
     // console.log('list of nodes: %O: ', await state.storage.list())
     expect(response.status).toBe(200)

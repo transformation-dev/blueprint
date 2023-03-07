@@ -9,7 +9,7 @@ export default defineConfig({
     coverage: {
       all: true,
       exclude: [
-        "**/pages-do-proxy.js"
+        // "**/pages-do-proxy.js"
       ],
       include: [
         'packages/**/src/**/*.js',
