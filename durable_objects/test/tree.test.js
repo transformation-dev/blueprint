@@ -209,7 +209,7 @@ describe('A series of Tree operations', async () => {
   it('should return the tree outline with ?includeTree=true', async () => {
     const response = await encodeFetchAndDecode(`${url}?includeTree=true&asOf=${new Date().toISOString()}`, undefined, stub)
     // console.log('response.CBOR_SC.tree: %s: ', JSON.stringify(response.CBOR_SC.tree, null, 2))
-    // console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
+    console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
     expect(response.status).toBe(200)
     expect(response.CBOR_SC.fromCache).toBe(false)
     expect(response.CBOR_SC.tree).to.deep.eq(tree)

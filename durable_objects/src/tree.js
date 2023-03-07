@@ -542,16 +542,34 @@ export class Tree {
     }
   }
 
-  async buildTree(options, nodeIdString = '0', currentNodeBeingVisited = {}, alreadyVisited = {}) {
-    const nodeTE = new TemporalEntity(this.state, this.env, undefined, undefined, nodeIdString)
+  async getKeyFields(options, nodeNum) {
+    const nodeTE = new TemporalEntity(this.state, this.env, undefined, undefined, nodeNum.toString())
     const responseFromGet = await nodeTE.get(undefined, options.asOfISOString)  // TODO: Implement asOf functionality. For now, TE.get(eTag) expects an eTag, but we are chaning that
-    throwIf(responseFromGet[1] !== 200, `Error getting node ${nodeIdString}`, responseFromGet[1])
+    // TODO: Handle case where node didn't yet exist at asOfISOString. Maybe have it return [null, 404]?
+    throwIf(responseFromGet[1] !== 200, `Error getting node ${nodeNum}`, responseFromGet[1])
     const nodeCurrent = responseFromGet[0]
-    currentNodeBeingVisited.id = nodeIdString
-    currentNodeBeingVisited.label = nodeCurrent.value.label
-    const { children } = nodeCurrent.meta
+    const nodeKeyFields = {}
+    nodeKeyFields.id = nodeNum.toString()
+    nodeKeyFields.label = nodeCurrent.value.label
+    nodeKeyFields.children = nodeCurrent.meta.children
+    if (nodeCurrent.meta.deleted) nodeKeyFields.deleted = true
+    return nodeKeyFields
+  }
+
+  static separateTreeDeletedAndOrphaned(
+    options,
+    nodesIndex,
+    nodeIDString = '0',
+    currentNodeBeingVisited = {},
+    alreadyVisited = {},
+    deletedNodes = [],
+    orphanedNodes = [],
+  ) {
+    const nodeKeyFields = nodesIndex[nodeIDString]
+    currentNodeBeingVisited.id = nodeKeyFields.id
+    currentNodeBeingVisited.label = nodeKeyFields.label
+    const { children } = nodeKeyFields
     if (children != null && children.length > 0) {
-      const promises = []
       currentNodeBeingVisited.children = []
       for (const childIdString of children) {
         if (alreadyVisited[childIdString] != null) {
@@ -560,13 +578,26 @@ export class Tree {
           const newNode = {}
           currentNodeBeingVisited.children.push(newNode)
           alreadyVisited[childIdString] = newNode
-          promises.push(this.buildTree(options, childIdString, newNode, alreadyVisited))
+          this.separateTreeDeletedAndOrphaned(options, nodesIndex, childIdString, newNode, alreadyVisited, deletedNodes, orphanedNodes)
         }
       }
-      await Promise.all(promises)
     }
-
     return currentNodeBeingVisited
+  }
+
+  async buildTree(options) {
+    await this.hydrate()
+    const promises = []
+    for (let nodeNum = 0; nodeNum < this.treeMeta.nodeCount; nodeNum++) {
+      promises.push(this.getKeyFields(options, nodeNum))
+    }
+    const arrayOfNodeKeyFields = await Promise.all(promises)
+    const nodesIndex = {}
+    while (arrayOfNodeKeyFields.length > 0) {
+      const nodeKeyFields = arrayOfNodeKeyFields.pop()
+      if (nodeKeyFields != null) nodesIndex[nodeKeyFields.id] = nodeKeyFields
+    }
+    return this.constructor.separateTreeDeletedAndOrphaned(options, nodesIndex)
   }
 
   async get(ifModifiedSinceISOString, options) {
