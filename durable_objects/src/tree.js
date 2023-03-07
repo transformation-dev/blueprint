@@ -65,6 +65,7 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Flags in TemporalEnti
 /tree/v1/[treeIdString]/aggregate
   TODO B: POST - execute the aggregation. Starting nodeIDString in body or root if omitted. First version just gathers all matching nodes.
 
+TODO: Don't allow the root node to be deleted
 */
 
 /**
@@ -544,7 +545,7 @@ export class Tree {
   async buildTree(options, nodeIdString = '0', currentNodeBeingVisited = {}, alreadyVisited = {}) {
     const nodeTE = new TemporalEntity(this.state, this.env, undefined, undefined, nodeIdString)
     const responseFromGet = await nodeTE.get(undefined, options.asOfISOString)  // TODO: Implement asOf functionality. For now, TE.get(eTag) expects an eTag, but we are chaning that
-    throwIf(responseFromGet[1] !== 200, `Error getting node ${nodeIdString}`, responseFromGet.status)
+    throwIf(responseFromGet[1] !== 200, `Error getting node ${nodeIdString}`, responseFromGet[1])
     const nodeCurrent = responseFromGet[0]
     currentNodeBeingVisited.id = nodeIdString
     currentNodeBeingVisited.label = nodeCurrent.value.label
