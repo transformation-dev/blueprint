@@ -567,15 +567,15 @@ export class Tree {
   }
 
   static separateTreeDeletedAndOrphaned(
-    options,
     nodesIndex,
     nodeIDString = '0',
     tree = {},
     alreadyVisited = {},
     deleted = { id: 'deleted', label: 'Deleted' },
+    inDeletedBranch = false,
   ) {
     const nodeKeyFields = nodesIndex[nodeIDString]
-    delete nodesIndex[nodeIDString]
+    if (!inDeletedBranch) delete nodesIndex[nodeIDString]  // Checking inDeletedBranch here assures that descendants of deleted nodes that aren't also descendants of an undeleted node will shop up in orphaned
     tree.id = nodeKeyFields.id
     tree.label = nodeKeyFields.label
     const { children } = nodeKeyFields
@@ -594,13 +594,14 @@ export class Tree {
           if (nodesIndex[childIdString]?.deleted) {
             deleted.children ??= []
             deleted.children.push(newNode)
+            inDeletedBranch = true
           } else {
             tree.children ??= []
             tree.children.push(newNode)
           }
           alreadyVisited[childIdString] = newNode
           // using Tree.separateTreeDeletedAndOrphaned instead of this.separateTreeDeletedAndOrphaned because deepcode complained. I don't understand why
-          Tree.separateTreeDeletedAndOrphaned(options, nodesIndex, childIdString, newNode, alreadyVisited, deleted)
+          Tree.separateTreeDeletedAndOrphaned(nodesIndex, childIdString, newNode, alreadyVisited, deleted, inDeletedBranch)
         }
       }
     }
@@ -620,7 +621,7 @@ export class Tree {
       if (nodeKeyFields != null) nodesIndex[nodeKeyFields.id] = nodeKeyFields
     }
 
-    const { tree, deleted } = this.constructor.separateTreeDeletedAndOrphaned(options, nodesIndex)
+    const { tree, deleted } = this.constructor.separateTreeDeletedAndOrphaned(nodesIndex)
     // populate orphaned from nodesIndex that is mutated by separateTreeDeletedAndOrphaned and attach to tree if not empty
     const nodesIndexKeys = Object.keys(nodesIndex)
     if (nodesIndexKeys.length > 0) {
