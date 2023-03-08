@@ -42,7 +42,7 @@ jobs:
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
+      uses: github/codeql-action/init@v2
       with:
         languages: ${{ matrix.language }}
         # If you wish to specify custom queries, you can do so here or in a config file.
@@ -68,4 +68,10 @@ jobs:
         npm run build:sourcemaps
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      uses: github/codeql-action/analyze@v2
+
+    # Upload the results as a SARIF file to the GitHub Security tab
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: codeql-results.sarif
