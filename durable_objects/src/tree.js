@@ -66,6 +66,16 @@ org-tree-node: {  // TemporalEntity w/ org-tree-node type. Flags in TemporalEnti
   TODO B: POST - execute the aggregation. Starting nodeIDString in body or root if omitted. First version just gathers all matching nodes.
 
 TODO: Don't allow the root node to be deleted
+
+TODO: If building the tree on every change is too resource intensive, then we could move everything into the Tree instance state. It would also mean:
+      - remove parents and children from the nodes
+      - make Tree be a subclass of TemporalEntityBase which means...
+      - moving the tree into value and the treeMeta into meta
+      - removing the current cache which only keeps the last build
+      - So that Tree doesn't have to know anything about the node types, implement a getLabel() method in the node classes
+      - Also implement a default getLabel() method on TemporalEntityBase which uses the type, version, and idString, plus a note to overload this method in subclass
+
+TODO: Trap DELETE on nodes. Warn on deleting nodes with children. Rebuild the tree. I think it's OK to leave the children and parents fields as-is though.
 */
 
 /**
@@ -560,29 +570,41 @@ export class Tree {
     options,
     nodesIndex,
     nodeIDString = '0',
-    currentNodeBeingVisited = {},
+    tree = {},
     alreadyVisited = {},
-    deletedNodes = [],
-    orphanedNodes = [],
+    deleted = { id: 'deleted', label: 'Deleted' },
   ) {
     const nodeKeyFields = nodesIndex[nodeIDString]
-    currentNodeBeingVisited.id = nodeKeyFields.id
-    currentNodeBeingVisited.label = nodeKeyFields.label
+    delete nodesIndex[nodeIDString]
+    tree.id = nodeKeyFields.id
+    tree.label = nodeKeyFields.label
     const { children } = nodeKeyFields
     if (children != null && children.length > 0) {
-      currentNodeBeingVisited.children = []
       for (const childIdString of children) {
         if (alreadyVisited[childIdString] != null) {
-          currentNodeBeingVisited.children.push(alreadyVisited[childIdString])
+          if (alreadyVisited[childIdString].deleted) {
+            deleted.children ??= []
+            deleted.children.push(alreadyVisited[childIdString])
+          } else {
+            tree.children ??= []
+            tree.children.push(alreadyVisited[childIdString])
+          }
         } else {
           const newNode = {}
-          currentNodeBeingVisited.children.push(newNode)
+          if (nodesIndex[childIdString]?.deleted) {
+            deleted.children ??= []
+            deleted.children.push(newNode)
+          } else {
+            tree.children ??= []
+            tree.children.push(newNode)
+          }
           alreadyVisited[childIdString] = newNode
-          this.separateTreeDeletedAndOrphaned(options, nodesIndex, childIdString, newNode, alreadyVisited, deletedNodes, orphanedNodes)
+          // using Tree.separateTreeDeletedAndOrphaned instead of this.separateTreeDeletedAndOrphaned because deepcode complained. I don't understand why
+          Tree.separateTreeDeletedAndOrphaned(options, nodesIndex, childIdString, newNode, alreadyVisited, deleted)
         }
       }
     }
-    return currentNodeBeingVisited
+    return { tree, deleted }
   }
 
   async buildTree(options) {
@@ -597,7 +619,23 @@ export class Tree {
       const nodeKeyFields = arrayOfNodeKeyFields.pop()
       if (nodeKeyFields != null) nodesIndex[nodeKeyFields.id] = nodeKeyFields
     }
-    return this.constructor.separateTreeDeletedAndOrphaned(options, nodesIndex)
+
+    const { tree, deleted } = this.constructor.separateTreeDeletedAndOrphaned(options, nodesIndex)
+    // populate orphaned from nodesIndex that is mutated by separateTreeDeletedAndOrphaned and attach to tree if not empty
+    const nodesIndexKeys = Object.keys(nodesIndex)
+    if (nodesIndexKeys.length > 0) {
+      const orphaned = { id: 'orphaned', label: 'Orphaned' }
+      // loop through nodesIndexKeys and add to orphaned
+
+      tree.children ??= []
+      tree.children.push(orphaned)
+    }
+    // attach deleted and orphaned to tree under the root node
+    if (deleted.children?.length > 0) {
+      tree.children ??= []
+      tree.children.push(deleted)
+    }
+    return tree
   }
 
   async get(ifModifiedSinceISOString, options) {
@@ -624,8 +662,6 @@ export class Tree {
         }
       }
       response.tree = await this.buildTree(options)
-      response.orphans = []  // simply an array of ids that are not in the tree. Uses treeMeta.nodeCount to calculate.
-      response.deleted = []  // simply an array of ids that are in the tree but have been deleted
       this.state.storage.put(`${this.idString}/cachedGetResponse`, response)
       response.fromCache = false
     }

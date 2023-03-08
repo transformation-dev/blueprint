@@ -8,7 +8,7 @@ import { describe, it, expect, assert } from 'vitest'
 import { encodeFetchAndDecode, addCryptoToEnv } from '@transformation-dev/cloudflare-do-testing-utils'
 
 // local imports
-import { DurableAPI, TemporalEntity } from '../src/index.js'
+import { DurableAPI } from '../src/index.js'
 
 // const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks
 const env = getMiniflareBindings()
@@ -345,16 +345,18 @@ describe('A series of Tree operations', async () => {
 
   it.todo('should return an error if a branch move creates a cycle', async () => {
   })
+})
 
-  it.todo('should work with ?includeTree=true&includeDeletedNodes=true', async () => {
+describe('Tree deleted and orphaned', () => {
+  it.todo('should allow POST to the tree to add a node (alias for PATCH addNode)', async () => {
   })
 
   it.todo('should allow deleting a node as a pass-through operation', async () => {
   })
 
-  it.todo('should allow patching a node as a pass-through operation', async () => {
+  it.todo('should work with deleted and orphaned nodes', async () => {
   })
 
-  it.todo('should allow POST to the tree to add a node (alias for PATCH addNode)', async () => {
+  it.todo('should allow patching a node as a pass-through operation', async () => {
   })
 })
