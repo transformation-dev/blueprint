@@ -226,7 +226,7 @@ describe('A series of Tree operations', async () => {
     expect(response.CBOR_SC.tree).to.deep.eq(tree)
   })
 
-  it.todo('should return also work with text/yaml Content-Type', () => {
+  it.todo('should also work with text/yaml Content-Type', () => {
   })
 
   it.todo('should return error with application/json Content-Type', () => {

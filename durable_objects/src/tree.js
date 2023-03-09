@@ -74,6 +74,12 @@ TODO: If building the tree on every change is too resource intensive, then we co
       - removing the current cache which only keeps the last build
       - So that Tree doesn't have to know anything about the node types, implement a getLabel() method in the node classes
       - Also implement a default getLabel() method on TemporalEntityBase which uses the type, version, and idString, plus a note to overload this method in subclass
+      - Use Cloudflare queues to communicate changes to node TemporalEntities to the Tree instance
+      - this.current.nodeIndex contains everything we need to save and restore
+      - Upgrade TemporalEntityBase to move all state saving to a save() function
+      - We’ll override the save() function so it will split the nodeIndex into chunks. The key for these chunks starts with the validFrom date
+      - We’ll also override the hydrate() function. When hydrating from those chunks, use the storage.list function with the prefix being the validFrom date
+      - The hydrate() function will also rehydrate
 
 TODO: Trap DELETE on nodes. Warn on deleting nodes with children. Rebuild the tree. I think it's OK to leave the children and parents fields as-is though.
 */
