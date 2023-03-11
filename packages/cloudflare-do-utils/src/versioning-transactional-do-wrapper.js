@@ -37,8 +37,15 @@ export class VersioningTransactionalDOWrapperBase {
     // exits if the class instance is already hydrated. This version will always do a single get from storage.
     await this.hydrate()
     const url = new URL(request.url)
-    const pathArray = url.pathname.split('/')
-    if (pathArray[0] === '') pathArray.shift()  // deal with leading slash
+    const pathArray = url.pathname.split('/').filter((s) => s !== '')
+
+    if (pathArray[0] === 'transactional-do-wrapper') {
+      if (request.method === 'DELETE') {
+        await this.storage.deleteAll()
+        return this.respondEarly(`All the data for DO ${this.idString} has been deleted. The DO will eventually disappear.`, { status: 202 })
+      }
+      return this.respondEarly(`Unrecognized HTTP method ${request.method} for ${request.url}`, { status: 405 })
+    }
 
     // pull type/version from url and validate
     const type = pathArray.shift()
