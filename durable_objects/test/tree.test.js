@@ -36,11 +36,9 @@ describe('A series of Tree operations', async () => {
     const rootNodeValue = { label: 'root (aka node0)' }
     const options = {
       method: 'POST',
-      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
       body: { rootNodeValue, userID: 'userW' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
-    console.log('response.CBOR_SC', response.CBOR_SC)
 
     // expects/asserts to always run
     expect(response.status).toBe(201)
@@ -59,7 +57,6 @@ describe('A series of Tree operations', async () => {
     // storage operation expects/asserts to only run in miniflare (aka not live over http)
     if (process?.env?.VITEST_BASE_URL == null) {
       const storage = await state.storage.list()
-      console.log('state.storage.list()', storage)
       const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
       expect(entityMetaFromStorage.timeline.length).toBe(1)
       expect(entityMetaFromStorage.nodeCount).toBe(1)
@@ -69,43 +66,40 @@ describe('A series of Tree operations', async () => {
     }
   })
 
-  it.todo('should allow node creation with PATCH', async () => {
-    const newNode = {
-      value: { label: 'node1' },
-      type: '***test-has-children-and-parents***',
-      version: 'v1',
-    }
+  it('should allow node creation with PATCH', async () => {
+    const value = { label: 'node1' }
     const options = {
       method: 'PATCH',
-      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
-      body: { addNode: { newNode, parent: '0' }, userID: 'userX' },
+      body: { addNode: { value, parent: '0' }, userID: 'userX' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { meta } = response.CBOR_SC
-    const { lastValidFrom } = meta
-    expect(meta.nodeCount).to.eq(2)
-    assert(meta.validFrom <= meta.lastValidFrom)
+    const { entityMeta, current, idString } = response.CBOR_SC
+    const { meta } = current
+    expect(entityMeta.nodeCount).to.eq(2)
+    assert(meta.validFrom <= entityMeta.timeline.at(-1))
     if (process?.env?.VITEST_BASE_URL == null) {
-      const child = await state.storage.get(`1/snapshot/${lastValidFrom}`)
-      assert(child.meta.parents.includes('0'))
-      const root = await state.storage.get(`0/snapshot/${lastValidFrom}`)
-      assert(root.meta.children.includes('1'))
+      const storage = await state.storage.list()
+      console.log('state.storage.list()', storage)
+      const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
+      expect(entityMetaFromStorage.timeline.length).toBe(2)
+      expect(entityMetaFromStorage.nodeCount).toBe(2)
+      const nodes = storage.get(`${idString}/snapshot/${meta.validFrom}/nodes`)
+      expect(nodes[1].label).to.eq(value.label)
+      expect(nodes[1].nodeIDString).to.not.eq(idString)
+      const parentToChildrenEdges = storage.get(`${idString}/snapshot/${meta.validFrom}/parentToChildrenEdges`)
+      expect(parentToChildrenEdges[0]).to.deep.eq(['1'])
     }
   })
 
-  it.todo('should respond with error when sent non-existent parent', async () => {
-    const newNode = {
-      value: { label: 'node2' },
-      type: '***test-has-children-and-parents***',
-      version: 'v1',
-    }
+  it('should respond with error when sent non-existent parent', async () => {
+    const value = { label: 'node2' }
     const options = {
       method: 'PATCH',
-      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
-      body: { addNode: { newNode, parent: '999' }, userID: 'userY' },
+      body: { addNode: { value, parent: '999' }, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
+    console.log('response.CBOR_SC', response.CBOR_SC)
     expect(response.status).toBe(404)
     expect(response.CBOR_SC.error.message).toMatch('TemporalEntity not found')
   })

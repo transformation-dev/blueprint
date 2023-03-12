@@ -13,7 +13,7 @@ export class VersioningTransactionalDOWrapperBase {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  respondEarly(response, options) {  // TODO: Swap this out for my response mixin behavior
+  respondEarly(response, options) {  // TODO: Swap this out for my response mixin behavior. This will fix the fact that error responses don't honor Accept headers.
     return new Response(response, options)
   }
 

@@ -296,7 +296,7 @@ export class TreeBase  {
     throwUnless(this.entityMeta.nodeCount === 0, `POST to create tree can only be called once but nodeCount is ${this.entityMeta.nodeCount}`)
 
     validFrom = this.deriveValidFrom(validFrom).validFrom
-    rootNodeValue.treeIDString = this.idString  // TODO: Be able to specify this as part of this.current.meta
+    rootNodeValue.treeIDString = this.idString
     const options = {
       method: 'POST',
       body: { value: rootNodeValue, userID, validFrom, impersonatorID },
@@ -308,24 +308,21 @@ export class TreeBase  {
     await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.bodyObject.idString, userID, impersonatorID)
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
-    console.log('response.bodyObject', response.bodyObject)
     validFrom = response.bodyObject.meta.validFrom  // in case it was changed by the Node DO
     this.current.nodes = {}
     this.current.parentToChildrenEdges = {}
     this.current.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
 
     this.updateMetaAndSave(validFrom, userID, impersonatorID)
-    console.log('this.current', this.current)
-    console.log('this.entityMeta', this.entityMeta)
 
     const result = {
       entityMeta: this.entityMeta,
       current: {
         meta: this.current.meta,
-        // tree: this.current.tree,  // TODO: Implement this
+        // tree: this.current.tree,
       },
     }
-    return [result, 201]
+    return [result, 201]  // TODO: Change to return get()
   }
 
   async POST(request) {
@@ -342,30 +339,47 @@ export class TreeBase  {
 
   async patchAddNode({ addNode, userID, validFrom, impersonatorID }) {
     const { value, parent } = addNode
-    throwIf(value == null, 'body.addNode with value and parent required when Tree PATCH addNode is called')
+    throwIf(value == null, '{ addNode: { value, parent }, userID, validFrom, impersonatorID } expected when Tree PATCH addNode is called')
     throwUnless(userID, 'userID required by Tree operation is missing')
-    // TODO: throw unless the new node type allows for parents and children
 
     await this.hydrate()
 
     const parentIDNumber = Number(parent)
-    if (!Number.isNaN(parentIDNumber)) {
-      throwIf(  // TODO: add this check elsewhere
-        parentIDNumber < 0 || parentIDNumber > this.treeMeta.nodeCount,
-        `${parent} TemporalEntity not found`,
-        404,
-      )
-    }
+    throwIf(
+      Number.isNaN(parentIDNumber) || parentIDNumber < 0 || parentIDNumber > this.entityMeta.nodeCount,
+      `${parent} TemporalEntity not found`,
+      404,
+    )
 
     validFrom = this.deriveValidFrom(validFrom).validFrom
 
-    // Create the new node DO
+    value.treeIDString = this.idString
+    const options = {
+      method: 'POST',
+      body: { value, userID, validFrom, impersonatorID },
+    }
 
-    // If that works, add it to this.current.nodes
+    const lastValidFrom = this.entityMeta.timeline?.at(-1)
+    // This next line is going to open the input gate, so we need an optimistic concurrency check. The above line is what we'll check against
+    const response = await this.callNodeDO('org-tree-node', 'v1', options, 201)
+    await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.bodyObject.idString, userID, impersonatorID)
 
-    // save()
+    // Update current but not current.meta because that's done in updateMetaAndSave()
+    validFrom = response.bodyObject.meta.validFrom  // in case it was changed by the Node DO
+    this.current.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
+    this.current.parentToChildrenEdges[parent] ??= []
+    this.current.parentToChildrenEdges[parent].push(this.entityMeta.nodeCount.toString())
 
-    // return [tree, 200]
+    this.updateMetaAndSave(validFrom, userID, impersonatorID)
+
+    const result = {
+      entityMeta: this.entityMeta,
+      current: {
+        meta: this.current.meta,
+        // tree: this.current.tree,
+      },
+    }
+    return [result, 200]  // TODO: Change to return get()
   }
 
   /**
@@ -561,7 +575,7 @@ export class TreeBase  {
     return tree
   }
 
-  async get(ifModifiedSinceISOString, options) {
+  async get(ifModifiedSinceISOString, options, statusToReturn = 200) {
     if (options != null) {
       throwIf(options.asOf && !options?.includeTree, 'asOf requires includeTree')
       this.warnIf(
@@ -588,7 +602,7 @@ export class TreeBase  {
       this.state.storage.put(`${this.idString}/cachedGetResponse`, response)
       response.fromCache = false
     }
-    return [response, 200]
+    return [response, statusToReturn]
   }
 
   async GET(request) {

@@ -83,5 +83,12 @@ export class DurableAPI extends VersioningTransactionalDOWrapperBase {
         },
       },
     },
+    'org-tree-node': {
+      versions: {
+        v1: {
+          environments: { '*': { TheClass: TemporalEntity } },
+        },
+      },
+    },
   }
 }
