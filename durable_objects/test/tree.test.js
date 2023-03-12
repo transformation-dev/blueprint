@@ -80,15 +80,14 @@ describe('A series of Tree operations', async () => {
     assert(meta.validFrom <= entityMeta.timeline.at(-1))
     if (process?.env?.VITEST_BASE_URL == null) {
       const storage = await state.storage.list()
-      console.log('state.storage.list()', storage)
       const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
       expect(entityMetaFromStorage.timeline.length).toBe(2)
       expect(entityMetaFromStorage.nodeCount).toBe(2)
       const nodes = storage.get(`${idString}/snapshot/${meta.validFrom}/nodes`)
       expect(nodes[1].label).to.eq(value.label)
       expect(nodes[1].nodeIDString).to.not.eq(idString)
-      const parentToChildrenEdges = storage.get(`${idString}/snapshot/${meta.validFrom}/parentToChildrenEdges`)
-      expect(parentToChildrenEdges[0]).to.deep.eq(['1'])
+      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
+      expect(edges[0]).to.deep.eq(['1'])
     }
   })
 
@@ -99,36 +98,35 @@ describe('A series of Tree operations', async () => {
       body: { addNode: { value, parent: '999' }, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
-    console.log('response.CBOR_SC', response.CBOR_SC)
     expect(response.status).toBe(404)
     expect(response.CBOR_SC.error.message).toMatch('TemporalEntity not found')
   })
 
   let lastValidFrom
 
-  it.todo('should allow addition of another node', async () => {
-    const newNode2 = {
-      value: { label: 'node2' },
-      type: '***test-has-children-and-parents***',
-      version: 'v1',
-    }
+  it('should allow addition of another node', async () => {
+    const value = { label: 'node2' }
     const options = {
       method: 'PATCH',
-      body: { addNode: { newNode: newNode2, parent: 1 }, userID: 'userY' },
+      body: { addNode: { value, parent: 1 }, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
-    expect(response.status).toBe(200)
-    const { meta } = response.CBOR_SC
-    lastValidFrom = meta.lastValidFrom
-    expect(meta.nodeCount).to.eq(3)
-    assert(meta.validFrom <= meta.lastValidFrom)
+    console.log('response.CBOR_SC', response.CBOR_SC)
+
+    const { entityMeta, current, idString } = response.CBOR_SC
+    const { meta } = current
+    expect(entityMeta.nodeCount).to.eq(3)
+    assert(meta.validFrom <= entityMeta.timeline.at(-1))
     if (process?.env?.VITEST_BASE_URL == null) {
-      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
-      assert(node2.meta.parents.includes('1'))
-      expect(node2.meta.parents).to.have.lengthOf(1)
-      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
-      assert(node1.meta.children.includes('2'))
-      expect(node1.meta.children).to.have.lengthOf(1)
+      const storage = await state.storage.list()
+      const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
+      expect(entityMetaFromStorage.timeline.length).toBe(3)
+      expect(entityMetaFromStorage.nodeCount).toBe(3)
+      const nodes = storage.get(`${idString}/snapshot/${meta.validFrom}/nodes`)
+      expect(nodes[2].label).to.eq(value.label)
+      expect(nodes[2].nodeIDString).to.not.eq(idString)
+      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
+      expect(edges[1]).to.deep.eq(['2'])
     }
   })
 

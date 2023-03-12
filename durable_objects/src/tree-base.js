@@ -67,8 +67,8 @@ export class TreeBase  {
 
   // TODO: upgrade TemporalEntityBase to move all state saving to a save() method
   //       override base class hydrate() and save() method
-  //       save() will save this.nodeCount, this.current.nodes, and this.parentToChildrenEdges to storage
-  //       hydrate() will restore those and generate this.childrenToParentEdges
+  //       save() will save this.nodeCount, this.current.nodes, and this.edges to storage
+  //       hydrate() will restore those and generate this.reverseEdges
   //       maybe we can live with the parent class way of saving/hydrating entityMeta
 
   // TODO: upgrade VersioningTransactionalDOWrapper to not always eject from memory on erros. Not sure how to decide.
@@ -80,7 +80,7 @@ export class TreeBase  {
   // <Nodes> = {
   //   <id: string>: <NodeStub>,  // this id comes from incrementing nodeCount
   // }
-  // <Edges> = {  // use for both parentToChildrenEdges and childrenToParentEdges
+  // <Edges> = {  // use for both edges and reverseEdges
   //   <id: string>: [<id: string>],
   // }
 
@@ -112,12 +112,69 @@ export class TreeBase  {
     this.current = {}
     if (this.entityMeta.timeline.length > 0) {
       this.current.nodes = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`)
-      this.current.parentToChildrenEdges = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/parentToChildrenEdges`)
-      // this.childrenToParentEdges = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/childrenToParentEdges`)
-      // TODO: Build this.childrenToParentEdges from this.parentToChildrenEdges
+      this.current.edges = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/edges`)
     }
-
+    this.invalidateDerived()
     this.hydrated = true
+  }
+
+  deriveValidFrom(validFrom) {  // This is the one from TemporalEntityBase not old Tree
+    let validFromDate
+    if (validFrom != null) {
+      if (this.entityMeta?.timeline?.length > 0) {
+        throwIf(validFrom <= this.entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
+      }
+      validFromDate = new Date(validFrom)
+    } else {
+      validFromDate = new Date()
+      if (this.entityMeta?.timeline?.length > 0) {
+        const lastTimelineDate = new Date(this.entityMeta.timeline.at(-1))
+        if (validFromDate <= lastTimelineDate) {
+          validFromDate = new Date(lastTimelineDate.getTime() + 1)
+        }
+        validFrom = new Date(validFromDate).toISOString()
+      } else {
+        validFrom = validFromDate.toISOString()
+        validFromDate = new Date(validFrom)
+      }
+    }
+    return { validFrom, validFromDate }
+  }
+
+  invalidateDerived() {
+    this.reverseEdges = null
+    this.tree = null
+  }
+
+  deriveReverseEdges() {  // This is the first function after 6 months of using GitHub Copilot that was auto-created without any edits
+    if (this.reverseEdges != null) return
+    this.reverseEdges = {}
+    for (const [parentID, children] of Object.entries(this.current.edges)) {
+      for (const childID of children) {
+        if (this.reverseEdges[childID] == null) this.reverseEdges[childID] = []
+        this.reverseEdges[childID].push(parentID)
+      }
+    }
+  }
+
+  isChildOf(parentID, childID) {  // is childID (2nd parameter) a child of parentID (1st parameter)?
+    return this.edges?.[parentID]?.includes(childID)
+  }
+
+  isParentOf(childID, parentID) {  // is parentID (2nd parameter) a parent of childID (1st parameter)?
+    this.deriveReverseEdges()
+    // deepcode ignore AttrAccessOnNull: I don't see the problem
+    return this.reverseEdges?.[childID]?.includes(parentID) ?? false
+  }
+
+  throwIfIDInAncestry(parentID, childID, pathFromAncestorToChild = []) {
+    console.log(this.nodeCount)
+    // TODO: implement this
+  }
+
+  throwIfParentChildRelationshipIsInvalid(parentID, childID) {
+    console.log(this.nodeCount)
+    // TODO: implement this
   }
 
   async callNodeDO(nodeType, nodeVersion, options, expectedResponseCode, idString) {
@@ -144,49 +201,6 @@ export class TreeBase  {
       )
     }
     return response
-  }
-
-  deriveValidFrom(validFrom) {  // This is the one from TemporalEntityBase not old Tree
-    let validFromDate
-    if (validFrom != null) {
-      if (this.entityMeta?.timeline?.length > 0) {
-        throwIf(validFrom <= this.entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
-      }
-      validFromDate = new Date(validFrom)
-    } else {
-      validFromDate = new Date()
-      if (this.entityMeta?.timeline?.length > 0) {
-        const lastTimelineDate = new Date(this.entityMeta.timeline.at(-1))
-        if (validFromDate <= lastTimelineDate) {
-          validFromDate = new Date(lastTimelineDate.getTime() + 1)
-        }
-        validFrom = new Date(validFromDate).toISOString()
-      } else {
-        validFrom = validFromDate.toISOString()
-        validFromDate = new Date(validFrom)
-      }
-    }
-    return { validFrom, validFromDate }
-  }
-
-  isChildOf(parentID, childID) {
-    console.log(this.nodeCount)
-    // TODO: implement this
-  }
-
-  isParentOf(childID, parentID) {
-    console.log(this.nodeCount)
-    // TODO: implement this
-  }
-
-  throwIfIDInAncestry(parentID, childID, pathFromAncestorToChild = []) {
-    console.log(this.nodeCount)
-    // TODO: implement this
-  }
-
-  throwIfParentChildRelationshipIsInvalid(parentID, childID) {
-    console.log(this.nodeCount)
-    // TODO: implement this
   }
 
   async fetch(request) {
@@ -226,8 +240,8 @@ export class TreeBase  {
     debug('save() called')
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`, this.current.nodes)
-    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/parentToChildrenEdges`, this.current.parentToChildrenEdges)
-    // await this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/childrenToParentEdges`, this.childrenToParentEdges)
+    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/edges`, this.current.edges)
+    // await this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/reverseEdges`, this.reverseEdges)
   }
 
   async updateMetaAndSave(validFrom, userID, impersonatorID) {
@@ -272,15 +286,10 @@ export class TreeBase  {
   }
 
   // Optimistic concurrency check. If the last validFrom is not the same as before the check, delete the Node DO and throw an error.
-  async rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, idString, userID, impersonatorID) {
-    // TODO: Change this to a hard delete instead of a soft delete. Will have to be done by VersioningTransactionalDOWrapper
+  async rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, idString) {
     if (this.entityMeta.timeline?.at(-1) !== lastValidFrom) {  // This should work for both tree/root node creation as well as later node creation
       if (idString != null) {
-        const options = {
-          method: 'DELETE',
-          body: { userID, impersonatorID },
-        }
-        await this.callNodeDO('root-org-tree-node', 'v1', options, 204, idString)
+        this.hardDeleteDO(idString)
       }
       throwIf(true, 'Optimistic concurrency check failed. Retry', 409)
     }
@@ -295,6 +304,8 @@ export class TreeBase  {
 
     throwUnless(this.entityMeta.nodeCount === 0, `POST to create tree can only be called once but nodeCount is ${this.entityMeta.nodeCount}`)
 
+    this.invalidateDerived()
+
     validFrom = this.deriveValidFrom(validFrom).validFrom
     rootNodeValue.treeIDString = this.idString
     const options = {
@@ -302,15 +313,16 @@ export class TreeBase  {
       body: { value: rootNodeValue, userID, validFrom, impersonatorID },
     }
 
+    // TODO: wrap this in a try/catch block and retry if the optimistic concurrency check fails
     const lastValidFrom = this.entityMeta.timeline?.at(-1)
     // This next line is going to open the input gate, so we need an optimistic concurrency check. The above line is what we'll check against
-    const response = await this.callNodeDO('root-org-tree-node', 'v1', options, 201)
-    await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.bodyObject.idString, userID, impersonatorID)
+    const response = await this.callNodeDO(this.constructor.rootNodeType, this.constructor.rootNodeVersion, options, 201)
+    await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.bodyObject.idString)
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
     validFrom = response.bodyObject.meta.validFrom  // in case it was changed by the Node DO
     this.current.nodes = {}
-    this.current.parentToChildrenEdges = {}
+    this.current.edges = {}
     this.current.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
 
     this.updateMetaAndSave(validFrom, userID, impersonatorID)
@@ -351,6 +363,8 @@ export class TreeBase  {
       404,
     )
 
+    this.invalidateDerived()
+
     validFrom = this.deriveValidFrom(validFrom).validFrom
 
     value.treeIDString = this.idString
@@ -359,16 +373,17 @@ export class TreeBase  {
       body: { value, userID, validFrom, impersonatorID },
     }
 
+    // TODO: wrap this in a try/catch block and retry if the optimistic concurrency check fails
     const lastValidFrom = this.entityMeta.timeline?.at(-1)
     // This next line is going to open the input gate, so we need an optimistic concurrency check. The above line is what we'll check against
-    const response = await this.callNodeDO('org-tree-node', 'v1', options, 201)
-    await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.bodyObject.idString, userID, impersonatorID)
+    const response = await this.callNodeDO(this.constructor.nodeType, this.constructor.nodeVersion, options, 201)
+    await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.bodyObject.idString)
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
     validFrom = response.bodyObject.meta.validFrom  // in case it was changed by the Node DO
     this.current.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
-    this.current.parentToChildrenEdges[parent] ??= []
-    this.current.parentToChildrenEdges[parent].push(this.entityMeta.nodeCount.toString())
+    this.current.edges[parent] ??= []
+    this.current.edges[parent].push(this.entityMeta.nodeCount.toString())
 
     this.updateMetaAndSave(validFrom, userID, impersonatorID)
 
@@ -400,6 +415,8 @@ export class TreeBase  {
     this.throwIfParentChildRelationshipIsInvalid(currentParent, child)
 
     await this.hydrate()
+
+    this.invalidateDerived()
 
     const isCurrentParentOf = this.isParentOf(child, currentParent)
     const isCurrentChildOf = this.isChildOf(currentParent, child)

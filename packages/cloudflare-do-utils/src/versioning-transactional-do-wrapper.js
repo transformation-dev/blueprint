@@ -39,9 +39,9 @@ export class VersioningTransactionalDOWrapperBase {
     const url = new URL(request.url)
     const pathArray = url.pathname.split('/').filter((s) => s !== '')
 
-    if (pathArray[0] === 'transactional-do-wrapper') {
+    if (pathArray[0] === 'transactional-do-wrapper') {  // TODO: Test this
       if (request.method === 'DELETE') {
-        await this.storage.deleteAll()
+        await this.state.storage.deleteAll()
         return this.respondEarly(`All the data for DO ${this.idString} has been deleted. The DO will eventually disappear.`, { status: 202 })
       }
       return this.respondEarly(`Unrecognized HTTP method ${request.method} for ${request.url}`, { status: 405 })
