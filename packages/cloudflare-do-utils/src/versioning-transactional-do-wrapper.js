@@ -1,3 +1,5 @@
+// TODO: Merge the types from VersioningTransactionDOWrapper and TemporalEntityBase
+
 // local imports
 import * as responseMixin from './response-mixin.js'
 import { getDebug, Debug } from './debug.js'

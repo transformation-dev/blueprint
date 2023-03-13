@@ -30,8 +30,9 @@ const { serialize, deserialize } = FetchProcessor.contentTypes[DEFAULT_CONTENT_T
   PATCH
     addNode - Adds a node to the tree
       body.addNode contains newNode and parent fields
-    branch - Adds or deletes a branch
-      body.branch.operation can be 'add' or 'delete'. 'add' is the default.
+    addBranch - Adds a branch
+      body contains parent and child fields. Strings or numbers are accepted.
+    deleteBranch - Deletes a branch
       body contains parent and child fields. Strings or numbers are accepted.
     moveBranch - Moves a branch from one parent to another.
       body contains parent, child, and newParent fields. Strings or numbers are accepted.
@@ -42,16 +43,7 @@ const { serialize, deserialize } = FetchProcessor.contentTypes[DEFAULT_CONTENT_T
 
 TODO: Don't allow the root node to be deleted
 
-TODO: Make this TreeBase. Subclass it to define the rootNodeType, rootNodeVersion, nodeType, and nodeVersion.
-      We need this to be able to create the DO nodes.
-      Those schemas will need to have a field for the idString for the Tree it belongs to.
-      One Tree for orgs, one for systems, etc.
-
-TODO A0: Refactor to have the nodes be separate DOs.
-      - Copy TemporalEntityBase contents to Tree and start editing
-      - Use Cloudflare queues to communicate changes to node TemporalEntities to the Tree instance
-
-TODO: Trap DELETE on nodes. Warn on deleting nodes with children. Rebuild the tree. I think it's OK to leave the children and parents fields as-is though.
+TODO: Use Cloudflare queues to communicate changes to node TemporalEntities to the Tree instance
 */
 
 /**
