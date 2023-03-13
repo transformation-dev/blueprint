@@ -42,12 +42,9 @@ describe('A series of Tree operations', async () => {
 
     // expects/asserts to always run
     expect(response.status).toBe(201)
-    const { entityMeta, current, idString } = response.CBOR_SC
+    const { current, idString } = response.CBOR_SC
     const { meta } = current
-    expect(entityMeta.nodeCount).to.be.a('number')
-    expect(entityMeta.nodeCount).to.eq(1)
     expect(meta.validFrom).to.be.a('string')
-    assert(meta.validFrom === entityMeta.timeline.at(-1))
     assert(meta.validFrom <= new Date().toISOString())
     expect(meta.userID).to.eq('userW')
     expect(response.headers.get('Content-ID')).to.eq(idString)
@@ -57,9 +54,10 @@ describe('A series of Tree operations', async () => {
     // storage operation expects/asserts to only run in miniflare (aka not live over http)
     if (process?.env?.VITEST_BASE_URL == null) {
       const storage = await state.storage.list()
-      const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
-      expect(entityMetaFromStorage.timeline.length).toBe(1)
-      expect(entityMetaFromStorage.nodeCount).toBe(1)
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.timeline.length).toBe(1)
+      expect(entityMeta.nodeCount).toBe(1)
+      assert(meta.validFrom === entityMeta.timeline.at(-1))
       const nodes = storage.get(`${idString}/snapshot/${meta.validFrom}/nodes`)
       expect(nodes[0].label).to.eq(rootNodeValue.label)
       expect(nodes[0].nodeIDString).to.not.eq(idString)
@@ -74,15 +72,14 @@ describe('A series of Tree operations', async () => {
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { entityMeta, current, idString } = response.CBOR_SC
+    const { current, idString } = response.CBOR_SC
     const { meta } = current
-    expect(entityMeta.nodeCount).to.eq(2)
-    assert(meta.validFrom <= entityMeta.timeline.at(-1))
     if (process?.env?.VITEST_BASE_URL == null) {
       const storage = await state.storage.list()
-      const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
-      expect(entityMetaFromStorage.timeline.length).toBe(2)
-      expect(entityMetaFromStorage.nodeCount).toBe(2)
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.timeline.length).toBe(2)
+      expect(entityMeta.nodeCount).toBe(2)
+      assert(meta.validFrom <= entityMeta.timeline.at(-1))
       const nodes = storage.get(`${idString}/snapshot/${meta.validFrom}/nodes`)
       expect(nodes[1].label).to.eq(value.label)
       expect(nodes[1].nodeIDString).to.not.eq(idString)
@@ -112,16 +109,15 @@ describe('A series of Tree operations', async () => {
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { entityMeta, current, idString } = response.CBOR_SC
+    const { current, idString } = response.CBOR_SC
     const { meta } = current
     lastValidFrom = meta.validFrom
-    expect(entityMeta.nodeCount).to.eq(3)
-    assert(meta.validFrom <= entityMeta.timeline.at(-1))
     if (process?.env?.VITEST_BASE_URL == null) {
       const storage = await state.storage.list()
-      const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
-      expect(entityMetaFromStorage.timeline.length).toBe(3)
-      expect(entityMetaFromStorage.nodeCount).toBe(3)
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.timeline.length).toBe(3)
+      expect(entityMeta.nodeCount).toBe(3)
+      assert(meta.validFrom <= entityMeta.timeline.at(-1))
       const nodes = storage.get(`${idString}/snapshot/${meta.validFrom}/nodes`)
       expect(nodes[2].label).to.eq(value.label)
       expect(nodes[2].nodeIDString).to.not.eq(idString)
@@ -162,16 +158,14 @@ describe('A series of Tree operations', async () => {
       body: { addBranch, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
-    console.log('response.CBOR_SC', response.CBOR_SC)
     expect(response.status).toBe(200)
-    const { entityMeta, current, idString } = response.CBOR_SC
+    const { current, idString } = response.CBOR_SC
     const { meta } = current
-    expect(entityMeta.nodeCount).to.eq(3)
-    assert(meta.validFrom <= entityMeta.timeline.at(-1))
     if (process?.env?.VITEST_BASE_URL == null) {
       const storage = await state.storage.list()
-      const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
-      expect(entityMetaFromStorage.timeline.length).toBe(4)
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.nodeCount).to.eq(3)
+      expect(entityMeta.timeline.length).toBe(4)
       const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
       expect(edges[0]).to.deep.eq(['1', '2'])
     }
@@ -196,46 +190,45 @@ describe('A series of Tree operations', async () => {
 
   it('should return the tree and meta with GET', async () => {
     const response = await encodeFetchAndDecode(`${url}?asOf=${new Date().toISOString()}`, undefined, stub)
-    console.log('response.CBOR_SC.tree: %s: ', JSON.stringify(response.CBOR_SC.tree, null, 2))
-    console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
     expect(response.status).toBe(200)
     expect(response.CBOR_SC.current.tree).toMatchObject(tree)
     // this next line confirms that node2 is only transmitted once eventhough it shows up twice in the tree
     expect(response.CBOR_SC.current.tree.children[0].children[0]).toBe(response.CBOR_SC.current.tree.children[1])
-    if (process?.env?.VITEST_BASE_URL == null) {
-      // console.log('list of nodes: %O: ', await state.storage.list())
-    }
   })
 
-  it.todo('should be "fail silently" when you add the same branch again', async () => {
+  it('should respond to GET entity-meta', async () => {
+    const response = await encodeFetchAndDecode(`${url}/entity-meta/`, undefined, stub)
+    const { timeline, nodeCount } = response.CBOR_SC
+    expect(response.status).toBe(200)
+    expect(timeline.length).toBe(4)
+    expect(nodeCount).toBe(3)
+  })
+
+  it('should be "fail silently" when you add the same branch again', async () => {
     // TODO: Confirm that we don't end up with the child or parent duplicated
-    // It should probably not have new snapshots but maybe it's OK?
-    const branch = {
+    const addBranch = {
       parent: 0,  // intentionally a Number to confirm that it's forgiving of this as a zero
       child: 2,
-      // operation: 'add',  // testing default operation by commenting this out
     }
     const options = {
       method: 'PATCH',
-      body: { branch, userID: 'userY' },
+      body: { addBranch, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
+    // console.log('response.CBOR_SC.tree: %s: ', JSON.stringify(response.CBOR_SC.tree, null, 2))
+    console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
     expect(response.status).toBe(200)
-    const { meta } = response.CBOR_SC
-    lastValidFrom = meta.lastValidFrom
-    expect(meta.nodeCount).to.eq(3)
-    assert(meta.validFrom <= meta.lastValidFrom)
+    const { current: { meta }, idString } = response.CBOR_SC
+    assert(meta.validFrom > lastValidFrom)
+    lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
-      const node2EntityMeta = await state.storage.get('2/entityMeta')
-      const node2LastValidFrom = node2EntityMeta.timeline.at(-1)
-      const node2 = await state.storage.get(`2/snapshot/${node2LastValidFrom}`)
-      const node0EntityMeta = await state.storage.get('0/entityMeta')
-      const node0LastValidFrom = node0EntityMeta.timeline.at(-1)
-      const node0 = await state.storage.get(`0/snapshot/${node0LastValidFrom}`)
-      assert(node2.meta.parents.includes('0'))
-      expect(node2.meta.parents.length).toBe(2)
-      assert(node0.meta.children.includes('2'))
-      expect(node0.meta.children.length).toBe(2)
+      const storage = await state.storage.list()
+      console.log('storage: %O: ', storage)
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.nodeCount).to.eq(3)
+      expect(entityMeta.timeline.length).toBe(4)
+      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
+      expect(edges[0]).to.deep.eq(['1', '2'])
     }
   })
 

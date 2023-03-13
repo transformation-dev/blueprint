@@ -4,7 +4,7 @@
 // monorepo imports
 import {
   responseMixin, throwIf, throwUnless, isIDString, getUUID, throwIfMediaTypeHeaderInvalid,
-  throwIfAcceptHeaderInvalid, extractBody, getIDStringFromInput, extractETag, getDebug, Debug,
+  throwIfAcceptHeaderInvalid, extractBody, getIDStringFromInput, getDebug, Debug,
   FetchProcessor,
   HTTPError,
 } from '@transformation-dev/cloudflare-do-utils'
@@ -60,7 +60,7 @@ export class TreeBase  {
 
   // TODO: upgrade TemporalEntityBase to move all state saving to a save() method
   //       override base class hydrate() and save() method
-  //       save() will save this.entityMeta.nodeCount, this.current.nodes, and this.edges to storage
+  //       save() will save this.entityMeta.nodeCount, this.nodes, and this.edges to storage
   //       hydrate() will restore those and generate this.reverseEdges
   //       maybe we can live with the parent class way of saving/hydrating entityMeta
 
@@ -99,13 +99,17 @@ export class TreeBase  {
     throwUnless(this.idString, 'Entity id is required', 404)
 
     // hydrate #entityMeta
-    this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { timeline: [], nodeCount: 0 }
+    const defaultEntityMeta = {
+      timeline: [],
+      nodeCount: 0,
+    }
+    this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || defaultEntityMeta
 
     // hydrate instance data
     this.current = {}
     if (this.entityMeta.timeline.length > 0) {
-      this.current.nodes = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`)
-      this.current.edges = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/edges`)
+      this.nodes = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`)
+      this.edges = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/edges`)
     }
     this.invalidateDerived()
     this.hydrated = true
@@ -142,7 +146,7 @@ export class TreeBase  {
   deriveReverseEdges() {  // This is the first function after 6 months of using GitHub Copilot that was auto-created without any edits
     if (this.reverseEdges != null) return
     this.reverseEdges = {}
-    for (const [parentID, children] of Object.entries(this.current.edges)) {
+    for (const [parentID, children] of Object.entries(this.edges)) {
       for (const childID of children) {
         if (this.reverseEdges[childID] == null) this.reverseEdges[childID] = []
         this.reverseEdges[childID].push(parentID)
@@ -156,7 +160,7 @@ export class TreeBase  {
 
   isParentOf(childID, parentID) {  // is parentID (2nd parameter) a parent of childID (1st parameter)?
     this.deriveReverseEdges()
-    return this.reverseEdges?.[childID]?.includes(parentID) ?? false
+    return this.reverseEdges[childID]?.includes(parentID) ?? false
   }
 
   async throwIfInvalidID(id) {
@@ -239,6 +243,10 @@ export class TreeBase  {
           if (this[request.method] != null) return this[request.method](request)
           return throwIf(true, `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
 
+        case '/entity-meta':  // This doesn't require type or version but this.hydrate may in the future and this calls this.hydrate
+          throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
+          return this.GETEntityMeta(request)
+
         default:
           return throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
       }
@@ -248,15 +256,14 @@ export class TreeBase  {
     }
   }
 
-  async save() {
+  async save() {  // TODO: Upgrade this to support a large number of nodes once we have a customer getting close to that limit. Determine the limit now with testing.
     debug('save() called')
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
-    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`, this.current.nodes)
-    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/edges`, this.current.edges)
-    // await this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/reverseEdges`, this.reverseEdges)
+    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`, this.nodes)
+    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/edges`, this.edges)
   }
 
-  async updateMetaAndSave(validFrom, userID, impersonatorID, incrementNodeCount = false) {
+  async updateMetaAndSave(validFrom, userID, impersonatorID, incrementNodeCount = false) {  // You must update current.nodes or current.edges before calling this.
     debug('updateMetaAndSave() called')
     throwUnless(this.hydrated, 'updateMetaAndSave() called before hydrate()')
     this.current.meta = {
@@ -333,9 +340,9 @@ export class TreeBase  {
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
     validFrom = response.bodyObject.meta.validFrom  // in case it was changed by the Node DO
-    this.current.nodes = {}
-    this.current.edges = {}
-    this.current.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
+    this.nodes = {}
+    this.edges = {}
+    this.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
 
     this.updateMetaAndSave(validFrom, userID, impersonatorID, true)
 
@@ -381,9 +388,9 @@ export class TreeBase  {
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
     validFrom = response.bodyObject.meta.validFrom  // in case it was changed by the Node DO
-    this.current.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
-    this.current.edges[parent] ??= []
-    this.current.edges[parent].push(this.entityMeta.nodeCount.toString())
+    this.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
+    this.edges[parent] ??= []
+    this.edges[parent].push(this.entityMeta.nodeCount.toString())
 
     this.updateMetaAndSave(validFrom, userID, impersonatorID, true)
 
@@ -397,30 +404,30 @@ export class TreeBase  {
    * Adds a branch to the tree
    */
   async patchAddBranch({ addBranch, userID, validFrom, impersonatorID }) {
-    const { parent, child } = addBranch
+    let { parent, child } = addBranch
+    parent = parent.toString()
+    child = child.toString()
     throwUnless(parent != null && child != null, 'body.branch with parent and child required when Tree PATCH patchBranch is called')
     throwIf(parent === child, 'parent and child cannot be the same')
 
     await this.hydrate()
 
-    this.invalidateDerived()
-
     await this.throwIfInvalidID(parent)
     await this.throwIfInvalidID(child)
 
-    const isParentOf = this.isParentOf(child, parent)
-    const isChildOf = this.isChildOf(parent, child)
-    if (isChildOf && isParentOf) {  // return silently if branch already exists
+    if (this.isChildOf(parent, child)) {  // return silently if branch already exists
       return this.get()
     }
 
     await this.throwIfIDInAncestry(parent, child)
 
+    this.invalidateDerived()
+
     validFrom = this.deriveValidFrom(validFrom).validFrom
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
-    this.current.edges[parent] ??= []
-    this.current.edges[parent].push(child)
+    this.edges[parent] ??= []
+    this.edges[parent].push(child)
 
     this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
 
@@ -446,8 +453,6 @@ export class TreeBase  {
 
   //   await this.hydrate()
 
-  //   this.invalidateDerived()
-
   //   const isCurrentParentOf = this.isParentOf(child, currentParent)
   //   const isCurrentChildOf = this.isChildOf(currentParent, child)
   //   if (!isCurrentChildOf && !isCurrentParentOf) {  // return silently if branch doesn't exist
@@ -464,6 +469,8 @@ export class TreeBase  {
   //   }
   //   this.throwIfParentChildRelationshipIsInvalid(newParent, child)
 
+  //   this.invalidateDerived()
+
   //   // remove old branch
 
   //   // add new branch
@@ -472,13 +479,13 @@ export class TreeBase  {
   // }
 
   // eslint-disable-next-line no-unused-vars
-  async patch(options, eTag) {  // Maybe we'll use eTag on some other patch operation?
+  async patch(options) {
     throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
 
     if (options.addNode != null) return this.patchAddNode(options)
-    if (options.addBranch != null) return this.patchAddBranch(options)  // does not use eTag because it's idempotent
-    if (options.deleteBranch != null) return this.patchDeleteBranch(options)  // does not use eTag because it's idempotent
-    if (options.moveBranch != null) return this.patchMoveBranch(options)  // does not use eTag because ???
+    if (options.addBranch != null) return this.patchAddBranch(options)  // does not use If-Modified-Since because it's idempotent
+    if (options.deleteBranch != null) return this.patchDeleteBranch(options)  // does not use If-Modified-Since because it's idempotent
+    if (options.moveBranch != null) return this.patchMoveBranch(options)  // does not use If-Modified-Since because ???
 
     return throwIf(
       true,
@@ -491,8 +498,7 @@ export class TreeBase  {
     try {
       throwIfMediaTypeHeaderInvalid(request)
       const options = await extractBody(request)
-      const eTag = extractETag(request)
-      const [treeMeta, status] = await this.patch(options, eTag)
+      const [treeMeta, status] = await this.patch(options)
       return this.getResponse(treeMeta, status)
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate
@@ -503,17 +509,17 @@ export class TreeBase  {
   static separateTreeDeletedAndOrphaned(
     nodes,
     edges,
-    nodeNumString = '0',
+    idNumString = '0',
     tree = {},
     alreadyVisited = {},
     deleted = { id: 'deleted', label: 'Deleted' },
     inDeletedBranch = false,
   ) {
-    const node = nodes[nodeNumString]
-    if (!inDeletedBranch) delete nodes[nodeNumString]  // Checking inDeletedBranch here assures that descendants of deleted nodes that aren't also descendants of an undeleted node will shop up in orphaned
-    tree.nodeIDString = node.nodeIDString
+    const node = nodes[idNumString]
+    if (!inDeletedBranch) delete nodes[idNumString]  // Checking inDeletedBranch here assures that descendants of deleted nodes that aren't also descendants of an undeleted node will shop up in orphaned
+    tree.id = node.nodeIDString
     tree.label = node.label
-    const childrenArrayOfNumStrings = edges[nodeNumString]
+    const childrenArrayOfNumStrings = edges[idNumString]
     if (childrenArrayOfNumStrings != null && childrenArrayOfNumStrings.length > 0) {
       for (const childIdString of childrenArrayOfNumStrings) {
         if (alreadyVisited[childIdString] != null) {
@@ -545,8 +551,10 @@ export class TreeBase  {
   async deriveTree() {
     await this.hydrate()
 
-    const nodesCopy = structuredClone(this.current.nodes)
-    const { tree, deleted } = this.constructor.separateTreeDeletedAndOrphaned(nodesCopy, this.current.edges)
+    if (this.tree != null) return
+
+    const nodesCopy = structuredClone(this.nodes)
+    const { tree, deleted } = this.constructor.separateTreeDeletedAndOrphaned(nodesCopy, this.edges)
     // populate orphaned from nodesCopy that is mutated by separateTreeDeletedAndOrphaned and attach to tree if not empty
     const nodesCopyKeys = Object.keys(nodesCopy)
     if (nodesCopyKeys.length > 0) {
@@ -561,51 +569,21 @@ export class TreeBase  {
       tree.children ??= []
       tree.children.push(deleted)
     }
-    return tree
+    this.tree = tree
   }
 
   async get(statusToReturn = 200) {  // TODO: accept ifModifiedSinceISOString and return 304 if appropriate. Also accept asOf
     await this.hydrate()
-    const tree = await this.deriveTree()
+    await this.deriveTree()
     const result = {
-      entityMeta: this.entityMeta,
+      // entityMeta: this.entityMeta,
       current: {
         meta: this.current.meta,
-        tree,
+        tree: this.tree,
       },
     }
     return [result, statusToReturn]
   }
-
-  // async get(ifModifiedSinceISOString, options, statusToReturn = 200) {
-  //   if (options != null) {
-  //     throwIf(options.asOf && !options?.includeTree, 'asOf requires includeTree')
-  //     this.warnIf(
-  //       options.asOf != null && ifModifiedSinceISOString != null,
-  //       'You supplied both asOf and If-Modified-Since header. asOf takes precedence.',
-  //     )
-  //     options.asOfISOString = options?.asOf ? new Date(options.asOf).toISOString() : undefined
-  //   } else {
-  //     options = { includeTree: false }
-  //   }
-  //   await this.hydrate()
-  //   if (ifModifiedSinceISOString != null && ifModifiedSinceISOString >= this.treeMeta.lastValidFrom) return [undefined, 304]
-  //   const response = { meta: this.treeMeta }
-  //   if (options?.includeTree) {
-  //     const isoStringThatTakesPrecendence = options?.asOfISOString ?? ifModifiedSinceISOString
-  //     if (this.treeMeta?.lastValidFrom <= isoStringThatTakesPrecendence) {
-  //       const cachedGetResponse = await this.state.storage.get(`${this.idString}/cachedGetResponse`)
-  //       if (cachedGetResponse != null && cachedGetResponse.meta.lastValidFrom === this.treeMeta.lastValidFrom) {
-  //         cachedGetResponse.fromCache = true
-  //         return [cachedGetResponse, 200]
-  //       }
-  //     }
-  //     response.tree = await this.buildTree(options)
-  //     this.state.storage.put(`${this.idString}/cachedGetResponse`, response)
-  //     response.fromCache = false
-  //   }
-  //   return [response, statusToReturn]
-  // }
 
   async GET(request) {
     try {
@@ -617,6 +595,26 @@ export class TreeBase  {
       const [response, status] = await this.get()  // TODO: pass ifModifiedSinceISOString and asOf
       if (status === 304) return this.getStatusOnlyResponse(304)
       return this.getResponse(response)
+    } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
+      return this.getErrorResponse(e)
+    }
+  }
+
+  async getEntityMeta(ifModifiedSinceISOString) {
+    await this.hydrate()
+    if (this.entityMeta.timeline.at(-1) <= ifModifiedSinceISOString) return [undefined, 304]
+    return [this.entityMeta, 200]
+  }
+
+  async GETEntityMeta(request) {
+    try {
+      throwIfAcceptHeaderInvalid(request)
+      const ifModifiedSince = request.headers.get('If-Modified-Since')
+      const ifModifiedSinceISOString = ifModifiedSince ? new Date(ifModifiedSince).toISOString() : undefined
+      const [entityMeta, status] = await this.getEntityMeta(ifModifiedSinceISOString)
+      if (status === 304) return this.getStatusOnlyResponse(304)
+      return this.getResponse(entityMeta, status)
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return this.getErrorResponse(e)

@@ -666,7 +666,7 @@ export class TemporalEntityBase {
     }
   }
 
-  async getEntityMeta(eTag) {
+  async getEntityMeta(eTag) {  // TODO: Use the exact code from TreeBase when switching to ifModifiedSince
     await this.hydrate()
     // Note, we don't check for deleted here because we want to be able to get the entityMeta even if the entity is deleted
     if (eTag != null && eTag === this.current?.meta?.eTag) return [undefined, 304]
