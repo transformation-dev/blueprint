@@ -197,11 +197,6 @@ export class TreeBase  {
     return this.recurseThrowIfIDInAncestry(parent, child, pathFromAncestorToChild)
   }
 
-  throwIfParentChildRelationshipIsInvalid(parentID, childID) {
-    console.log(this.entityMeta.nodeCount)
-    // TODO: implement this
-  }
-
   async callNodeDO(nodeType, nodeVersion, options, expectedResponseCode, idString) {
     options.body = await serialize(options.body)
     options.headers = { ...DEFAULT_HEADERS, ...options.headers }
@@ -403,6 +398,43 @@ export class TreeBase  {
     return this.get()
   }
 
+  /**
+   *
+   * # patchAddBranch
+   *
+   * Adds a branch to the tree
+   */
+  async patchAddBranch({ addBranch, userID, validFrom, impersonatorID }) {
+    const { parent, child } = addBranch
+    throwUnless(parent != null && child != null, 'body.branch with parent and child required when Tree PATCH patchBranch is called')
+    throwIf(parent === child, 'parent and child cannot be the same')
+
+    await this.hydrate()
+
+    this.invalidateDerived()
+
+    await this.throwIfInvalidID(parent)
+    await this.throwIfInvalidID(child)
+
+    const isParentOf = this.isParentOf(child, parent)
+    const isChildOf = this.isChildOf(parent, child)
+    if (isChildOf && isParentOf) {  // return silently if branch already exists
+      return this.get()
+    }
+
+    await this.throwIfIDInAncestry(parent, child)
+
+    validFrom = this.deriveValidFrom(validFrom).validFrom
+
+    // Update current but not current.meta because that's done in updateMetaAndSave()
+    this.current.edges[parent] ??= []
+    this.current.edges[parent].push(child)
+
+    this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
+
+    return this.get()
+  }
+
   // /**
   //  *
   //  * # patchMoveBranch
@@ -447,43 +479,6 @@ export class TreeBase  {
   //   // return [tree, 200]
   // }
 
-  /**
-   *
-   * # patchAddBranch
-   *
-   * Adds a branch to the tree
-   */
-  async patchAddBranch({ addBranch, userID, validFrom, impersonatorID }) {
-    const { parent, child } = addBranch
-    throwUnless(parent != null && child != null, 'body.branch with parent and child required when Tree PATCH patchBranch is called')
-    throwIf(parent === child, 'parent and child cannot be the same')
-
-    await this.hydrate()
-
-    this.invalidateDerived()
-
-    await this.throwIfInvalidID(parent)
-    await this.throwIfInvalidID(child)
-
-    const isParentOf = this.isParentOf(child, parent)
-    const isChildOf = this.isChildOf(parent, child)
-    if (isChildOf && isParentOf) {  // return silently if branch already exists
-      return this.get()
-    }
-
-    await this.throwIfIDInAncestry(parent, child)
-
-    validFrom = this.deriveValidFrom(validFrom).validFrom
-
-    // Update current but not current.meta because that's done in updateMetaAndSave()
-    this.current.edges[parent] ??= []
-    this.current.edges[parent].push(child)
-
-    this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
-
-    return this.get()
-  }
-
   // eslint-disable-next-line no-unused-vars
   async patch(options, eTag) {  // Maybe we'll use eTag on some other patch operation?
     throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
@@ -513,31 +508,22 @@ export class TreeBase  {
     }
   }
 
-  async getKeyFields(options, nodeNum) {
-    const nodeCurrent = this.current.nodes[nodeNum]
-    const nodeKeyFields = {}
-    nodeKeyFields.id = nodeNum.toString()
-    nodeKeyFields.label = nodeCurrent.value.label
-    nodeKeyFields.children = nodeCurrent.meta.children
-    if (nodeCurrent.meta.deleted) nodeKeyFields.deleted = true
-    return nodeKeyFields
-  }
-
   static separateTreeDeletedAndOrphaned(
-    nodesIndex,
-    nodeIDString = '0',
+    nodes,
+    edges,
+    nodeNumString = '0',
     tree = {},
     alreadyVisited = {},
     deleted = { id: 'deleted', label: 'Deleted' },
     inDeletedBranch = false,
   ) {
-    const nodeKeyFields = nodesIndex[nodeIDString]
-    if (!inDeletedBranch) delete nodesIndex[nodeIDString]  // Checking inDeletedBranch here assures that descendants of deleted nodes that aren't also descendants of an undeleted node will shop up in orphaned
-    tree.id = nodeKeyFields.id
-    tree.label = nodeKeyFields.label
-    const { children } = nodeKeyFields
-    if (children != null && children.length > 0) {
-      for (const childIdString of children) {
+    const node = nodes[nodeNumString]
+    if (!inDeletedBranch) delete nodes[nodeNumString]  // Checking inDeletedBranch here assures that descendants of deleted nodes that aren't also descendants of an undeleted node will shop up in orphaned
+    tree.nodeIDString = node.nodeIDString
+    tree.label = node.label
+    const childrenArrayOfNumStrings = edges[nodeNumString]
+    if (childrenArrayOfNumStrings != null && childrenArrayOfNumStrings.length > 0) {
+      for (const childIdString of childrenArrayOfNumStrings) {
         if (alreadyVisited[childIdString] != null) {
           if (alreadyVisited[childIdString].deleted) {
             deleted.children ??= []
@@ -548,7 +534,7 @@ export class TreeBase  {
           }
         } else {
           const newNode = {}
-          if (nodesIndex[childIdString]?.deleted) {
+          if (nodes[childIdString]?.deleted) {
             deleted.children ??= []
             deleted.children.push(newNode)
             inDeletedBranch = true
@@ -557,33 +543,23 @@ export class TreeBase  {
             tree.children.push(newNode)
           }
           alreadyVisited[childIdString] = newNode
-          // deepcode ignore StaticAccessThis: Mostly because I don't understand why it's complaining
-          this.separateTreeDeletedAndOrphaned(nodesIndex, childIdString, newNode, alreadyVisited, deleted, inDeletedBranch)
+          this.separateTreeDeletedAndOrphaned(nodes, edges, childIdString, newNode, alreadyVisited, deleted, inDeletedBranch)
         }
       }
     }
     return { tree, deleted }
   }
 
-  async buildTree(options) {
+  async deriveTree() {
     await this.hydrate()
-    const promises = []
-    for (let nodeNum = 0; nodeNum < this.treeMeta.nodeCount; nodeNum++) {
-      promises.push(this.getKeyFields(options, nodeNum))
-    }
-    const arrayOfNodeKeyFields = await Promise.all(promises)
-    const nodesIndex = {}
-    while (arrayOfNodeKeyFields.length > 0) {
-      const nodeKeyFields = arrayOfNodeKeyFields.pop()
-      if (nodeKeyFields != null) nodesIndex[nodeKeyFields.id] = nodeKeyFields
-    }
 
-    const { tree, deleted } = this.constructor.separateTreeDeletedAndOrphaned(nodesIndex)
-    // populate orphaned from nodesIndex that is mutated by separateTreeDeletedAndOrphaned and attach to tree if not empty
-    const nodesIndexKeys = Object.keys(nodesIndex)
-    if (nodesIndexKeys.length > 0) {
+    const nodesCopy = structuredClone(this.current.nodes)
+    const { tree, deleted } = this.constructor.separateTreeDeletedAndOrphaned(nodesCopy, this.current.edges)
+    // populate orphaned from nodesCopy that is mutated by separateTreeDeletedAndOrphaned and attach to tree if not empty
+    const nodesCopyKeys = Object.keys(nodesCopy)
+    if (nodesCopyKeys.length > 0) {
       const orphaned = { id: 'orphaned', label: 'Orphaned' }
-      // loop through nodesIndexKeys and add to orphaned
+      // TODO: loop through nodesIndexKeys and add to orphaned
 
       tree.children ??= []
       tree.children.push(orphaned)
@@ -597,11 +573,13 @@ export class TreeBase  {
   }
 
   async get(statusToReturn = 200) {  // TODO: accept ifModifiedSinceISOString and return 304 if appropriate. Also accept asOf
+    await this.hydrate()
+    const tree = await this.deriveTree()
     const result = {
       entityMeta: this.entityMeta,
       current: {
         meta: this.current.meta,
-        // tree: this.current.tree,
+        tree,
       },
     }
     return [result, statusToReturn]

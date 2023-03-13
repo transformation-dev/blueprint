@@ -178,50 +178,33 @@ describe('A series of Tree operations', async () => {
   })
 
   const tree = {
-    id: '0',
     label: 'root (aka node0)',
     children: [
       {
-        id: '1',
         label: 'node1',
         children: [
           {
-            id: '2',
             label: 'node2',
           },
         ],
       },
       {
-        id: '2',
         label: 'node2',
       },
     ],
   }
 
-  it.todo('should return the tree outline with ?includeTree=true', async () => {
-    const response = await encodeFetchAndDecode(`${url}?includeTree=true&asOf=${new Date().toISOString()}`, undefined, stub)
-    // console.log('response.CBOR_SC.tree: %s: ', JSON.stringify(response.CBOR_SC.tree, null, 2))
+  it('should return the tree and meta with GET', async () => {
+    const response = await encodeFetchAndDecode(`${url}?asOf=${new Date().toISOString()}`, undefined, stub)
+    console.log('response.CBOR_SC.tree: %s: ', JSON.stringify(response.CBOR_SC.tree, null, 2))
     console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
     expect(response.status).toBe(200)
-    expect(response.CBOR_SC.fromCache).toBe(false)
-    expect(response.CBOR_SC.tree).to.deep.eq(tree)
+    expect(response.CBOR_SC.current.tree).toMatchObject(tree)
     // this next line confirms that node2 is only transmitted once eventhough it shows up twice in the tree
-    expect(response.CBOR_SC.tree.children[0].children[0]).toBe(response.CBOR_SC.tree.children[1])
+    expect(response.CBOR_SC.current.tree.children[0].children[0]).toBe(response.CBOR_SC.current.tree.children[1])
     if (process?.env?.VITEST_BASE_URL == null) {
       // console.log('list of nodes: %O: ', await state.storage.list())
     }
-  })
-
-  it.todo('should use the cachedGetResponse on second call to GET', async () => {
-    const response = await encodeFetchAndDecode(`${url}?includeTree=true&asOf=${new Date().toISOString()}`, undefined, stub)
-    expect(response.CBOR_SC.fromCache).toBe(true)
-    expect(response.CBOR_SC.tree).to.deep.eq(tree)
-  })
-
-  it.todo('should also work with text/yaml Content-Type', () => {
-  })
-
-  it.todo('should return error with application/json Content-Type', () => {
   })
 
   it.todo('should be "fail silently" when you add the same branch again', async () => {
@@ -337,18 +320,30 @@ describe('A series of Tree operations', async () => {
 
   it.todo('should return an error if a branch move creates a cycle', async () => {
   })
+
+  it.todo('should also work with text/yaml Content-Type', () => {
+  })
+
+  it.todo('should return error with application/json Content-Type', () => {
+  })
+
+  it.todo('should return an earlier version of the Tree when GET with ?asOf parameter is used', () => {
+  })
+
+  it.todo('should return 304 when If-Modified-Since header is used with the exact validFrom from last change', () => {
+  })
+
+  it.todo('should return 200 when If-Modified-Since header is used with last validFrom - 1ms', () => {
+  })
 })
 
 describe('Tree deleted and orphaned', () => {
-  it.todo('should allow POST to the tree to add a node (alias for PATCH addNode)', async () => {
+  it.todo('should update Tree with status using queues when node DO is deleted', async () => {
   })
 
-  it.todo('should allow deleting a node as a pass-through operation', async () => {
+  it.todo('should work with deleted nodes', async () => {
   })
 
-  it.todo('should work with deleted and orphaned nodes', async () => {
-  })
-
-  it.todo('should allow patching a node as a pass-through operation', async () => {
+  it.todo('should work with orphaned nodes', async () => {
   })
 })
