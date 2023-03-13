@@ -112,9 +112,9 @@ describe('A series of Tree operations', async () => {
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
-    console.log('response.CBOR_SC', response.CBOR_SC)
     const { entityMeta, current, idString } = response.CBOR_SC
     const { meta } = current
+    lastValidFrom = meta.validFrom
     expect(entityMeta.nodeCount).to.eq(3)
     assert(meta.validFrom <= entityMeta.timeline.at(-1))
     if (process?.env?.VITEST_BASE_URL == null) {
@@ -130,7 +130,7 @@ describe('A series of Tree operations', async () => {
     }
   })
 
-  it.todo('should respond with error when adding a node that would create a cycle', async () => {
+  it('should respond with error when adding a node that would create a cycle', async () => {
     const addBranch = {
       parent: 2,  // intentionally a Number to confirm that it's forgiving of this
       child: '1',
@@ -141,38 +141,18 @@ describe('A series of Tree operations', async () => {
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(409)
-    console.log('response.CBOR_SC', response.CBOR_SC)
-    const { entityMeta, current, idString } = response.CBOR_SC
-    const { meta } = current
-
-    expect(entityMeta.nodeCount).to.eq(3)
-    assert(meta.validFrom <= entityMeta.timeline.at(-1))
+    const { error, idString } = response.CBOR_SC
+    expect(response.status).toBe(409)
+    expect(error.message).toMatch('Adding this branch would create a cycle')
     if (process?.env?.VITEST_BASE_URL == null) {
       const storage = await state.storage.list()
       const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
       expect(entityMetaFromStorage.timeline.length).toBe(3)
-      expect(entityMetaFromStorage.nodeCount).toBe(3)
-      const nodes = storage.get(`${idString}/snapshot/${meta.validFrom}/nodes`)
-      expect(nodes[2].label).to.eq(value.label)
-      expect(nodes[2].nodeIDString).to.not.eq(idString)
-      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
-      expect(edges[1]).to.deep.eq(['2'])
+      expect(entityMetaFromStorage.timeline.at(-1)).toBe(lastValidFrom)
     }
-
-    // const { error } = response.CBOR_SC
-    // expect(response.status).toBe(409)
-    // expect(error.message).toMatch('Adding this branch would create a cycle')
-    // if (process?.env?.VITEST_BASE_URL == null) {
-    //   const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
-    //   const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
-    //   expect(node2.meta.parents.length).toBe(1)
-    //   expect(node1.meta.children.length).toBe(1)
-    //   expect(node2.meta.children).toBeUndefined()
-    //   expect(node1.meta.parents.length).toBe(1)
-    // }
   })
 
-  it.todo('should allow addition of a branch that creates a diamond-shaped DAG', async () => {
+  it('should allow addition of a branch that creates a diamond-shaped DAG', async () => {
     const addBranch = {
       parent: 0,  // intentionally a Number to confirm that it's forgiving of this as a zero
       child: '2',
@@ -182,8 +162,8 @@ describe('A series of Tree operations', async () => {
       body: { addBranch, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
-    expect(response.status).toBe(200)
     console.log('response.CBOR_SC', response.CBOR_SC)
+    expect(response.status).toBe(200)
     const { entityMeta, current, idString } = response.CBOR_SC
     const { meta } = current
     expect(entityMeta.nodeCount).to.eq(3)
@@ -191,28 +171,10 @@ describe('A series of Tree operations', async () => {
     if (process?.env?.VITEST_BASE_URL == null) {
       const storage = await state.storage.list()
       const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
-      expect(entityMetaFromStorage.timeline.length).toBe(3)
-      expect(entityMetaFromStorage.nodeCount).toBe(3)
-      const nodes = storage.get(`${idString}/snapshot/${meta.validFrom}/nodes`)
-      expect(nodes[2].label).to.eq(value.label)
-      expect(nodes[2].nodeIDString).to.not.eq(idString)
+      expect(entityMetaFromStorage.timeline.length).toBe(4)
       const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
-      expect(edges[1]).to.deep.eq(['2'])
+      expect(edges[0]).to.deep.eq(['1', '2'])
     }
-
-    // expect(response.status).toBe(200)
-    // const { meta } = response.CBOR_SC
-    // lastValidFrom = meta.lastValidFrom
-    // expect(meta.nodeCount).to.eq(3)
-    // assert(meta.validFrom <= meta.lastValidFrom)
-    // if (process?.env?.VITEST_BASE_URL == null) {
-    //   const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
-    //   const node0 = await state.storage.get(`0/snapshot/${lastValidFrom}`)
-    //   assert(node2.meta.parents.includes('0'))
-    //   expect(node2.meta.parents).to.have.lengthOf(2)
-    //   assert(node0.meta.children.includes('2'))
-    //   expect(node0.meta.children).to.have.lengthOf(2)
-    // }
   })
 
   const tree = {

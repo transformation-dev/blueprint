@@ -1,4 +1,5 @@
 /* eslint-disable no-param-reassign */  // safe because durable objects are airgapped so to speak
+// file deepcode ignore AttrAccessOnNull: Everytime I see this, I think it's a false positive
 
 // monorepo imports
 import {
@@ -67,7 +68,7 @@ export class TreeBase  {
 
   // TODO: upgrade TemporalEntityBase to move all state saving to a save() method
   //       override base class hydrate() and save() method
-  //       save() will save this.nodeCount, this.current.nodes, and this.edges to storage
+  //       save() will save this.entityMeta.nodeCount, this.current.nodes, and this.edges to storage
   //       hydrate() will restore those and generate this.reverseEdges
   //       maybe we can live with the parent class way of saving/hydrating entityMeta
 
@@ -163,7 +164,6 @@ export class TreeBase  {
 
   isParentOf(childID, parentID) {  // is parentID (2nd parameter) a parent of childID (1st parameter)?
     this.deriveReverseEdges()
-    // deepcode ignore AttrAccessOnNull: I don't see the problem
     return this.reverseEdges?.[childID]?.includes(parentID) ?? false
   }
 
@@ -177,13 +177,28 @@ export class TreeBase  {
     )
   }
 
-  throwIfIDInAncestry(parentID, childID, pathFromAncestorToChild = []) {
-    console.log(this.nodeCount)
-    // TODO: implement this
+  recurseThrowIfIDInAncestry(parent, child, pathFromAncestorToChild) {
+    pathFromAncestorToChild.unshift(parent)
+    throwIf(pathFromAncestorToChild[0] === pathFromAncestorToChild.at(-1), `Adding this branch would create a cycle: ${pathFromAncestorToChild.join(' -> ')}`, 409)
+    if (parent !== '0') {
+      for (const p of this.reverseEdges[parent]) {
+        this.recurseThrowIfIDInAncestry(p, child, pathFromAncestorToChild)
+      }
+    }
+    return true
+  }
+
+  async throwIfIDInAncestry(parent, child, pathFromAncestorToChild = []) {
+    await this.hydrate()
+    this.deriveReverseEdges()
+    parent = parent.toString()
+    child = child.toString()
+    pathFromAncestorToChild.push(child)
+    return this.recurseThrowIfIDInAncestry(parent, child, pathFromAncestorToChild)
   }
 
   throwIfParentChildRelationshipIsInvalid(parentID, childID) {
-    console.log(this.nodeCount)
+    console.log(this.entityMeta.nodeCount)
     // TODO: implement this
   }
 
@@ -254,7 +269,7 @@ export class TreeBase  {
     // await this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/reverseEdges`, this.reverseEdges)
   }
 
-  async updateMetaAndSave(validFrom, userID, impersonatorID) {
+  async updateMetaAndSave(validFrom, userID, impersonatorID, incrementNodeCount = false) {
     debug('updateMetaAndSave() called')
     throwUnless(this.hydrated, 'updateMetaAndSave() called before hydrate()')
     this.current.meta = {
@@ -266,8 +281,8 @@ export class TreeBase  {
       // We don't maintain previousValues for the tree itself, but we do for the nodes
     }
     if (impersonatorID != null) this.current.meta.impersonatorID = impersonatorID
-    this.entityMeta.nodeCount++
     this.entityMeta.timeline.push(validFrom)
+    if (incrementNodeCount) this.entityMeta.nodeCount++
     return this.save()
   }
 
@@ -335,7 +350,7 @@ export class TreeBase  {
     this.current.edges = {}
     this.current.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
 
-    this.updateMetaAndSave(validFrom, userID, impersonatorID)
+    this.updateMetaAndSave(validFrom, userID, impersonatorID, true)
 
     return this.get(201)
   }
@@ -383,9 +398,9 @@ export class TreeBase  {
     this.current.edges[parent] ??= []
     this.current.edges[parent].push(this.entityMeta.nodeCount.toString())
 
-    this.updateMetaAndSave(validFrom, userID, impersonatorID)
+    this.updateMetaAndSave(validFrom, userID, impersonatorID, true)
 
-    return this.get(200)
+    return this.get()
   }
 
   // /**
@@ -456,31 +471,15 @@ export class TreeBase  {
       return this.get()
     }
 
-    this.throwIfIDInAncestry(parent, child)
-
-
+    await this.throwIfIDInAncestry(parent, child)
 
     validFrom = this.deriveValidFrom(validFrom).validFrom
 
-    value.treeIDString = this.idString
-    const options = {
-      method: 'POST',
-      body: { value, userID, validFrom, impersonatorID },
-    }
-
-    // TODO: wrap this in a try/catch block and retry if the optimistic concurrency check fails
-    const lastValidFrom = this.entityMeta.timeline?.at(-1)
-    // This next line is going to open the input gate, so we need an optimistic concurrency check. The above line is what we'll check against
-    const response = await this.callNodeDO(this.constructor.nodeType, this.constructor.nodeVersion, options, 201)
-    await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.bodyObject.idString)
-
     // Update current but not current.meta because that's done in updateMetaAndSave()
-    validFrom = response.bodyObject.meta.validFrom  // in case it was changed by the Node DO
-    this.current.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
     this.current.edges[parent] ??= []
-    this.current.edges[parent].push(this.entityMeta.nodeCount.toString())
+    this.current.edges[parent].push(child)
 
-    this.updateMetaAndSave(validFrom, userID, impersonatorID)
+    this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
 
     return this.get()
   }
@@ -597,7 +596,7 @@ export class TreeBase  {
     return tree
   }
 
-  async get(statusToReturn = 200) {
+  async get(statusToReturn = 200) {  // TODO: accept ifModifiedSinceISOString and return 304 if appropriate. Also accept asOf
     const result = {
       entityMeta: this.entityMeta,
       current: {
@@ -644,11 +643,8 @@ export class TreeBase  {
       const ifModifiedSince = request.headers.get('If-Modified-Since')
       const ifModifiedSinceISOString = ifModifiedSince ? new Date(ifModifiedSince).toISOString() : undefined
       const url = new URL(request.url)
-      const options = {
-        includeTree: url.searchParams.get('includeTree')?.toLowerCase() !== 'false',  // default is true
-        asOf: url.searchParams.get('asOf'),
-      }
-      const [response, status] = await this.get(ifModifiedSinceISOString, options)
+      const asOf = url.searchParams.get('asOf')
+      const [response, status] = await this.get()  // TODO: pass ifModifiedSinceISOString and asOf
       if (status === 304) return this.getStatusOnlyResponse(304)
       return this.getResponse(response)
     } catch (e) {
