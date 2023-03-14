@@ -37,7 +37,7 @@ const debug = getDebug('blueprint:temporal-entity')
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO A0: Refactor to support the conventions we adopted in TreeBase like save() and updateMetaAndSave()
+// TODO A0: Refactor to support the conventions we adopted in TreeBase like save() and updateMetaAndSave(), and If-Modified-Since instead of eTag
 
 // TODO A: Refactor so all methods use destructuring on options/body for parameters
 
