@@ -5,7 +5,7 @@
 // monorepo imports
 import {
   responseMixin, throwIf, throwUnless, isIDString, throwIfMediaTypeHeaderInvalid,
-  throwIfAcceptHeaderInvalid, extractBody, getDebug, Debug, FetchProcessor,
+  throwIfAcceptHeaderInvalid, extractBody, getDebug, Debug, FetchProcessor, dateISOStringRegex,
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
@@ -588,9 +588,15 @@ export class TreeBase  {
   }
 
   async get(options) {  // TODO: Accept asOfISOString
-    const { statusToReturn = 200, ifModifiedSinceISOString, asOfISOString } = options ?? {}
+    const { statusToReturn = 200, ifModifiedSince, asOfISOString } = options ?? {}
+    throwIf(
+      ifModifiedSince != null && !dateISOStringRegex.test(ifModifiedSince),
+      'If-Modified-Since must be in YYYY:MM:DDTHH:MM:SS.mmmZ format because we need millisecond granularity',
+      400,
+      this.current,
+    )
     await this.hydrate()
-    if (this.entityMeta.timeline.at(-1) <= ifModifiedSinceISOString) return [undefined, 304]
+    if (this.entityMeta.timeline.at(-1) <= ifModifiedSince) return [undefined, 304]
     await this.deriveTree()
     const result = {
       // entityMeta: this.entityMeta,

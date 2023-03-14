@@ -9,7 +9,7 @@ import { load as yamlLoad } from 'js-yaml'
 // monorepo imports
 import {
   throwIf, throwUnless, isIDString, throwIfMediaTypeHeaderInvalid, throwIfContentTypeHeaderInvalid, throwIfNotDag,
-  throwIfAcceptHeaderInvalid, responseMixin, getUUID, extractETag, applyDelta, getDebug, Debug, extractBody,
+  throwIfAcceptHeaderInvalid, responseMixin, applyDelta, getDebug, Debug, extractBody, dateISOStringRegex,
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
@@ -38,7 +38,7 @@ const debug = getDebug('blueprint:temporal-entity')
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO A0: Refactor to support the conventions we adopted in TreeBase like save() and updateMetaAndSave(), and If-Modified-Since instead of eTag
+// TODO A0: Refactor to support the conventions we adopted in TreeBase like save() and updateMetaAndSave()
 
 // TODO A: Refactor so all methods use destructuring on options/body for parameters
 
@@ -182,11 +182,10 @@ const debug = getDebug('blueprint:temporal-entity')
  *
  * ## Optimistic Concurrency
  *
- * TemporalEntity uses optimistic concurrancy using ETags, If-Match, and If-None-Match headers
- * (see: https://en.wikipedia.org/wiki/HTTP_ETag). The ETag header is sent back for all requests and it will always match the
- * body.meta.eTag so feel free to use the latter that if it's more convenient. Note, our ETag is not the usual hash of the value but rather
- * it is a UUID. I did this because it accomplishes the same goal and I believe that generating a hash of the value would cost more
- * CPU cycles.
+ * TemporalEntity uses optimistic concurrancy using If-Unmodified-Since header. meta.validFrom is sent back for all requests.
+ * Use that to populate If-Unmodified-Since on subsequent requests.
+ *
+ * Similarly, you can save the cost of a GET by using If-Modified-Since when GETing. It will return a 304 if the entity has not changed.
  *
  * ## Deviations from pure REST APIs
  *
@@ -468,9 +467,15 @@ export class TemporalEntityBase {
     }
   }
 
-  async put(value, userID, validFrom, impersonatorID, eTag) {
+  async put(value, userID, validFrom, impersonatorID, ifUnmodifiedSince) {
     throwUnless(value, 'body.value field required by TemporalEntity PUT is missing')
     throwUnless(userID, 'userID required by TemporalEntity operation is missing')
+    throwIf(
+      ifUnmodifiedSince != null && !dateISOStringRegex.test(ifUnmodifiedSince),
+      'If-Unmodified-Since must be in YYYY:MM:DDTHH:MM:SS.mmmZ format because we need millisecond granularity',
+      400,
+      this.current,
+    )
 
     await this.hydrate()
 
@@ -485,9 +490,9 @@ export class TemporalEntityBase {
       additionalValidation(value)
     }
 
-    // Process eTag header
-    throwIf(this.entityMeta.timeline.length > 0 && !eTag, 'required ETag header for TemporalEntity PUT is missing', 428, this.current)
-    throwIf(eTag && eTag !== this.current?.meta?.eTag, 'If-Match does not match this TemporalEntity\'s current ETag', 412, this.current)
+    // Process ifUnmodifiedSince header
+    throwIf(this.entityMeta.timeline.length > 0 && ifUnmodifiedSince == null, 'required If-Unmodified-Since header for TemporalEntity PUT is missing', 428, this.current)
+    throwIf(ifUnmodifiedSince != null && ifUnmodifiedSince < this.current?.meta?.validFrom, 'If-Unmodified-Since is earlier than the last time this TemporalEntity was modified', 412, this.current)
 
     throwIf(this.current?.meta?.deleted, 'PUT on deleted TemporalEntity not allowed', 404)
 
@@ -530,7 +535,6 @@ export class TemporalEntityBase {
       userID,
       validFrom,
       validTo: this.constructor.END_OF_TIME,
-      eTag: getUUID(this.env),
       type: this.type,  // I'm putting this here rather than entityMeta on the off chance that a migration changes the type
       version: this.version,
     }
@@ -552,8 +556,8 @@ export class TemporalEntityBase {
       throwIfMediaTypeHeaderInvalid(request)
       throwUnless(this.idString, 'Cannot PUT when there is no prior value')
       const options = await extractBody(request)
-      const eTag = extractETag(request)
-      const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, eTag)
+      const ifModifiedSince = request.headers.get('If-Modified-Since')
+      const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, ifModifiedSince)
       return this.getResponse(current, this.nextStatus)
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate
@@ -579,7 +583,7 @@ export class TemporalEntityBase {
     return this.patchMetaDelta(metaDelta)
   }
 
-  async patchDelta({ delta, userID, validFrom, impersonatorID }, eTag) {
+  async patchDelta({ delta, userID, validFrom, impersonatorID }, ifUnmodifiedSince) {
     // delta is in the form of a diff from npm package deep-object-diff
     // If you want to delete a key send in a delta with that key set to undefined
     // To add a key, just include it in delta
@@ -587,9 +591,7 @@ export class TemporalEntityBase {
     await this.hydrate()
 
     throwUnless(this.entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity PATCH when there is no prior value')
-    throwUnless(eTag, 'ETag header required for TemporalEntity PATCH is missing', 428, this.current)
     throwIf(this.current?.meta?.deleted, 'PATCH with delta on deleted TemporalEntity not allowed', 404)
-    throwIf(eTag && eTag !== this.current?.meta?.eTag, 'If-Match does not match this TemporalEntity\'s current ETag', 412, this.current)
 
     const newValue = structuredClone(this.current.value)
 
@@ -598,14 +600,13 @@ export class TemporalEntityBase {
     debug('delta: %O', delta)
     debug('newValue: %O', newValue)
 
-    return this.put(newValue, userID, validFrom, impersonatorID, eTag)
+    return this.put(newValue, userID, validFrom, impersonatorID, ifUnmodifiedSince)
   }
 
   async patchMetaDelta(metaDelta) {
     await this.hydrate()
 
     metaDelta.validFrom = this.calculateValidFrom(metaDelta.validFrom).validFrom
-    metaDelta.eTag = getUUID(this.env)
 
     // Update and save the old current
     const oldCurrent = structuredClone(this.current)
@@ -622,11 +623,11 @@ export class TemporalEntityBase {
     return this.current
   }
 
-  async patch(options, eTag) {
+  async patch(options, ifUnmodifiedSince) {
     throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
 
-    if (options.undelete != null) return this.patchUndelete(options)  // does not use eTag
-    if (options.delta != null) return this.patchDelta(options, eTag)
+    if (options.undelete != null) return this.patchUndelete(options)
+    if (options.delta != null) return this.patchDelta(options, ifUnmodifiedSince)
 
     return throwIf(
       true,
@@ -639,8 +640,8 @@ export class TemporalEntityBase {
     try {
       throwIfMediaTypeHeaderInvalid(request)
       const options = await extractBody(request)
-      const eTag = extractETag(request)
-      const current = await this.patch(options, eTag)
+      const ifModifiedSince = request.headers.get('If-Modified-Since')
+      const current = await this.patch(options, ifModifiedSince)
       return this.getResponse(current)
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate
@@ -648,31 +649,11 @@ export class TemporalEntityBase {
     }
   }
 
-  // async get(eTag) {
-  //   await this.hydrate()
-  //   throwIf(this.current?.meta?.deleted, 'GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true', 404)
-  //   if (eTag != null && eTag === this.current?.meta?.eTag) return [undefined, 304]  // TODO: e2e test for this. Be sure to also look for Content-ID header.
-  //   return [this.current, 200]
-  // }
-
   async get(options) {  // TODO: Accept asOfISOString
-    const { statusToReturn = 200, ifModifiedSinceISOString, asOfISOString } = options ?? {}
+    const { statusToReturn = 200, ifModifiedSince, asOfISOString } = options ?? {}
     await this.hydrate()
     throwIf(this.current?.meta?.deleted, 'GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true', 404)
-    if (this.entityMeta.timeline.at(-1) <= ifModifiedSinceISOString) return [undefined, 304]
+    if (this.entityMeta.timeline.at(-1) <= ifModifiedSince) return [undefined, 304]
     return [this.current, statusToReturn]
   }
-
-  // async GET(request) {
-  //   try {
-  //     throwIfAcceptHeaderInvalid(request)
-  //     const eTag = extractETag(request)
-  //     const [current, status] = await this.get(eTag)
-  //     if (status === 304) return this.getStatusOnlyResponse(status)
-  //     return this.getResponse(current, status)
-  //   } catch (e) {
-  //     this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-  //     return this.getErrorResponse(e)
-  //   }
-  // }
 }

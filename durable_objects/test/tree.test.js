@@ -315,15 +315,6 @@ describe('A series of Tree operations', async () => {
     expect(response.status).toBe(200)
   })
 
-  it('should return 304 when If-Modified-Since header is in Date.toUTCString format', async () => {
-    const ifModifiedSinceString = new Date(new Date(lastValidFrom).valueOf() + 1000).toUTCString()  // had to add 1s because UTCString doesn't have ms
-    const options = {
-      headers: { 'If-Modified-Since': ifModifiedSinceString },
-    }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
-    expect(response.status).toBe(304)
-  })
-
   it.todo('should return an error if a branch move creates a cycle', async () => {
   })
 

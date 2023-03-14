@@ -1,4 +1,4 @@
-import { throwIfAcceptHeaderInvalid, throwIf } from '@transformation-dev/cloudflare-do-utils'
+import { throwIfAcceptHeaderInvalid, throwIf, dateISOStringRegex } from '@transformation-dev/cloudflare-do-utils'
 
 // These are methods that are common to all TemporalEntities including Tree
 // This assumes that this.entityMeta is defined and it has a timeline property. Note, it can have other properties as well.
@@ -28,15 +28,14 @@ export const temporalMixin = {
     return { validFrom: newValidFrom, validFromDate }
   },
 
-  async GET(request) {
+  async GET(request) {  // TODO: Only accept canonical ISOString format for If-Modified-Since
     try {
       throwIfAcceptHeaderInvalid(request)
       const ifModifiedSince = request.headers.get('If-Modified-Since')
-      const ifModifiedSinceISOString = ifModifiedSince ? new Date(ifModifiedSince).toISOString() : undefined
       const url = new URL(request.url)
       const asOf = url.searchParams.get('asOf')
       const asOfISOString = asOf ? new Date(asOf).toISOString() : undefined
-      const [response, status] = await this.get({ ifModifiedSinceISOString, asOfISOString })
+      const [response, status] = await this.get({ ifModifiedSince, asOfISOString })
       if (status === 304) return this.getStatusOnlyResponse(304)
       return this.getResponse(response)
     } catch (e) {
@@ -45,9 +44,15 @@ export const temporalMixin = {
     }
   },
 
-  async getEntityMeta(ifModifiedSinceISOString) {
+  async getEntityMeta(ifModifiedSince) {
+    throwIf(
+      ifModifiedSince != null && !dateISOStringRegex.test(ifModifiedSince),
+      'If-Modified-Since must be in YYYY:MM:DDTHH:MM:SS.mmmZ format because we need millisecond granularity',
+      400,
+      this.current,
+    )
     await this.hydrate()
-    if (this.entityMeta.timeline.at(-1) <= ifModifiedSinceISOString) return [undefined, 304]
+    if (this.entityMeta.timeline.at(-1) <= ifModifiedSince) return [undefined, 304]
     return [this.entityMeta, 200]
   },
 
@@ -55,8 +60,7 @@ export const temporalMixin = {
     try {
       throwIfAcceptHeaderInvalid(request)
       const ifModifiedSince = request.headers.get('If-Modified-Since')
-      const ifModifiedSinceISOString = ifModifiedSince ? new Date(ifModifiedSince).toISOString() : undefined
-      const [entityMeta, status] = await this.getEntityMeta(ifModifiedSinceISOString)
+      const [entityMeta, status] = await this.getEntityMeta(ifModifiedSince)
       if (status === 304) return this.getStatusOnlyResponse(304)
       return this.getResponse(entityMeta, status)
     } catch (e) {
