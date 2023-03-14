@@ -41,6 +41,8 @@ const { serialize, deserialize } = FetchProcessor.contentTypes[DEFAULT_CONTENT_T
   TODO B: POST - execute the aggregation. Starting nodeIDString in body or root if omitted. First version just gathers all matching nodes.
 
 TODO: Use Cloudflare queues to communicate changes to node TemporalEntities to the Tree instance
+
+TODO: Refactor so all methods use destructuring on options/body for parameters
 */
 
 /**
@@ -55,13 +57,13 @@ TODO: Use Cloudflare queues to communicate changes to node TemporalEntities to t
 export class TreeBase  {
   // using base class constructor
 
-  // TODO: upgrade TemporalEntityBase to move all state saving to a save() method
+  // TODO: upgrade TemporalEntityBase to move all state saving to a save() method like we do here in TreeBase
   //       override base class hydrate() and save() method
   //       save() will save this.entityMeta.nodeCount, this.nodes, and this.edges to storage
   //       hydrate() will restore those and generate this.reverseEdges
   //       maybe we can live with the parent class way of saving/hydrating entityMeta
 
-  // TODO: upgrade VersioningTransactionalDOWrapper to not always eject from memory on erros. Not sure how to decide.
+  // TODO: upgrade VersioningTransactionalDOWrapper to not always eject from memory on errors. Not sure how to decide.
 
   // <NodeStub> = {
   //   label: string,  // denormalized from the node itself
@@ -604,13 +606,9 @@ export class TreeBase  {
     this.tree = tree
   }
 
-  async get(options) {  // TODO: accept ifModifiedSinceISOString and return 304 if appropriate. Also accept asOf
+  async get(options) {  // TODO: Accept asOfISOString
     const { statusToReturn = 200, ifModifiedSinceISOString, asOfISOString } = options ?? {}
     await this.hydrate()
-    if (ifModifiedSinceISOString) {
-      console.log('ifModifiedSinceISOString', ifModifiedSinceISOString)
-      console.log('this.entityMeta.timeline.at(-1)', this.entityMeta.timeline.at(-1))
-    }
     if (this.entityMeta.timeline.at(-1) <= ifModifiedSinceISOString) return [undefined, 304]
     await this.deriveTree()
     const result = {
