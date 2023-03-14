@@ -393,19 +393,27 @@ describe('deep object put and patch', async () => {
 })
 
 describe('304 behaviore for get and getEntityMeta', async () => {
-  it('should return 304 status code and no body with correct eTag', async () => {
+  it('should return 304 status code and no body with correct eTag or ifModifiedSince', async () => {
     const state = getStateMock()
     const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
     const response = await te.put({ a: 1 }, 'userY')
     const [result, status] = await te.get()
+    const lastValidFrom = result.meta.validFrom
+    const ifModifiedSince1msEarlier = new Date(new Date(lastValidFrom).valueOf() - 1).toISOString()
     expect(status).toBe(200)
     expect(result.value).toEqual({ a: 1 })
-    const [result2, status2] = await te.get(response.meta.eTag)
+    const [result2, status2] = await te.get({ ifModifiedSinceISOString: lastValidFrom })
     expect(status2).toBe(304)
     expect(result2).toBeUndefined()
-    const [result3, status3] = await te.getEntityMeta(response.meta.eTag)
+    const [result5, status5] = await te.get({ ifModifiedSince: ifModifiedSince1msEarlier })
+    expect(status5).toBe(200)
+    expect(result5).not.toBeUndefined()
+    const [result3, status3] = await te.getEntityMeta(lastValidFrom)
     expect(status3).toBe(304)
     expect(result3).toBeUndefined()
+    const [result4, status4] = await te.getEntityMeta(ifModifiedSince1msEarlier)
+    expect(status4).toBe(200)
+    expect(result4).not.toBeUndefined()
   })
 })
 

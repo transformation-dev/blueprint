@@ -7,7 +7,10 @@ import {
   responseMixin, throwIf, throwUnless, isIDString, throwIfMediaTypeHeaderInvalid,
   throwIfAcceptHeaderInvalid, extractBody, getDebug, Debug, FetchProcessor,
 } from '@transformation-dev/cloudflare-do-utils'
+
+// local imports
 import { TemporalEntityBase } from './temporal-entity-base'
+import { temporalMixin } from './temporal-mixin'
 
 // initialize imports
 const debug = getDebug('blueprint:tree')
@@ -86,6 +89,7 @@ export class TreeBase  {
     else this.idString = undefined
 
     Object.assign(this, responseMixin)
+    Object.assign(this, temporalMixin)
 
     this.hydrated = false  // using this.hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.hydrate.bind(this))
   }
@@ -112,29 +116,6 @@ export class TreeBase  {
     }
     this.invalidateDerived()
     this.hydrated = true
-  }
-
-  deriveValidFrom(validFrom) {  // This is the one from TemporalEntityBase not old Tree
-    let validFromDate
-    if (validFrom != null) {
-      if (this.entityMeta?.timeline?.length > 0) {
-        throwIf(validFrom <= this.entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
-      }
-      validFromDate = new Date(validFrom)
-    } else {
-      validFromDate = new Date()
-      if (this.entityMeta?.timeline?.length > 0) {
-        const lastTimelineDate = new Date(this.entityMeta.timeline.at(-1))
-        if (validFromDate <= lastTimelineDate) {
-          validFromDate = new Date(lastTimelineDate.getTime() + 1)
-        }
-        validFrom = new Date(validFromDate).toISOString()
-      } else {
-        validFrom = validFromDate.toISOString()
-        validFromDate = new Date(validFrom)
-      }
-    }
-    return { validFrom, validFromDate }
   }
 
   invalidateDerived() {
@@ -324,7 +305,7 @@ export class TreeBase  {
 
     this.invalidateDerived()
 
-    validFrom = this.deriveValidFrom(validFrom).validFrom
+    validFrom = this.calculateValidFrom(validFrom).validFrom
     rootNodeValue.treeIDString = this.idString
     const options = {
       method: 'POST',
@@ -371,7 +352,7 @@ export class TreeBase  {
 
     this.invalidateDerived()
 
-    validFrom = this.deriveValidFrom(validFrom).validFrom
+    validFrom = this.calculateValidFrom(validFrom).validFrom
 
     value.treeIDString = this.idString
     const options = {
@@ -422,7 +403,7 @@ export class TreeBase  {
 
     this.invalidateDerived()
 
-    validFrom = this.deriveValidFrom(validFrom).validFrom
+    validFrom = this.calculateValidFrom(validFrom).validFrom
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
     this.edges[parent] ??= []
@@ -458,7 +439,7 @@ export class TreeBase  {
 
     this.invalidateDerived()
 
-    validFrom = this.deriveValidFrom(validFrom).validFrom
+    validFrom = this.calculateValidFrom(validFrom).validFrom
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
     this.edges[parent] = this.edges[parent].filter((id) => id !== child)
@@ -495,7 +476,7 @@ export class TreeBase  {
 
     this.invalidateDerived()
 
-    validFrom = this.deriveValidFrom(validFrom).validFrom
+    validFrom = this.calculateValidFrom(validFrom).validFrom
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
     if (this.isChildOf(currentParent, child)) {
@@ -540,7 +521,7 @@ export class TreeBase  {
     }
   }
 
-  static separateTreeDeletedAndOrphaned(
+  static separateTreeAndDeleted(
     nodes,
     edges,
     idNumString = '0',
@@ -550,7 +531,7 @@ export class TreeBase  {
     inDeletedBranch = false,
   ) {
     const node = nodes[idNumString]
-    if (!inDeletedBranch) delete nodes[idNumString]  // Checking inDeletedBranch here assures that descendants of deleted nodes that aren't also descendants of an undeleted node will shop up in orphaned
+    if (!inDeletedBranch) delete nodes[idNumString]  // Checking inDeletedBranch here assures that descendants of deleted nodes that aren't also descendants of an undeleted node will show up in orphaned
     tree.id = node.nodeIDString
     tree.label = node.label
     const childrenArrayOfNumStrings = edges[idNumString]
@@ -575,7 +556,7 @@ export class TreeBase  {
             tree.children.push(newNode)
           }
           alreadyVisited[childIdString] = newNode
-          this.separateTreeDeletedAndOrphaned(nodes, edges, childIdString, newNode, alreadyVisited, deleted, inDeletedBranch)
+          this.separateTreeAndDeleted(nodes, edges, childIdString, newNode, alreadyVisited, deleted, inDeletedBranch)
         }
       }
     }
@@ -588,7 +569,7 @@ export class TreeBase  {
     if (this.tree != null) return
 
     const nodesCopy = structuredClone(this.nodes)
-    const { tree, deleted } = this.constructor.separateTreeDeletedAndOrphaned(nodesCopy, this.edges)
+    const { tree, deleted } = this.constructor.separateTreeAndDeleted(nodesCopy, this.edges)
     // populate orphaned from nodesCopy that is mutated by separateTreeDeletedAndOrphaned and attach to tree if not empty
     const nodesCopyKeys = Object.keys(nodesCopy)
     if (nodesCopyKeys.length > 0) {
@@ -619,42 +600,5 @@ export class TreeBase  {
       },
     }
     return [result, statusToReturn]
-  }
-
-  async GET(request) {
-    try {
-      throwIfAcceptHeaderInvalid(request)
-      const ifModifiedSince = request.headers.get('If-Modified-Since')
-      const ifModifiedSinceISOString = ifModifiedSince ? new Date(ifModifiedSince).toISOString() : undefined
-      const url = new URL(request.url)
-      const asOf = url.searchParams.get('asOf')
-      const asOfISOString = asOf ? new Date(asOf).toISOString() : undefined
-      const [response, status] = await this.get({ ifModifiedSinceISOString, asOfISOString })
-      if (status === 304) return this.getStatusOnlyResponse(304)
-      return this.getResponse(response)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)
-    }
-  }
-
-  async getEntityMeta(ifModifiedSinceISOString) {
-    await this.hydrate()
-    if (this.entityMeta.timeline.at(-1) <= ifModifiedSinceISOString) return [undefined, 304]
-    return [this.entityMeta, 200]
-  }
-
-  async GETEntityMeta(request) {
-    try {
-      throwIfAcceptHeaderInvalid(request)
-      const ifModifiedSince = request.headers.get('If-Modified-Since')
-      const ifModifiedSinceISOString = ifModifiedSince ? new Date(ifModifiedSince).toISOString() : undefined
-      const [entityMeta, status] = await this.getEntityMeta(ifModifiedSinceISOString)
-      if (status === 304) return this.getStatusOnlyResponse(304)
-      return this.getResponse(entityMeta, status)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)
-    }
   }
 }

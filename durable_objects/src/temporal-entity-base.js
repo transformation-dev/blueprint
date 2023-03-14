@@ -15,6 +15,7 @@ import {
 // local imports
 // eslint-disable-next-line import/no-unresolved
 import testDagSchemaV1String from './schemas/***test-dag***.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
+import { temporalMixin } from './temporal-mixin'
 
 // initialize imports
 const testDagSchemaV1 = yamlLoad(testDagSchemaV1String)  // convert yaml string to javascript object
@@ -53,6 +54,8 @@ const debug = getDebug('blueprint:temporal-entity')
 
 // TODO B: Add a check for invalid type or version name. Cannot have any forward slashs, dashes, or periods.
 
+// TODO B: Make sure all throw messages are constants (for logging) and put the additional context in a context property of the error body
+
 // TODO: B. Timeline
 
 // TODO: B. Implement query against all snapshots that intersect with a Timeline.
@@ -75,6 +78,8 @@ const debug = getDebug('blueprint:temporal-entity')
 //       keep doing that in code because I like my error messages. It's only for documentation. Create schemas for responses.
 
 // TODO: C. Implement ticks
+
+// TODO C: Logging
 
 // TODO: C. Move TemporalEntity to its own package.
 
@@ -298,6 +303,7 @@ export class TemporalEntityBase {
     else this.idString = undefined
 
     Object.assign(this, responseMixin)
+    Object.assign(this, temporalMixin)
 
     this.hydrated = false  // using this.hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.hydrate.bind(this))
   }
@@ -351,7 +357,7 @@ export class TemporalEntityBase {
     this.hydrated = true
   }
 
-  deriveValidFrom(validFrom) {
+  calculateValidFrom(validFrom) {
     let validFromDate
     if (validFrom != null) {
       if (this.entityMeta?.timeline?.length > 0) {
@@ -487,7 +493,7 @@ export class TemporalEntityBase {
 
     // Set validFrom and validFromDate
     let validFromDate
-    ({ validFrom, validFromDate } = this.deriveValidFrom(validFrom))
+    ({ validFrom, validFromDate } = this.calculateValidFrom(validFrom))
 
     // Determine if this update should be debounced and set oldCurrent
     let debounce = false
@@ -598,7 +604,7 @@ export class TemporalEntityBase {
   async patchMetaDelta(metaDelta) {
     await this.hydrate()
 
-    metaDelta.validFrom = this.deriveValidFrom(metaDelta.validFrom).validFrom
+    metaDelta.validFrom = this.calculateValidFrom(metaDelta.validFrom).validFrom
     metaDelta.eTag = getUUID(this.env)
 
     // Update and save the old current
@@ -642,43 +648,31 @@ export class TemporalEntityBase {
     }
   }
 
-  async get(eTag) {
+  // async get(eTag) {
+  //   await this.hydrate()
+  //   throwIf(this.current?.meta?.deleted, 'GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true', 404)
+  //   if (eTag != null && eTag === this.current?.meta?.eTag) return [undefined, 304]  // TODO: e2e test for this. Be sure to also look for Content-ID header.
+  //   return [this.current, 200]
+  // }
+
+  async get(options) {  // TODO: Accept asOfISOString
+    const { statusToReturn = 200, ifModifiedSinceISOString, asOfISOString } = options ?? {}
     await this.hydrate()
     throwIf(this.current?.meta?.deleted, 'GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true', 404)
-    if (eTag != null && eTag === this.current?.meta?.eTag) return [undefined, 304]  // TODO: e2e test for this. Be sure to also look for Content-ID header.
-    return [this.current, 200]
+    if (this.entityMeta.timeline.at(-1) <= ifModifiedSinceISOString) return [undefined, 304]
+    return [this.current, statusToReturn]
   }
 
-  async GET(request) {
-    try {
-      throwIfAcceptHeaderInvalid(request)
-      const eTag = extractETag(request)
-      const [current, status] = await this.get(eTag)
-      if (status === 304) return this.getStatusOnlyResponse(status)
-      return this.getResponse(current, status)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)
-    }
-  }
-
-  async getEntityMeta(eTag) {  // TODO: Use the exact code from TreeBase when switching to ifModifiedSince
-    await this.hydrate()
-    // Note, we don't check for deleted here because we want to be able to get the entityMeta even if the entity is deleted
-    if (eTag != null && eTag === this.current?.meta?.eTag) return [undefined, 304]
-    return [this.entityMeta, 200]
-  }
-
-  async GETEntityMeta(request) {
-    try {
-      throwIfAcceptHeaderInvalid(request)
-      const eTag = extractETag(request)
-      const [entityMeta, status] = await this.getEntityMeta(eTag)
-      if (status === 304) return this.getStatusOnlyResponse(304)
-      return this.getResponse(entityMeta, status)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)
-    }
-  }
+  // async GET(request) {
+  //   try {
+  //     throwIfAcceptHeaderInvalid(request)
+  //     const eTag = extractETag(request)
+  //     const [current, status] = await this.get(eTag)
+  //     if (status === 304) return this.getStatusOnlyResponse(status)
+  //     return this.getResponse(current, status)
+  //   } catch (e) {
+  //     this.hydrated = false  // Makes sure the next call to this DO will rehydrate
+  //     return this.getErrorResponse(e)
+  //   }
+  // }
 }
