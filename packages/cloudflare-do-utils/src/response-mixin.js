@@ -19,6 +19,7 @@ export const responseMixin = {
     } else if (body != null && typeof body === 'object') {
       const newBody = structuredClone(body)
       newBody.idString = this.idString
+      newBody.warnings = this.warnings ?? []
       return new Response(serialize(newBody, contentType), { status, headers })
     }
     return new Response(undefined, { status, headers })
@@ -34,5 +35,18 @@ export const responseMixin = {
   // eslint-disable-next-line class-methods-use-this
   getStatusOnlyResponse(status, statusText = undefined) {
     return this.getResponse(undefined, status, statusText)
+  },
+
+  warnIf(condition, message) {
+    if (condition) {
+      this.debug('WARNING: %s', message)  // TODO: Attach debug to this in TemporalEntityBase
+      if (this.warnings == null) this.warnings = []
+      this.warnings.push(message)
+      // TODO: Add warnings to response
+    }
+  },
+
+  warnUnless(condition, message) {
+    this.warnIf(!condition, message)
   },
 }

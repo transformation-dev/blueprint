@@ -13,7 +13,9 @@ import { DurableAPI } from '../src/index.js'
 // const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks
 const env = getMiniflareBindings()
 await addCryptoToEnv(env)
-env.DEBUG = 'blueprint:*'
+// env.DEBUG = 'blueprint:*'
+// env.DEBUG = 'blueprint:tree'
+env.DEBUG = 'nothing'
 
 describe('A series of Tree operations', async () => {
   let baseUrl = 'http://fake.host'
@@ -31,199 +33,249 @@ describe('A series of Tree operations', async () => {
   let url = coreUrl
 
   it('should allow tree creation with POST', async () => {
-    const rootNode = {
-      value: { a: 1 },
-      type: '***test-has-children***',
-      version: 'v1',
-    }
+    const rootNodeValue = { label: 'root (aka node0)' }
     const options = {
       method: 'POST',
-      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
-      body: { rootNode, userID: 'userW' },
+      body: { rootNodeValue, userID: 'userW' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
 
     // expects/asserts to always run
     expect(response.status).toBe(201)
-    const { meta, idString } = response.CBOR_SC
-    expect(meta.nodeCount).to.be.a('number')
-    expect(meta.nodeCount).to.eq(1)
+    const { current, idString } = response.CBOR_SC
+    const { meta } = current
     expect(meta.validFrom).to.be.a('string')
-    assert(meta.validFrom === meta.lastValidFrom)
     assert(meta.validFrom <= new Date().toISOString())
     expect(meta.userID).to.eq('userW')
-    expect(response.headers.get('ETag')).to.eq(meta.eTag)
     expect(response.headers.get('Content-ID')).to.eq(idString)
     expect(idString).to.be.a('string')
     url += `/${idString}`
 
-    // storage operation expects/asserts to only run in miniflare
+    // storage operation expects/asserts to only run in miniflare (aka not live over http)
     if (process?.env?.VITEST_BASE_URL == null) {
-      const value = await state.storage.get('0/entityMeta')
-      expect(value.timeline.length).toBe(1)
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.timeline.length).toBe(1)
+      expect(entityMeta.nodeCount).toBe(1)
+      assert(meta.validFrom === entityMeta.timeline.at(-1))
+      const nodes = storage.get(`${idString}/snapshot/${meta.validFrom}/nodes`)
+      expect(nodes[0].label).to.eq(rootNodeValue.label)
+      expect(nodes[0].nodeIDString).to.not.eq(idString)
     }
   })
 
   it('should allow node creation with PATCH', async () => {
-    const newNode = {
-      value: { b: 2 },
-      type: '***test-has-children-and-parents***',
-      version: 'v1',
-    }
+    const value = { label: 'node1' }
     const options = {
       method: 'PATCH',
-      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
-      body: { addNode: { newNode, parent: '0' }, userID: 'userX' },
+      body: { addNode: { value, parent: '0' }, userID: 'userX' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { meta } = response.CBOR_SC
-    const { lastValidFrom } = meta
-    expect(meta.nodeCount).to.eq(2)
-    assert(meta.validFrom <= meta.lastValidFrom)
+    const { current, idString } = response.CBOR_SC
+    const { meta } = current
     if (process?.env?.VITEST_BASE_URL == null) {
-      const child = await state.storage.get(`1/snapshot/${lastValidFrom}`)
-      assert(child.meta.parents.includes('0'))
-      const root = await state.storage.get(`0/snapshot/${lastValidFrom}`)
-      assert(root.meta.children.includes('1'))
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.timeline.length).toBe(2)
+      expect(entityMeta.nodeCount).toBe(2)
+      assert(meta.validFrom <= entityMeta.timeline.at(-1))
+      const nodes = storage.get(`${idString}/snapshot/${meta.validFrom}/nodes`)
+      expect(nodes[1].label).to.eq(value.label)
+      expect(nodes[1].nodeIDString).to.not.eq(idString)
+      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
+      expect(edges[0]).to.deep.eq(['1'])
     }
   })
 
   it('should respond with error when sent non-existent parent', async () => {
-    const newNode = {
-      value: { c: 3 },
-      type: '***test-has-children-and-parents***',
-      version: 'v1',
-    }
+    const value = { label: 'node2' }
     const options = {
       method: 'PATCH',
-      // headers: { 'Content-Type': 'application/cbor-sc' },  // auto-inserted by encodeFetchAndDecode
-      body: { addNode: { newNode, parent: '999' }, userID: 'userY' },
+      body: { addNode: { value, parent: '999' }, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(404)
-    expect(response.CBOR_SC.error.message).toMatch('TemporalEntity not found')
+    expect(response.CBOR_SC.error.message).toMatch('not found')
   })
 
   let lastValidFrom
 
   it('should allow addition of another node', async () => {
-    const newNode2 = {
-      value: { c: 3 },
-      type: '***test-has-children-and-parents***',
-      version: 'v1',
-    }
+    const value = { label: 'node2' }
     const options = {
       method: 'PATCH',
-      body: { addNode: { newNode: newNode2, parent: 1 }, userID: 'userY' },
+      body: { addNode: { value, parent: 1 }, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { meta } = response.CBOR_SC
-    lastValidFrom = meta.lastValidFrom
-    expect(meta.nodeCount).to.eq(3)
-    assert(meta.validFrom <= meta.lastValidFrom)
+    const { current, idString } = response.CBOR_SC
+    const { meta } = current
+    lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
-      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
-      assert(node2.meta.parents.includes('1'))
-      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
-      assert(node1.meta.children.includes('2'))
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.timeline.length).toBe(3)
+      expect(entityMeta.nodeCount).toBe(3)
+      assert(meta.validFrom <= entityMeta.timeline.at(-1))
+      const nodes = storage.get(`${idString}/snapshot/${meta.validFrom}/nodes`)
+      expect(nodes[2].label).to.eq(value.label)
+      expect(nodes[2].nodeIDString).to.not.eq(idString)
+      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
+      expect(edges[1]).to.deep.eq(['2'])
     }
   })
 
   it('should respond with error when adding a node that would create a cycle', async () => {
-    const branch = {
+    const addBranch = {
       parent: 2,  // intentionally a Number to confirm that it's forgiving of this
       child: '1',
-      operation: 'add',
     }
     const options = {
       method: 'PATCH',
-      body: { branch, userID: 'userY' },
+      body: { addBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
-    const { error } = response.CBOR_SC
+    const response = await encodeFetchAndDecode(url, options, stub, state)
+    expect(response.status).toBe(409)
+    const { error, idString } = response.CBOR_SC
     expect(response.status).toBe(409)
     expect(error.message).toMatch('Adding this branch would create a cycle')
     if (process?.env?.VITEST_BASE_URL == null) {
-      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
-      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
-      expect(node2.meta.parents.length).toBe(1)
-      expect(node1.meta.children.length).toBe(1)
-      expect(node2.meta.children).toBeUndefined()
-      expect(node1.meta.parents.length).toBe(1)
+      const storage = await state.storage.list()
+      const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
+      expect(entityMetaFromStorage.timeline.length).toBe(3)
+      expect(entityMetaFromStorage.timeline.at(-1)).toBe(lastValidFrom)
     }
   })
 
   it('should allow addition of a branch that creates a diamond-shaped DAG', async () => {
-    const branch = {
+    const addBranch = {
       parent: 0,  // intentionally a Number to confirm that it's forgiving of this as a zero
-      child: 2,
-      // operation: 'add',  // testing default operation by commenting this out
+      child: '2',
     }
     const options = {
       method: 'PATCH',
-      body: { branch, userID: 'userY' },
+      body: { addBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { meta } = response.CBOR_SC
-    lastValidFrom = meta.lastValidFrom
-    expect(meta.nodeCount).to.eq(3)
-    assert(meta.validFrom <= meta.lastValidFrom)
+    const { current, idString } = response.CBOR_SC
+    const { meta } = current
     if (process?.env?.VITEST_BASE_URL == null) {
-      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
-      const node0 = await state.storage.get(`0/snapshot/${lastValidFrom}`)
-      assert(node2.meta.parents.includes('0'))
-      assert(node0.meta.children.includes('2'))
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.nodeCount).to.eq(3)
+      expect(entityMeta.timeline.length).toBe(4)
+      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
+      expect(edges[0]).to.deep.eq(['1', '2'])
+    }
+  })
+
+  const tree = {
+    label: 'root (aka node0)',
+    children: [
+      {
+        label: 'node1',
+        children: [
+          {
+            label: 'node2',
+          },
+        ],
+      },
+      {
+        label: 'node2',
+      },
+    ],
+  }
+
+  it('should return the tree and meta with GET', async () => {
+    const response = await encodeFetchAndDecode(`${url}?asOf=${new Date().toISOString()}`, undefined, stub)
+    expect(response.status).toBe(200)
+    expect(response.CBOR_SC.current.tree).toMatchObject(tree)
+    // this next line confirms that node2 is only transmitted once eventhough it shows up twice in the tree
+    expect(response.CBOR_SC.current.tree.children[0].children[0]).toBe(response.CBOR_SC.current.tree.children[1])
+  })
+
+  it('should respond to GET entity-meta', async () => {
+    const response = await encodeFetchAndDecode(`${url}/entity-meta/`, undefined, stub)
+    const { timeline, nodeCount } = response.CBOR_SC
+    expect(response.status).toBe(200)
+    expect(timeline.length).toBe(4)
+    expect(nodeCount).toBe(3)
+  })
+
+  it('should be "fail silently" when you add the same branch again', async () => {
+    const addBranch = {
+      parent: 0,  // intentionally a Number to confirm that it's forgiving of this as a zero
+      child: 2,
+    }
+    const options = {
+      method: 'PATCH',
+      body: { addBranch, userID: 'userY' },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub, state)
+    expect(response.status).toBe(200)
+    const { current: { meta }, idString } = response.CBOR_SC
+    assert(meta.validFrom > lastValidFrom)
+    lastValidFrom = meta.validFrom
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.nodeCount).to.eq(3)
+      expect(entityMeta.timeline.length).toBe(4)
+      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
+      expect(edges[0]).to.deep.eq(['1', '2'])
     }
   })
 
   it('should allow deletion of a branch', async () => {
-    const branch = {
+    const deleteBranch = {
       parent: 1,
       child: 2,
-      operation: 'delete',
     }
     const options = {
       method: 'PATCH',
-      body: { branch, userID: 'userY' },
+      body: { deleteBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { meta } = response.CBOR_SC
-    lastValidFrom = meta.lastValidFrom
-    expect(meta.nodeCount).to.eq(3)
-    assert(meta.validFrom <= meta.lastValidFrom)
+    const { current: { meta }, idString } = response.CBOR_SC
+    assert(meta.validFrom > lastValidFrom)
+    lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
-      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
-      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
-      expect(node2.meta.parents.length).toBe(1)
-      assert(node2.meta.parents.includes('0'))
-      expect(node1.meta.children.length).toBe(0)
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.nodeCount).to.eq(3)
+      expect(entityMeta.timeline.length).toBe(5)
+      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
+      expect(edges[1].length).toBe(0)
     }
   })
 
   it('should "fail silently" when deleting the same branch again', async () => {
-    const branch = {
+    const deleteBranch = {
       parent: 1,
       child: 2,
-      operation: 'delete',
     }
     const options = {
       method: 'PATCH',
-      body: { branch, userID: 'userY' },
+      body: { deleteBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
-  })
-
-  it.todo('should be idempotent when you add the same branch again', async () => {
+    const { current: { meta }, idString } = response.CBOR_SC
+    assert(meta.validFrom === lastValidFrom)
+    lastValidFrom = meta.validFrom
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.timeline.length).toBe(5)
+    }
   })
 
   it('should allow moving a branch', async () => {
     const moveBranch = {
-      node: 2,
+      child: 2,
       currentParent: 0,
       newParent: 1,
     }
@@ -231,43 +283,67 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { moveBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub)
-    // console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
-    // console.log('list of nodes: %O: ', await state.storage.list())
+    const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
-
-    const { meta } = response.CBOR_SC
-    lastValidFrom = meta.lastValidFrom
-    expect(meta.nodeCount).to.eq(3)
-    // assert(meta.validFrom <= lastValidFrom)
+    const { current: { meta }, idString } = response.CBOR_SC
+    assert(meta.validFrom > lastValidFrom)
+    lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
-      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
-      assert(node2.meta.parents.includes('1'))
-      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
-      assert(node1.meta.children.includes('2'))
-      const node0 = await state.storage.get(`0/snapshot/${lastValidFrom}`)
-      expect(node0.meta.children.length).toBe(1)
-      assert(node0.meta.children.includes('1'))
-      assert(!node0.meta.children.includes('2'))
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.timeline.length).toBe(6)
+      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
+      expect(edges[1]).to.deep.eq(['2'])
+      expect(edges[0]).to.deep.eq(['1'])
     }
   })
 
-  it.todo('should return the entire tree fully hydrated on GET with options.hydrated: true', async () => {
-    // Don't allow application/json
-    // What about orphaned nodes? I'm thinking we should always return them { tree, orphans }
+  it('should return 304 when If-Modified-Since header is used with the exact validFrom from last change', async () => {
+    const options = {
+      headers: { 'If-Modified-Since': lastValidFrom },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub, state)
+    expect(response.status).toBe(304)
   })
 
-  it.todo('should allow deleting a node', async () => {
-    // What should the tree look like when retrieved with GET in this instance? Maybe we need an options.includeDeletedNodes: true
+  it('should return 200 when If-Modified-Since header is used with last validFrom - 1ms', async () => {
+    const ifModifiedSinceISOString = new Date(new Date(lastValidFrom).valueOf() - 1).toISOString()
+    const options = {
+      headers: { 'If-Modified-Since': ifModifiedSinceISOString },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub, state)
+    expect(response.status).toBe(200)
   })
 
-  it.todo('should allow patching a node', async () => {
+  it('should return 304 when If-Modified-Since header is in Date.toUTCString format', async () => {
+    const ifModifiedSinceString = new Date(new Date(lastValidFrom).valueOf() + 1000).toUTCString()  // had to add 1s because UTCString doesn't have ms
+    const options = {
+      headers: { 'If-Modified-Since': ifModifiedSinceString },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub, state)
+    expect(response.status).toBe(304)
   })
 
-  it.todo('should allow POST to the tree to add a node (alias for PATCH addNode)', async () => {
+  it.todo('should return an error if a branch move creates a cycle', async () => {
   })
 
-  it.todo('should return the tree outline on GET', async () => {
-    // Don't allow application/json
+  it.todo('should also work with text/yaml Content-Type', async () => {
+  })
+
+  it.todo('should return error with application/json Content-Type', async () => {
+  })
+
+  it.todo('should return an earlier version of the Tree when GET with ?asOf parameter is used', async () => {
+  })
+})
+
+describe('Tree deleted and orphaned', async () => {
+  it.todo('should update Tree with status using queues when node DO is deleted', async () => {
+  })
+
+  it.todo('should work with deleted nodes', async () => {
+  })
+
+  it.todo('should work with orphaned nodes', async () => {
   })
 })

@@ -1,3 +1,5 @@
+// TODO: Merge the types from VersioningTransactionDOWrapper and TemporalEntityBase
+
 // local imports
 import * as responseMixin from './response-mixin.js'
 import { getDebug, Debug } from './debug.js'
@@ -13,7 +15,7 @@ export class VersioningTransactionalDOWrapperBase {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  respondEarly(response, options) {  // TODO: Swap this out for my response mixin behavior
+  respondEarly(response, options) {  // TODO: Swap this out for my response mixin behavior. This will fix the fact that error responses don't honor Accept headers.
     return new Response(response, options)
   }
 
@@ -37,8 +39,15 @@ export class VersioningTransactionalDOWrapperBase {
     // exits if the class instance is already hydrated. This version will always do a single get from storage.
     await this.hydrate()
     const url = new URL(request.url)
-    const pathArray = url.pathname.split('/')
-    if (pathArray[0] === '') pathArray.shift()  // deal with leading slash
+    const pathArray = url.pathname.split('/').filter((s) => s !== '')
+
+    if (pathArray[0] === 'transactional-do-wrapper') {  // TODO: Test this
+      if (request.method === 'DELETE') {
+        await this.state.storage.deleteAll()
+        return this.respondEarly(`All the data for DO ${this.idString} has been deleted. The DO will eventually disappear.`, { status: 202 })
+      }
+      return this.respondEarly(`Unrecognized HTTP method ${request.method} for ${request.url}`, { status: 405 })
+    }
 
     // pull type/version from url and validate
     const type = pathArray.shift()

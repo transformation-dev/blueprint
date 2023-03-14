@@ -37,13 +37,9 @@ const debug = getDebug('blueprint:temporal-entity')
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
+// TODO A0: Refactor to support the conventions we adopted in TreeBase like save() and updateMetaAndSave()
+
 // TODO A: Refactor so all methods use destructuring on options/body for parameters
-
-// TODO A: Wrap the entire fetch in state.blockConcurrencyWhile() like I'm planning for Tree.
-
-// TODO A: Implement add/remove meta.references on TreeNode as a PATCH operation. I still need this for external references.
-//         Use Set<idString> to store the references.
-//         { references: [{ operation, idString }] }; where operation is add or remove.
 
 // TODO A: Create People DO. A Person is a just a TemporalEntity but the People DO is not temporal. It'll store the list of people
 //       in a single storage object under the key 1 for now but later we can spread it out over multiple storage objects,
@@ -666,7 +662,7 @@ export class TemporalEntityBase {
     }
   }
 
-  async getEntityMeta(eTag) {
+  async getEntityMeta(eTag) {  // TODO: Use the exact code from TreeBase when switching to ifModifiedSince
     await this.hydrate()
     // Note, we don't check for deleted here because we want to be able to get the entityMeta even if the entity is deleted
     if (eTag != null && eTag === this.current?.meta?.eTag) return [undefined, 304]

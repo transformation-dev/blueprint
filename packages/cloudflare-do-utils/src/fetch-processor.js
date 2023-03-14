@@ -73,6 +73,7 @@ async function serializeCBOR(o) {
 }
 async function deserializeCBOR(requestOrResponse) {
   const ab = await requestOrResponse.arrayBuffer()
+  if (ab.byteLength === 0) return null
   const u8a = new Uint8Array(ab)
   return decode(u8a)
 }
