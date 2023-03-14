@@ -1,12 +1,11 @@
 /* eslint-disable no-param-reassign */  // safe because durable objects are airgapped so to speak
 // file deepcode ignore AttrAccessOnNull: Everytime I see this, I think it's a false positive
+// file deepcode ignore StaticAccessThis: I disagree with the rule. Repeating the class name is not DRY.
 
 // monorepo imports
 import {
-  responseMixin, throwIf, throwUnless, isIDString, getUUID, throwIfMediaTypeHeaderInvalid,
-  throwIfAcceptHeaderInvalid, extractBody, getIDStringFromInput, getDebug, Debug,
-  FetchProcessor,
-  HTTPError,
+  responseMixin, throwIf, throwUnless, isIDString, throwIfMediaTypeHeaderInvalid,
+  throwIfAcceptHeaderInvalid, extractBody, getDebug, Debug, FetchProcessor,
 } from '@transformation-dev/cloudflare-do-utils'
 import { TemporalEntityBase } from './temporal-entity-base'
 
@@ -40,8 +39,6 @@ const { serialize, deserialize } = FetchProcessor.contentTypes[DEFAULT_CONTENT_T
 
 /tree/v1/[treeIdString]/aggregate
   TODO B: POST - execute the aggregation. Starting nodeIDString in body or root if omitted. First version just gathers all matching nodes.
-
-TODO: Don't allow the root node to be deleted
 
 TODO: Use Cloudflare queues to communicate changes to node TemporalEntities to the Tree instance
 */
@@ -346,7 +343,7 @@ export class TreeBase  {
 
     this.updateMetaAndSave(validFrom, userID, impersonatorID, true)
 
-    return this.get(201)
+    return this.get({ statusToReturn: 201 })
   }
 
   async POST(request) {
@@ -407,7 +404,7 @@ export class TreeBase  {
     let { parent, child } = addBranch
     parent = parent.toString()
     child = child.toString()
-    throwUnless(parent != null && child != null, 'body.branch with parent and child required when Tree PATCH patchBranch is called')
+    throwUnless(parent != null && child != null, 'body.addBranch with parent and child required when Tree PATCH patchBranch is called')
     throwIf(parent === child, 'parent and child cannot be the same')
 
     await this.hydrate()
@@ -434,49 +431,84 @@ export class TreeBase  {
     return this.get()
   }
 
-  // /**
-  //  *
-  //  * # patchMoveBranch
-  //  *
-  //  * Moves a branch from one place in the tree to another.
-  //  */
-  // async patchMoveBranch({ moveBranch, userID, validFrom, impersonatorID }) {
-  //   let { child, currentParent, newParent } = moveBranch
-  //   throwIf(
-  //     child == null || currentParent == null || newParent == null,
-  //     'body.moveBranch with node, currentParent, and newParent required when Tree PATCH moveBranch is called',
-  //   )
-  //   child = child.toString()
-  //   currentParent = currentParent.toString()
-  //   newParent = newParent.toString()
-  //   this.throwIfParentChildRelationshipIsInvalid(currentParent, child)
+  /**
+   *
+   * # patchDeleteBranch
+   *
+   * Deletes a branch from the tree
+   */
+  async patchDeleteBranch({ deleteBranch, userID, validFrom, impersonatorID }) {
+    let { parent, child } = deleteBranch
+    parent = parent.toString()
+    child = child.toString()
+    throwUnless(parent != null && child != null, 'body.deleteBranch with parent and child required when Tree PATCH patchBranch is called')
 
-  //   await this.hydrate()
+    await this.hydrate()
 
-  //   const isCurrentParentOf = this.isParentOf(child, currentParent)
-  //   const isCurrentChildOf = this.isChildOf(currentParent, child)
-  //   if (!isCurrentChildOf && !isCurrentParentOf) {  // return silently if branch doesn't exist
-  //     return this.get()
-  //   }
-  //   this.throwIfParentChildRelationshipIsInvalid(currentParent, child)
+    await this.throwIfInvalidID(parent)
+    await this.throwIfInvalidID(child)
 
-  //   this.throwIfIDInAncestry(newParent, child)
+    if (!this.isChildOf(parent, child)) {  // return silently if branch does not exist
+      return this.get()
+    }
 
-  //   const isNewParentOf = this.isParentOf(child, newParent)
-  //   const isNewChildOf = this.isChildOf(newParent, child)
-  //   if (isNewChildOf && isNewParentOf) {  // return silently if branch already exists
-  //     return this.get()
-  //   }
-  //   this.throwIfParentChildRelationshipIsInvalid(newParent, child)
+    await this.throwIfIDInAncestry(parent, child)
 
-  //   this.invalidateDerived()
+    this.invalidateDerived()
 
-  //   // remove old branch
+    validFrom = this.deriveValidFrom(validFrom).validFrom
 
-  //   // add new branch
+    // Update current but not current.meta because that's done in updateMetaAndSave()
+    this.edges[parent] = this.edges[parent].filter((id) => id !== child)
 
-  //   // return [tree, 200]
-  // }
+    this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
+
+    return this.get()
+  }
+
+  /**
+   *
+   * # patchMoveBranch
+   *
+   * Moves a branch from one place to another in the tree
+   */
+  async patchMoveBranch({ moveBranch, userID, validFrom, impersonatorID }) {
+    let { child, currentParent, newParent } = moveBranch
+    currentParent = currentParent.toString()
+    newParent = newParent.toString()
+    child = child.toString()
+
+    throwIf(
+      child == null || currentParent == null || newParent == null,
+      'body.moveBranch with child, currentParent, and newParent required when Tree PATCH moveBranch is called',
+    )
+
+    await this.hydrate()
+
+    await this.throwIfInvalidID(currentParent)
+    await this.throwIfInvalidID(newParent)
+    await this.throwIfInvalidID(child)
+
+    await this.throwIfIDInAncestry(newParent, child)
+
+    this.invalidateDerived()
+
+    validFrom = this.deriveValidFrom(validFrom).validFrom
+
+    // Update current but not current.meta because that's done in updateMetaAndSave()
+    if (this.isChildOf(currentParent, child)) {
+      this.edges[currentParent] = this.edges[currentParent].filter((id) => id !== child)
+    }
+
+    if (!this.isChildOf(newParent, child)) {
+      this.edges[newParent] ??= []
+      this.edges[newParent].push(child)
+    }
+
+    this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
+
+    return this.get()
+  }
 
   // eslint-disable-next-line no-unused-vars
   async patch(options) {
@@ -572,8 +604,14 @@ export class TreeBase  {
     this.tree = tree
   }
 
-  async get(statusToReturn = 200) {  // TODO: accept ifModifiedSinceISOString and return 304 if appropriate. Also accept asOf
+  async get(options) {  // TODO: accept ifModifiedSinceISOString and return 304 if appropriate. Also accept asOf
+    const { statusToReturn = 200, ifModifiedSinceISOString, asOfISOString } = options ?? {}
     await this.hydrate()
+    if (ifModifiedSinceISOString) {
+      console.log('ifModifiedSinceISOString', ifModifiedSinceISOString)
+      console.log('this.entityMeta.timeline.at(-1)', this.entityMeta.timeline.at(-1))
+    }
+    if (this.entityMeta.timeline.at(-1) <= ifModifiedSinceISOString) return [undefined, 304]
     await this.deriveTree()
     const result = {
       // entityMeta: this.entityMeta,
@@ -592,7 +630,8 @@ export class TreeBase  {
       const ifModifiedSinceISOString = ifModifiedSince ? new Date(ifModifiedSince).toISOString() : undefined
       const url = new URL(request.url)
       const asOf = url.searchParams.get('asOf')
-      const [response, status] = await this.get()  // TODO: pass ifModifiedSinceISOString and asOf
+      const asOfISOString = asOf ? new Date(asOf).toISOString() : undefined
+      const [response, status] = await this.get({ ifModifiedSinceISOString, asOfISOString })
       if (status === 304) return this.getStatusOnlyResponse(304)
       return this.getResponse(response)
     } catch (e) {

@@ -13,9 +13,9 @@ import { DurableAPI } from '../src/index.js'
 // const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks
 const env = getMiniflareBindings()
 await addCryptoToEnv(env)
-env.DEBUG = 'blueprint:*'
+// env.DEBUG = 'blueprint:*'
 // env.DEBUG = 'blueprint:tree'
-// env.DEBUG = 'nothing'
+env.DEBUG = 'nothing'
 
 describe('A series of Tree operations', async () => {
   let baseUrl = 'http://fake.host'
@@ -205,7 +205,6 @@ describe('A series of Tree operations', async () => {
   })
 
   it('should be "fail silently" when you add the same branch again', async () => {
-    // TODO: Confirm that we don't end up with the child or parent duplicated
     const addBranch = {
       parent: 0,  // intentionally a Number to confirm that it's forgiving of this as a zero
       child: 2,
@@ -215,15 +214,12 @@ describe('A series of Tree operations', async () => {
       body: { addBranch, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
-    // console.log('response.CBOR_SC.tree: %s: ', JSON.stringify(response.CBOR_SC.tree, null, 2))
-    console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
     expect(response.status).toBe(200)
     const { current: { meta }, idString } = response.CBOR_SC
     assert(meta.validFrom > lastValidFrom)
     lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
       const storage = await state.storage.list()
-      console.log('storage: %O: ', storage)
       const entityMeta = storage.get(`${idString}/entityMeta`)
       expect(entityMeta.nodeCount).to.eq(3)
       expect(entityMeta.timeline.length).toBe(4)
@@ -232,55 +228,52 @@ describe('A series of Tree operations', async () => {
     }
   })
 
-  it.todo('should allow deletion of a branch', async () => {
-    const branch = {
+  it('should allow deletion of a branch', async () => {
+    const deleteBranch = {
       parent: 1,
       child: 2,
-      operation: 'delete',
     }
     const options = {
       method: 'PATCH',
-      body: { branch, userID: 'userY' },
+      body: { deleteBranch, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { meta } = response.CBOR_SC
-    lastValidFrom = meta.lastValidFrom
-    expect(meta.nodeCount).to.eq(3)
-    assert(meta.validFrom <= meta.lastValidFrom)
+    const { current: { meta }, idString } = response.CBOR_SC
+    assert(meta.validFrom > lastValidFrom)
+    lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
-      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
-      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
-      expect(node2.meta.parents.length).toBe(1)
-      assert(node2.meta.parents.includes('0'))
-      expect(node1.meta.children.length).toBe(0)
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.nodeCount).to.eq(3)
+      expect(entityMeta.timeline.length).toBe(5)
+      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
+      expect(edges[1].length).toBe(0)
     }
   })
 
-  it.todo('should "fail silently" when deleting the same branch again', async () => {
-    const branch = {
+  it('should "fail silently" when deleting the same branch again', async () => {
+    const deleteBranch = {
       parent: 1,
       child: 2,
-      operation: 'delete',
     }
     const options = {
       method: 'PATCH',
-      body: { branch, userID: 'userY' },
+      body: { deleteBranch, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
     expect(response.status).toBe(200)
+    const { current: { meta }, idString } = response.CBOR_SC
+    assert(meta.validFrom === lastValidFrom)
+    lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
-      const node2EntityMeta = await state.storage.get('2/entityMeta')
-      const node2LastValidFrom = node2EntityMeta.timeline.at(-1)
-      const node1EntityMeta = await state.storage.get('1/entityMeta')
-      const node1LastValidFrom = node1EntityMeta.timeline.at(-1)
-      // confirm that no new snapshots were created
-      expect(lastValidFrom).to.eq(node2LastValidFrom)
-      expect(lastValidFrom).to.eq(node1LastValidFrom)
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.timeline.length).toBe(5)
     }
   })
 
-  it.todo('should allow moving a branch', async () => {
+  it('should allow moving a branch', async () => {
     const moveBranch = {
       child: 2,
       currentParent: 0,
@@ -291,46 +284,60 @@ describe('A series of Tree operations', async () => {
       body: { moveBranch, userID: 'userY' },
     }
     const response = await encodeFetchAndDecode(url, options, stub, state)
-    // console.log('response.CBOR_SC: %O: ', response.CBOR_SC)
-    // console.log('list of nodes: %O: ', await state.storage.list())
     expect(response.status).toBe(200)
-
-    const { meta } = response.CBOR_SC
-    lastValidFrom = meta.lastValidFrom
-    expect(meta.nodeCount).to.eq(3)
-    assert(meta.validFrom <= lastValidFrom)
+    const { current: { meta }, idString } = response.CBOR_SC
+    assert(meta.validFrom > lastValidFrom)
+    lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
-      const node2 = await state.storage.get(`2/snapshot/${lastValidFrom}`)
-      assert(node2.meta.parents.includes('1'))
-      const node1 = await state.storage.get(`1/snapshot/${lastValidFrom}`)
-      assert(node1.meta.children.includes('2'))
-      const node0 = await state.storage.get(`0/snapshot/${lastValidFrom}`)
-      expect(node0.meta.children.length).toBe(1)
-      assert(node0.meta.children.includes('1'))
-      assert(!node0.meta.children.includes('2'))
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+      expect(entityMeta.timeline.length).toBe(6)
+      const edges = storage.get(`${idString}/snapshot/${meta.validFrom}/edges`)
+      expect(edges[1]).to.deep.eq(['2'])
+      expect(edges[0]).to.deep.eq(['1'])
     }
+  })
+
+  it('should return 304 when If-Modified-Since header is used with the exact validFrom from last change', async () => {
+    const options = {
+      headers: { 'If-Modified-Since': lastValidFrom },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub, state)
+    expect(response.status).toBe(304)
+  })
+
+  it('should return 200 when If-Modified-Since header is used with last validFrom - 1ms', async () => {
+    const ifModifiedSinceISOString = new Date(new Date(lastValidFrom).valueOf() - 1).toISOString()
+    const options = {
+      headers: { 'If-Modified-Since': ifModifiedSinceISOString },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub, state)
+    expect(response.status).toBe(200)
+  })
+
+  it('should return 304 when If-Modified-Since header is in Date.toUTCString format', async () => {
+    const ifModifiedSinceString = new Date(new Date(lastValidFrom).valueOf() + 1000).toUTCString()  // had to add 1s because UTCString doesn't have ms
+    const options = {
+      headers: { 'If-Modified-Since': ifModifiedSinceString },
+    }
+    const response = await encodeFetchAndDecode(url, options, stub, state)
+    expect(response.status).toBe(304)
   })
 
   it.todo('should return an error if a branch move creates a cycle', async () => {
   })
 
-  it.todo('should also work with text/yaml Content-Type', () => {
+  it.todo('should also work with text/yaml Content-Type', async () => {
   })
 
-  it.todo('should return error with application/json Content-Type', () => {
+  it.todo('should return error with application/json Content-Type', async () => {
   })
 
-  it.todo('should return an earlier version of the Tree when GET with ?asOf parameter is used', () => {
-  })
-
-  it.todo('should return 304 when If-Modified-Since header is used with the exact validFrom from last change', () => {
-  })
-
-  it.todo('should return 200 when If-Modified-Since header is used with last validFrom - 1ms', () => {
+  it.todo('should return an earlier version of the Tree when GET with ?asOf parameter is used', async () => {
   })
 })
 
-describe('Tree deleted and orphaned', () => {
+describe('Tree deleted and orphaned', async () => {
   it.todo('should update Tree with status using queues when node DO is deleted', async () => {
   })
 

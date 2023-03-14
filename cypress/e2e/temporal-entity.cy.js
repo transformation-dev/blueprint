@@ -110,6 +110,7 @@ context('TemporalEntity', () => {
       const eTag1 = o.meta.eTag
       delete o.meta.validFrom
       delete o.meta.eTag
+      console.log('o: %O', o)
       expect(o).to.deep.eq({
         "idString": idString,
         "meta": {
@@ -119,7 +120,8 @@ context('TemporalEntity', () => {
           "type": "*",
           "version": "*",
         },
-        "value": { "a": 1, "b": 2, }
+        "value": { "a": 1, "b": 2, },
+        warnings: [],
       })
 
       const lastValidFromISOString = t1
@@ -161,7 +163,8 @@ context('TemporalEntity', () => {
             "type": "*",
             "version": "*",
           },
-          "value": { "a": 10 }
+          "value": { "a": 10 },
+          warnings: [],
         })
 
         const options = {

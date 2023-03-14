@@ -38,7 +38,7 @@ export async function encodeAndFetch(url, options, stub, state) {
 export async function encodeFetchAndDecode(url, options, stub, state) {  // TODO: use FetchProcessor instead of directly decoding
   const response = await encodeAndFetch(url, options, stub, state)
   const ab = await response.arrayBuffer()
-  if (ab) {
+  if (ab && ab.byteLength > 0) {
     const u8a = new Uint8Array(ab)
     const o = decode(u8a)
     response.CBOR_SC = o
