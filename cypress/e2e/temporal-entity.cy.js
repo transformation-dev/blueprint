@@ -224,7 +224,7 @@ context('TemporalEntity', () => {
     })
   })
 
-  it('should fail with 428 on a PUT after POST without an If-Match header (the second fetch() below)', () => {
+  it('should fail with 428 on a PUT after POST without an If-Unmodified-Since header (the second fetch() below)', () => {
     const options = {
       method: 'POST',
       body: {
@@ -248,7 +248,7 @@ context('TemporalEntity', () => {
       }
       
       const response2 = await encodeFetchAndDecode(`/api/do/*/*/${idString}`, options4)
-      expect(response2.status, '2nd PUT with missing If-Match').to.eq(428)
+      expect(response2.status, '2nd PUT with missing If-Unmodified-Since').to.eq(428)
       const o2 = response2.CBOR_SC
       expect(response2.headers.get('Status-Text')).to.eq(o2.error.message)
       expect(o2.value).to.deep.eq({ c: 100 })
