@@ -60,12 +60,6 @@ TODO: Refactor so all methods use destructuring on options/body for parameters
 export class TreeBase  {
   // using base class constructor
 
-  // TODO: upgrade TemporalEntityBase to move all state saving to a save() method like we do here in TreeBase
-  //       override base class hydrate() and save() method
-  //       save() will save this.entityMeta.nodeCount, this.nodes, and this.edges to storage
-  //       hydrate() will restore those and generate this.reverseEdges
-  //       maybe we can live with the parent class way of saving/hydrating entityMeta
-
   // TODO: upgrade VersioningTransactionalDOWrapper to not always eject from memory on errors. Not sure how to decide.
 
   // <NodeStub> = {
@@ -260,9 +254,9 @@ export class TreeBase  {
     return this.save()
   }
 
-  async hardDeleteDO(idString) {  // TODO: Move this to cloudflare-do-utils
+  async hardDeleteDO(idString) {  // TODO: Move this to cloudflare-do-utils if we can make it generic enough
     debug('hardDeleteDO() called. idString: %s', idString)
-    throwIf(idString == null, 'Required parameter, idString missing from call to hardDeleteDO()')
+    throwIf(idString == null, 'Required parameter, idString, missing from call to hardDeleteDO()')
     const options = {
       method: 'DELETE',
     }

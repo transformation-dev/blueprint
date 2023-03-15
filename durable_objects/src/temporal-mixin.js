@@ -28,13 +28,13 @@ export const temporalMixin = {
     return { validFrom: newValidFrom, validFromDate }
   },
 
-  async GET(request) {  // TODO: Only accept canonical ISOString format for If-Modified-Since
+  async GET(request) {
     try {
       throwIfAcceptHeaderInvalid(request)
       const ifModifiedSince = request.headers.get('If-Modified-Since')
       const url = new URL(request.url)
       const asOf = url.searchParams.get('asOf')
-      const asOfISOString = asOf ? new Date(asOf).toISOString() : undefined
+      const asOfISOString = asOf ? new Date(asOf).toISOString() : undefined  // TODO: Maybe we should require ISO-8601 format?
       const [response, status] = await this.get({ ifModifiedSince, asOfISOString })
       if (status === 304) return this.getStatusOnlyResponse(304)
       return this.getResponse(response)

@@ -38,8 +38,6 @@ const debug = getDebug('blueprint:temporal-entity')
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO A0: Refactor to support the conventions we adopted in TreeBase like save() and updateMetaAndSave()
-
 // TODO A: Refactor so all methods use destructuring on options/body for parameters
 
 // TODO A: Create People DO. A Person is a just a TemporalEntity but the People DO is not temporal. It'll store the list of people
@@ -651,6 +649,12 @@ export class TemporalEntityBase {
 
   async get(options) {  // TODO: Accept asOfISOString
     const { statusToReturn = 200, ifModifiedSince, asOfISOString } = options ?? {}
+    throwIf(
+      ifModifiedSince != null && !dateISOStringRegex.test(ifModifiedSince),
+      'If-Modified-Since must be in YYYY:MM:DDTHH:MM:SS.mmmZ format because we need millisecond granularity',
+      400,
+      this.current,
+    )
     await this.hydrate()
     throwIf(this.current?.meta?.deleted, 'GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true', 404)
     if (this.entityMeta.timeline.at(-1) <= ifModifiedSince) return [undefined, 304]
