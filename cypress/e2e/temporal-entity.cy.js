@@ -103,14 +103,10 @@ context('TemporalEntity', () => {
       const o = response.CBOR_SC
       expect(o.idString).to.be.a('string')
       expect(o.meta.validFrom).to.be.a('string')
-      expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
 
       const idString = o.idString
       const t1 = o.meta.validFrom
-      const eTag1 = o.meta.eTag
       delete o.meta.validFrom
-      delete o.meta.eTag
-      console.log('o: %O', o)
       expect(o).to.deep.eq({
         "idString": idString,
         "meta": {
@@ -138,20 +134,17 @@ context('TemporalEntity', () => {
           impersonatorID: 'impersonator1',
         },
         headers: {
-          'If-Match': eTag1,
+          'If-Unmodified-Since': lastValidFromISOString,
         },
       }
 
       cy.wrap(null).then(async () => {
         const response = await encodeFetchAndDecode(`/api/do/*/*/${idString}`, options2)
+        console.log('response.CBOR_SC: %O', response.CBOR_SC)
         expect(response.status).to.eq(200)
 
         const o = response.CBOR_SC
 
-        expect(response.headers.get('ETag')).to.eq(o.meta.eTag)
-
-        const eTag2 = o.meta.eTag
-        delete o.meta.eTag
         expect(o).to.deep.eq({
           "idString": idString,
           "meta": {
@@ -280,11 +273,8 @@ context('TemporalEntity', () => {
     cy.wrap(null).then(async () => {
       const response = await encodeFetchAndDecode(`/api/do/*/*`, options)
       expect(response.status, '1st call to fetch() to set date far into future').to.eq(201)
-      const eTagFromHeaders = response.headers.get('ETag')
       const o5 = response.CBOR_SC
       const idString = o5.idString
-      const eTagFromMeta = o5.meta.eTag
-      expect(eTagFromHeaders).to.eq(eTagFromMeta)
 
       const options4 = {
         method: 'PUT',
@@ -293,13 +283,13 @@ context('TemporalEntity', () => {
           userID: '2',
         },
         headers: {
-          'If-Match': eTagFromHeaders,
+          'If-Unmodified-Since': o5.meta.validFrom,
         },
       }
 
       const response2 = await encodeFetchAndDecode(`/api/do/*/*/${idString}`, options4)
-      expect(response2.status, '2nd call to fetch() to confirm validFrom is 1ms later').to.eq(200)
       const o = response2.CBOR_SC
+      expect(response2.status, '2nd call to fetch() to confirm validFrom is 1ms later').to.eq(200)
       expect(o.meta.validFrom).to.eq(newValidFromISOString)
     })
   })

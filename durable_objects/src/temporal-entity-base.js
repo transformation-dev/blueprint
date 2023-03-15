@@ -554,8 +554,8 @@ export class TemporalEntityBase {
       throwIfMediaTypeHeaderInvalid(request)
       throwUnless(this.idString, 'Cannot PUT when there is no prior value')
       const options = await extractBody(request)
-      const ifModifiedSince = request.headers.get('If-Modified-Since')
-      const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, ifModifiedSince)
+      const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
+      const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
       return this.getResponse(current, this.nextStatus)
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate
@@ -638,8 +638,8 @@ export class TemporalEntityBase {
     try {
       throwIfMediaTypeHeaderInvalid(request)
       const options = await extractBody(request)
-      const ifModifiedSince = request.headers.get('If-Modified-Since')
-      const current = await this.patch(options, ifModifiedSince)
+      const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
+      const current = await this.patch(options, ifUnmodifiedSince)
       return this.getResponse(current)
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate
