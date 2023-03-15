@@ -24,10 +24,9 @@ export class FetchProcessor {
     }
   }
 
-  response(body, status = 200, statusText = undefined, eTag = undefined) {
+  response(body, status = 200, statusText = undefined) {
     const headers = new Headers()
     headers.set('Content-ID', this.idString)
-    if (eTag != null) headers.set('ETag', eTag)
     if (statusText != null) {
       const cleanedStatusText = statusText.replaceAll('\n', ' ')  // newlines are not allowed in HTTP headers
       headers.set('Status-Text', cleanedStatusText)  // HTTP/2 requires Status-Text match the status, but this seems to work for now in Cloudflare TODO: Test this

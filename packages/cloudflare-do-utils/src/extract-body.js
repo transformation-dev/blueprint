@@ -7,6 +7,7 @@ import { HTTPError } from './http-error.js'
 async function deserializeCBOR(request) {  // TODO: Take a contentType argument
   try {
     const ab = await request.arrayBuffer()
+    if (ab.byteLength === 0) return null
     const u8a = new Uint8Array(ab)
     const o = decode(u8a)
     return o

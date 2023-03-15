@@ -5,16 +5,14 @@
 import { describe, it, expect, assert } from 'vitest'
 
 // monorepo imports
-import { getStateMock, getEnvMock, initFetchPolyfill } from '@transformation-dev/cloudflare-do-testing-utils'  // TODO: Remove all of this here and in the package because we don't need it with miniflare vitest integration
+import { getStateMock, getEnvMock } from '@transformation-dev/cloudflare-do-testing-utils'  // TODO: Remove all of this here and in the package because we don't need it with miniflare vitest integration
 
 // local imports
-// import { TemporalEntity } from '../index.mjs'
 import { TemporalEntity } from '../src/index.js'
 
 // initialize imports
 // const env = getEnvMock()  // defaults to DEBUG: 'blueprint:*'. call with getEnvMock({ DEBUG: 'something:*' }) to change debug scope filter
 const env = getEnvMock({})
-// initFetchPolyfill()
 
 let lastValidFrom
 
@@ -394,7 +392,7 @@ describe('deep object put and patch', async () => {
   })
 })
 
-describe('304 behaviore for get and getEntityMeta', async () => {
+describe('304 behavior for get and getEntityMeta', async () => {
   it('should return 304 status code and no body with correct ifModifiedSince', async () => {
     const state = getStateMock()
     const te = new TemporalEntity(state, env, '*', '*', 'testIDString')

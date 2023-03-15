@@ -5,14 +5,13 @@
 import { describe, it, expect, assert } from 'vitest'
 
 // monorepo imports
-import { encodeFetchAndDecode, addCryptoToEnv } from '@transformation-dev/cloudflare-do-testing-utils'
+import { encodeFetchAndDecode } from '@transformation-dev/cloudflare-do-testing-utils'
 
 // local imports
 import { DurableAPI } from '../src/index.js'
 
 // const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks
 const env = getMiniflareBindings()
-await addCryptoToEnv(env)
 // env.DEBUG = 'blueprint:*'
 // env.DEBUG = 'blueprint:tree'
 env.DEBUG = 'nothing'
@@ -26,7 +25,7 @@ describe('A series of Tree operations', async () => {
   } else {
     const id = env.DO_API.newUniqueId()
     state = await getMiniflareDurableObjectState(id)
-    // stub = await env.DO_API.get(id)  // this is how Cloudflare suggests but doing it the way below allows vitest --coverage to work
+    // stub = await env.DO_API.get(id)  // this is how Cloudflare suggests getting the stub. However, doing it the way below allows vitest --coverage to work
     stub = new DurableAPI(state, env, id.toString())
   }
   const coreUrl = `${baseUrl}/tree/v1`

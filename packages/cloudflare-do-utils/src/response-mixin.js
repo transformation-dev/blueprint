@@ -7,8 +7,6 @@ export const responseMixin = {
   getResponse(body, status = 200, statusText = undefined, contentType = 'application/cbor-sc') {
     const headers = new Headers()
     headers.set('Content-ID', this.idString)
-    if (this.current?.meta?.eTag) headers.set('ETag', this.current.meta.eTag)  // for TemportalEntity
-    if (this.treeMeta?.eTag) headers.set('ETag', this.treeMeta.eTag)  // for Tree
     if (statusText) {
       const cleanedStatusText = statusText.replaceAll('\n', ' ')
       headers.set('Status-Text', cleanedStatusText)
