@@ -381,6 +381,7 @@ export class TemporalEntityBase {
   async fetch(request, urlString) {  // urlString is only used when called in composition by another durable object sharing state and env
     debug('%s %s', request.method, urlString || request.url)
     this.nextStatus = undefined  // TODO: maybe find a way to do this in the lower methods like we do in GET expecting [value, status] from get
+    this.warnings = []
     try {
       let pathArray
       if (urlString != null) {
@@ -414,7 +415,7 @@ export class TemporalEntityBase {
 
       switch (restOfPath) {
         case '/':
-          if (this[request.method] != null) return this[request.method](request)
+          if (this[request.method] != null) return await this[request.method](request)
           return throwIf(true, `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
 
         case '/ticks':
@@ -424,7 +425,7 @@ export class TemporalEntityBase {
 
         case '/entity-meta':  // This doesn't require type or version but this.hydrate does and this needs this.hydrate
           throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
-          return this.GETEntityMeta(request)
+          return await this.GETEntityMeta(request)
 
         default:
           throwIf(true, `Unrecognized URL ${request.url}`, 404)
@@ -454,15 +455,10 @@ export class TemporalEntityBase {
   }
 
   async DELETE(request) {
-    try {
-      throwIfContentTypeHeaderInvalid(request)
-      const options = await extractBody(request)
-      const status = await this.delete(options.userID, options.validFrom, options.impersonatorID)
-      return this.getStatusOnlyResponse(status)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)
-    }
+    throwIfContentTypeHeaderInvalid(request)
+    const options = await extractBody(request)
+    const status = await this.delete(options.userID, options.validFrom, options.impersonatorID)
+    return this.getStatusOnlyResponse(status)
   }
 
   async put(value, userID, validFrom, impersonatorID, ifUnmodifiedSince) {
@@ -550,17 +546,12 @@ export class TemporalEntityBase {
   }
 
   async PUT(request) {
-    try {
-      throwIfMediaTypeHeaderInvalid(request)
-      throwUnless(this.idString, 'Cannot PUT when there is no prior value')
-      const options = await extractBody(request)
-      const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
-      const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
-      return this.getResponse(current, this.nextStatus)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)
-    }
+    throwIfMediaTypeHeaderInvalid(request)
+    throwUnless(this.idString, 'Cannot PUT when there is no prior value')
+    const options = await extractBody(request)
+    const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
+    const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
+    return this.getResponse(current, this.nextStatus)
   }
 
   async POST(request) {  // I originally wrote PUT as an UPSERT but it's better to have a separate POST

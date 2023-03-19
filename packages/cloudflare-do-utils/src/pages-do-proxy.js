@@ -24,7 +24,6 @@ export function pagesDOProxy(doNameString) {
     if (idString != null) {
       id = env[doNameString].idFromString(idString)
     } else {
-      // id = ['production', 'preview'].includes(env.CF_ENV) ? env[doNameString].newUniqueId() : env[doNameString].idFromName(crypto.randomUUID()) // TODO: newUniqueId() fails in `wrangler pages dev` maybe because I'm using old miniflare/wrangler
       id = env[doNameString].newUniqueId()
     }
 

@@ -5,7 +5,7 @@
 // monorepo imports
 import {
   responseMixin, throwIf, throwUnless, isIDString, throwIfMediaTypeHeaderInvalid,
-  throwIfAcceptHeaderInvalid, extractBody, getDebug, Debug, FetchProcessor, dateISOStringRegex,
+  throwIfAcceptHeaderInvalid, extractBody, getDebug, Debug, dateISOStringRegex, contentProcessors,
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
@@ -20,7 +20,7 @@ const DEFAULT_HEADERS = {
   'Content-Type': DEFAULT_CONTENT_TYPE,
   Accept: DEFAULT_CONTENT_TYPE,
 }
-const { serialize, deserialize } = FetchProcessor.contentTypes[DEFAULT_CONTENT_TYPE]
+const { serialize, deserialize } = contentProcessors[DEFAULT_CONTENT_TYPE]  // TODO: Don't use these directly. Rather use the exported functions: requestIn, responseOut, etc.
 
 /*
 
@@ -87,6 +87,8 @@ export class TreeBase  {
 
     this.hydrated = false  // using this.hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.hydrate.bind(this))
   }
+
+  // Utilities
 
   async hydrate() {
     debug('hydrate() called. this.hydrated: %O', this.hydrated)
@@ -193,43 +195,6 @@ export class TreeBase  {
     return response
   }
 
-  async fetch(request) {
-    debug('fetch() called with %s %s', request.method, request.url)
-    try {
-      const url = new URL(request.url)
-      const pathArray = url.pathname.split('/').filter((s) => s !== '')
-
-      const type = pathArray.shift()
-      throwUnless(type === 'tree', `Unrecognized type ${type}`, 404)
-
-      const version = pathArray.shift()
-      throwUnless(version === 'v1', `Unrecognized version ${version}`, 404)
-
-      if (isIDString(pathArray[0])) {
-        this.idString = pathArray.shift()  // remove the ID
-      } else {
-        this.idString = this.state?.id?.toString()
-      }
-
-      const restOfPath = `/${pathArray.join('/')}`
-      switch (restOfPath) {
-        case '/':
-          if (this[request.method] != null) return this[request.method](request)
-          return throwIf(true, `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
-
-        case '/entity-meta':  // This doesn't require type or version but this.hydrate may in the future and this calls this.hydrate
-          throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
-          return this.GETEntityMeta(request)
-
-        default:
-          return throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
-      }
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate  TODO: Don't always do this
-      return this.getErrorResponse(e)
-    }
-  }
-
   async save() {  // TODO: Upgrade this to support a large number of nodes once we have a customer getting close to that limit. Determine the limit now with testing.
     debug('save() called')
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
@@ -289,6 +254,115 @@ export class TreeBase  {
     return true
   }
 
+  static separateTreeAndDeleted(
+    nodes,
+    edges,
+    idNumString = '0',
+    tree = {},
+    alreadyVisited = {},
+    deleted = { id: 'deleted', label: 'Deleted' },
+    inDeletedBranch = false,
+  ) {
+    const node = nodes[idNumString]
+    if (!inDeletedBranch) delete nodes[idNumString]  // Checking inDeletedBranch here assures that descendants of deleted nodes that aren't also descendants of an undeleted node will show up in orphaned
+    tree.id = node.nodeIDString
+    tree.label = node.label
+    const childrenArrayOfNumStrings = edges[idNumString]
+    if (childrenArrayOfNumStrings != null && childrenArrayOfNumStrings.length > 0) {
+      for (const childIdString of childrenArrayOfNumStrings) {
+        if (alreadyVisited[childIdString] != null) {
+          if (alreadyVisited[childIdString].deleted) {
+            deleted.children ??= []
+            deleted.children.push(alreadyVisited[childIdString])
+          } else {
+            tree.children ??= []
+            tree.children.push(alreadyVisited[childIdString])
+          }
+        } else {
+          const newNode = {}
+          if (nodes[childIdString]?.deleted) {
+            deleted.children ??= []
+            deleted.children.push(newNode)
+            inDeletedBranch = true
+          } else {
+            tree.children ??= []
+            tree.children.push(newNode)
+          }
+          alreadyVisited[childIdString] = newNode
+          this.separateTreeAndDeleted(nodes, edges, childIdString, newNode, alreadyVisited, deleted, inDeletedBranch)
+        }
+      }
+    }
+    return { tree, deleted }
+  }
+
+  async deriveTree() {
+    await this.hydrate()
+
+    if (this.tree != null) return
+
+    const nodesCopy = structuredClone(this.nodes)
+    const { tree, deleted } = this.constructor.separateTreeAndDeleted(nodesCopy, this.edges)
+    // populate orphaned from nodesCopy that is mutated by separateTreeDeletedAndOrphaned and attach to tree if not empty
+    const nodesCopyKeys = Object.keys(nodesCopy)
+    if (nodesCopyKeys.length > 0) {
+      const orphaned = { id: 'orphaned', label: 'Orphaned' }
+      // TODO: loop through nodesIndexKeys and add to orphaned
+
+      tree.children ??= []
+      tree.children.push(orphaned)
+    }
+    // attach deleted and orphaned to tree under the root node
+    if (deleted.children?.length > 0) {
+      tree.children ??= []
+      tree.children.push(deleted)
+    }
+    this.tree = tree
+  }
+
+  // Fetch
+
+  async fetch(request) {
+    debug('fetch() called with %s %s', request.method, request.url)
+    this.warnings = []
+    try {
+      const url = new URL(request.url)
+      const pathArray = url.pathname.split('/').filter((s) => s !== '')
+
+      const type = pathArray.shift()
+      throwUnless(type === 'tree', `Unrecognized type ${type}`, 404)
+
+      const version = pathArray.shift()
+      throwUnless(version === 'v1', `Unrecognized version ${version}`, 404)
+
+      if (isIDString(pathArray[0])) {
+        this.idString = pathArray.shift()  // remove the ID
+      } else {
+        this.idString = this.state?.id?.toString()
+      }
+
+      const restOfPath = `/${pathArray.join('/')}`
+      switch (restOfPath) {
+        case '/':
+          if (this[request.method] != null) return await this[request.method](request)
+          return throwIf(true, `Unrecognized HTTP method ${request.method} for ${url.pathname}`, 405)
+
+        case '/entity-meta':  // This doesn't require type or version but this.hydrate may in the future and this calls this.hydrate
+          throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
+          return await this.GETEntityMeta(request)
+
+        default:
+          return throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
+      }
+    } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate  TODO: Don't always do this
+      this.invalidateDerived()
+      return this.getErrorResponse(e)
+    }
+  }
+
+  // Handlers
+
   async post({ rootNodeValue, userID, validFrom, impersonatorID }) {
     throwIf(rootNodeValue == null, 'valid body.rootNodeValue is required when Tree is created')
     throwUnless(userID, 'userID required by Tree operation is missing')
@@ -324,15 +398,10 @@ export class TreeBase  {
   }
 
   async POST(request) {
-    try {
-      throwIfMediaTypeHeaderInvalid(request)
-      const options = await extractBody(request)
-      const [responseBody, status] = await this.post(options)
-      return this.getResponse(responseBody, status)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)
-    }
+    throwIfMediaTypeHeaderInvalid(request)
+    const options = await extractBody(request)
+    const [responseBody, status] = await this.post(options)
+    return this.getResponse(responseBody, status)
   }
 
   async patchAddNode({ addNode, userID, validFrom, impersonatorID }) {
@@ -429,8 +498,6 @@ export class TreeBase  {
       return this.get()
     }
 
-    await this.throwIfIDInAncestry(parent, child)
-
     this.invalidateDerived()
 
     validFrom = this.calculateValidFrom(validFrom).validFrom
@@ -504,81 +571,10 @@ export class TreeBase  {
   }
 
   async PATCH(request) {
-    try {
-      throwIfMediaTypeHeaderInvalid(request)
-      const options = await extractBody(request)
-      const [treeMeta, status] = await this.patch(options)
-      return this.getResponse(treeMeta, status)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)
-    }
-  }
-
-  static separateTreeAndDeleted(
-    nodes,
-    edges,
-    idNumString = '0',
-    tree = {},
-    alreadyVisited = {},
-    deleted = { id: 'deleted', label: 'Deleted' },
-    inDeletedBranch = false,
-  ) {
-    const node = nodes[idNumString]
-    if (!inDeletedBranch) delete nodes[idNumString]  // Checking inDeletedBranch here assures that descendants of deleted nodes that aren't also descendants of an undeleted node will show up in orphaned
-    tree.id = node.nodeIDString
-    tree.label = node.label
-    const childrenArrayOfNumStrings = edges[idNumString]
-    if (childrenArrayOfNumStrings != null && childrenArrayOfNumStrings.length > 0) {
-      for (const childIdString of childrenArrayOfNumStrings) {
-        if (alreadyVisited[childIdString] != null) {
-          if (alreadyVisited[childIdString].deleted) {
-            deleted.children ??= []
-            deleted.children.push(alreadyVisited[childIdString])
-          } else {
-            tree.children ??= []
-            tree.children.push(alreadyVisited[childIdString])
-          }
-        } else {
-          const newNode = {}
-          if (nodes[childIdString]?.deleted) {
-            deleted.children ??= []
-            deleted.children.push(newNode)
-            inDeletedBranch = true
-          } else {
-            tree.children ??= []
-            tree.children.push(newNode)
-          }
-          alreadyVisited[childIdString] = newNode
-          this.separateTreeAndDeleted(nodes, edges, childIdString, newNode, alreadyVisited, deleted, inDeletedBranch)
-        }
-      }
-    }
-    return { tree, deleted }
-  }
-
-  async deriveTree() {
-    await this.hydrate()
-
-    if (this.tree != null) return
-
-    const nodesCopy = structuredClone(this.nodes)
-    const { tree, deleted } = this.constructor.separateTreeAndDeleted(nodesCopy, this.edges)
-    // populate orphaned from nodesCopy that is mutated by separateTreeDeletedAndOrphaned and attach to tree if not empty
-    const nodesCopyKeys = Object.keys(nodesCopy)
-    if (nodesCopyKeys.length > 0) {
-      const orphaned = { id: 'orphaned', label: 'Orphaned' }
-      // TODO: loop through nodesIndexKeys and add to orphaned
-
-      tree.children ??= []
-      tree.children.push(orphaned)
-    }
-    // attach deleted and orphaned to tree under the root node
-    if (deleted.children?.length > 0) {
-      tree.children ??= []
-      tree.children.push(deleted)
-    }
-    this.tree = tree
+    throwIfMediaTypeHeaderInvalid(request)
+    const options = await extractBody(request)
+    const [responseBody, status] = await this.patch(options)
+    return this.getResponse(responseBody, status)
   }
 
   async get(options) {  // TODO: Accept asOfISOString
@@ -593,7 +589,6 @@ export class TreeBase  {
     if (this.entityMeta.timeline.at(-1) <= ifModifiedSince) return [undefined, 304]
     await this.deriveTree()
     const result = {
-      // entityMeta: this.entityMeta,
       current: {
         meta: this.current.meta,
         tree: this.tree,

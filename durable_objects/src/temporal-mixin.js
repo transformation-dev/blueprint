@@ -29,19 +29,14 @@ export const temporalMixin = {
   },
 
   async GET(request) {
-    try {
-      throwIfAcceptHeaderInvalid(request)
-      const ifModifiedSince = request.headers.get('If-Modified-Since')
-      const url = new URL(request.url)
-      const asOf = url.searchParams.get('asOf')
-      const asOfISOString = asOf ? new Date(asOf).toISOString() : undefined  // TODO: Maybe we should require ISO-8601 format?
-      const [response, status] = await this.get({ ifModifiedSince, asOfISOString })
-      if (status === 304) return this.getStatusOnlyResponse(304)
-      return this.getResponse(response)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)
-    }
+    throwIfAcceptHeaderInvalid(request)
+    const ifModifiedSince = request.headers.get('If-Modified-Since')
+    const url = new URL(request.url)
+    const asOf = url.searchParams.get('asOf')
+    const asOfISOString = asOf ? new Date(asOf).toISOString() : undefined  // TODO: Maybe we should require ISO-8601 format?
+    const [response, status] = await this.get({ ifModifiedSince, asOfISOString })
+    if (status === 304) return this.getStatusOnlyResponse(304)
+    return this.getResponse(response)
   },
 
   async getEntityMeta(ifModifiedSince) {
@@ -57,15 +52,10 @@ export const temporalMixin = {
   },
 
   async GETEntityMeta(request) {
-    try {
-      throwIfAcceptHeaderInvalid(request)
-      const ifModifiedSince = request.headers.get('If-Modified-Since')
-      const [entityMeta, status] = await this.getEntityMeta(ifModifiedSince)
-      if (status === 304) return this.getStatusOnlyResponse(304)
-      return this.getResponse(entityMeta, status)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)
-    }
+    throwIfAcceptHeaderInvalid(request)
+    const ifModifiedSince = request.headers.get('If-Modified-Since')
+    const [entityMeta, status] = await this.getEntityMeta(ifModifiedSince)
+    if (status === 304) return this.getStatusOnlyResponse(304)
+    return this.getResponse(entityMeta, status)
   },
 }
