@@ -1,7 +1,7 @@
 // TODO: Add an option for stripping out the id from the url
 
 // local imports
-import { extractBody } from './extract-body.js'
+import { responseIn } from './content-processor.js'
 import { getDebug, Debug } from './debug.js'
 import { findFirstID } from './id-string.js'
 
@@ -42,7 +42,8 @@ export function pagesDOProxy(doNameString) {
     const response = await entityStub.fetch(url, request)
     if (response.status >= 400) {
       debug(`${doNameString}.fetch() to %O failed with status: %O`, url, response.status)
-      const body = await extractBody(response, true)
+      const responseCloned = response.clone()
+      const { content: body } = await responseIn(responseCloned)
       debug('Error body:\n%O', body)
     }
     return response

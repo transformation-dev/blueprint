@@ -8,8 +8,8 @@ import { load as yamlLoad } from 'js-yaml'
 
 // monorepo imports
 import {
-  throwIf, throwUnless, isIDString, throwIfMediaTypeHeaderInvalid, throwIfContentTypeHeaderInvalid, throwIfNotDag,
-  throwIfAcceptHeaderInvalid, responseMixin, applyDelta, getDebug, Debug, extractBody, dateISOStringRegex,
+  throwIf, throwUnless, isIDString, throwIfNotDag,
+  applyDelta, getDebug, Debug, requestIn, dateISOStringRegex, errorResponseOut,
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
@@ -299,7 +299,6 @@ export class TemporalEntityBase {
     else if (idString != null) this.idString = idString.toString()
     else this.idString = undefined
 
-    Object.assign(this, responseMixin)
     Object.assign(this, temporalMixin)
 
     this.hydrated = false  // using this.hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.hydrate.bind(this))
@@ -421,7 +420,7 @@ export class TemporalEntityBase {
         case '/ticks':
           // Not yet implemented
           throwIf(true, '/ticks not implemented yet', 404)
-          return this.getStatusOnlyResponse(500)  // this just here temporarily because every case needs to end with a break or return
+          return this.doResponseOut(undefined, 500)  // this just here temporarily because every case needs to end with a break or return
 
         case '/entity-meta':  // This doesn't require type or version but this.hydrate does and this needs this.hydrate
           throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
@@ -432,7 +431,7 @@ export class TemporalEntityBase {
       }
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)
+      return errorResponseOut(e, this.env, this.idString)
     }
   }
 
@@ -455,10 +454,9 @@ export class TemporalEntityBase {
   }
 
   async DELETE(request) {
-    throwIfContentTypeHeaderInvalid(request)
-    const options = await extractBody(request)
+    const { content: options } = await requestIn(request)
     const status = await this.delete(options.userID, options.validFrom, options.impersonatorID)
-    return this.getStatusOnlyResponse(status)
+    return this.doResponseOut(undefined, status)
   }
 
   async put(value, userID, validFrom, impersonatorID, ifUnmodifiedSince) {
@@ -546,12 +544,11 @@ export class TemporalEntityBase {
   }
 
   async PUT(request) {
-    throwIfMediaTypeHeaderInvalid(request)
     throwUnless(this.idString, 'Cannot PUT when there is no prior value')
-    const options = await extractBody(request)
+    const { content: options } = await requestIn(request)
     const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
     const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
-    return this.getResponse(current, this.nextStatus)
+    return this.doResponseOut(current, this.nextStatus)
   }
 
   async POST(request) {  // I originally wrote PUT as an UPSERT but it's better to have a separate POST
@@ -627,14 +624,13 @@ export class TemporalEntityBase {
 
   async PATCH(request) {
     try {
-      throwIfMediaTypeHeaderInvalid(request)
-      const options = await extractBody(request)
+      const { content: options } = await requestIn(request)
       const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
       const current = await this.patch(options, ifUnmodifiedSince)
-      return this.getResponse(current)
+      return this.doResponseOut(current)
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return this.getErrorResponse(e)  // TODO: add e2e test for the body of the response
+      return errorResponseOut(e, this.env, this.idString)  // TODO: add e2e test for the body of the response
     }
   }
 

@@ -1,5 +1,5 @@
 // mono-repo imports
-import { responseMixin, HTTPError } from '@transformation-dev/cloudflare-do-utils'
+import { HTTPError, responseOut } from '@transformation-dev/cloudflare-do-utils'
 
 export class Experimenter {
   async hydrate() {
@@ -15,8 +15,6 @@ export class Experimenter {
 
     this.idString = this.state.id.toString()
     this.hydrated = false
-
-    Object.assign(this, responseMixin)
   }
 
   async fetch(request) {
@@ -25,7 +23,7 @@ export class Experimenter {
         await this.hydrate()
         const value = await this.state.storage.get('value')
         const twiceValue = await this.state.storage.get('twiceValue')
-        return this.getResponse({ value, twiceValue, valueInMemory: this.value, twiceValueInMemory: this.twiceValue })
+        return responseOut({ value, twiceValue, valueInMemory: this.value, twiceValueInMemory: this.twiceValue })
       }
       case 'POST': {
         this.value = Math.random()
@@ -34,7 +32,7 @@ export class Experimenter {
         if (Math.random() < 0.25) return this.getErrorResponse(new HTTPError('Random error response', 400))
         await this.state.storage.put('twiceValue', this.value * 2)
         this.twiceValue = this.value * 2
-        return this.getResponse({ value: this.value, twiceValue: this.twiceValue })
+        return responseOut({ value: this.value, twiceValue: this.twiceValue })
       }
       default:
         return new Response('Not found', { status: 404 })

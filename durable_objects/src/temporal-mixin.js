@@ -1,4 +1,4 @@
-import { throwIfAcceptHeaderInvalid, throwIf, dateISOStringRegex } from '@transformation-dev/cloudflare-do-utils'
+import { throwIf, dateISOStringRegex, responseOut } from '@transformation-dev/cloudflare-do-utils'
 
 // These are methods that are common to all TemporalEntities including Tree
 // This assumes that this.entityMeta is defined and it has a timeline property. Note, it can have other properties as well.
@@ -29,14 +29,13 @@ export const temporalMixin = {
   },
 
   async GET(request) {
-    throwIfAcceptHeaderInvalid(request)
     const ifModifiedSince = request.headers.get('If-Modified-Since')
     const url = new URL(request.url)
     const asOf = url.searchParams.get('asOf')
     const asOfISOString = asOf ? new Date(asOf).toISOString() : undefined  // TODO: Maybe we should require ISO-8601 format?
     const [response, status] = await this.get({ ifModifiedSince, asOfISOString })
-    if (status === 304) return this.getStatusOnlyResponse(304)
-    return this.getResponse(response)
+    if (status === 304) return responseOut(undefined, 304)
+    return responseOut(response)
   },
 
   async getEntityMeta(ifModifiedSince) {
@@ -52,10 +51,21 @@ export const temporalMixin = {
   },
 
   async GETEntityMeta(request) {
-    throwIfAcceptHeaderInvalid(request)
     const ifModifiedSince = request.headers.get('If-Modified-Since')
     const [entityMeta, status] = await this.getEntityMeta(ifModifiedSince)
     if (status === 304) return this.getStatusOnlyResponse(304)
-    return this.getResponse(entityMeta, status)
+    return responseOut(entityMeta, status)
+  },
+
+  async doResponseOut(body, status = 200, statusText = undefined) {
+    const headers = new Headers()
+    headers.set('Content-ID', this.idString)
+    if (statusText) {
+      const cleanedStatusText = statusText.replaceAll('\n', ' ')
+      headers.set('Status-Text', cleanedStatusText)
+    }
+    // eslint-disable-next-line no-param-reassign
+    body.idString = this.idString
+    return responseOut(body, status, undefined, headers)
   },
 }

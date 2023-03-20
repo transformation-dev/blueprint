@@ -1,7 +1,6 @@
 // TODO: Merge the types from VersioningTransactionDOWrapper and TemporalEntityBase
 
 // local imports
-import * as responseMixin from './response-mixin.js'
 import { getDebug, Debug } from './debug.js'
 
 // initialize imports
@@ -26,8 +25,6 @@ export class VersioningTransactionalDOWrapperBase {
 
     this.hydrated = false
     this.classInstance = null
-
-    Object.assign(this, responseMixin)
   }
 
   async fetch(request) {

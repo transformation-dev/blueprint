@@ -5,7 +5,8 @@
 import { describe, it, expect, assert } from 'vitest'
 
 // monorepo imports
-import { encodeFetchAndDecode } from '@transformation-dev/cloudflare-do-testing-utils'
+// import { requestOutResponseIn } from '@transformation-dev/cloudflare-do-testing-utils'
+import { requestOutResponseIn } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
 import { DurableAPI } from '../src/index.js'
@@ -37,11 +38,11 @@ describe('A series of Tree operations', async () => {
       method: 'POST',
       body: { rootNodeValue, userID: 'userW' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
 
     // expects/asserts to always run
     expect(response.status).toBe(201)
-    const { current, idString } = response.CBOR_SC
+    const { current, idString } = response.content
     const { meta } = current
     expect(meta.validFrom).to.be.a('string')
     assert(meta.validFrom <= new Date().toISOString())
@@ -69,9 +70,9 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { addNode: { value, parent: '0' }, userID: 'userX' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current, idString } = response.CBOR_SC
+    const { current, idString } = response.content
     const { meta } = current
     if (process?.env?.VITEST_BASE_URL == null) {
       const storage = await state.storage.list()
@@ -93,9 +94,9 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { addNode: { value, parent: '999' }, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(404)
-    expect(response.CBOR_SC.error.message).toMatch('not found')
+    expect(response.content.error.message).toMatch('not found')
   })
 
   let lastValidFrom
@@ -106,9 +107,9 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { addNode: { value, parent: 1 }, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current, idString } = response.CBOR_SC
+    const { current, idString } = response.content
     const { meta } = current
     lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
@@ -134,9 +135,9 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { addBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(409)
-    const { error, idString } = response.CBOR_SC
+    const { error, idString } = response.content
     expect(response.status).toBe(409)
     expect(error.message).toMatch('Adding this branch would create a cycle')
     if (process?.env?.VITEST_BASE_URL == null) {
@@ -156,9 +157,9 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { addBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current, idString } = response.CBOR_SC
+    const { current, idString } = response.content
     const { meta } = current
     if (process?.env?.VITEST_BASE_URL == null) {
       const storage = await state.storage.list()
@@ -188,16 +189,16 @@ describe('A series of Tree operations', async () => {
   }
 
   it('should return the tree and meta with GET', async () => {
-    const response = await encodeFetchAndDecode(`${url}?asOf=${new Date().toISOString()}`, undefined, stub)
+    const response = await requestOutResponseIn(`${url}?asOf=${new Date().toISOString()}`, undefined, stub)
     expect(response.status).toBe(200)
-    expect(response.CBOR_SC.current.tree).toMatchObject(tree)
+    expect(response.content.current.tree).toMatchObject(tree)
     // this next line confirms that node2 is only transmitted once eventhough it shows up twice in the tree
-    expect(response.CBOR_SC.current.tree.children[0].children[0]).toBe(response.CBOR_SC.current.tree.children[1])
+    expect(response.content.current.tree.children[0].children[0]).toBe(response.content.current.tree.children[1])
   })
 
   it('should respond to GET entity-meta', async () => {
-    const response = await encodeFetchAndDecode(`${url}/entity-meta/`, undefined, stub)
-    const { timeline, nodeCount } = response.CBOR_SC
+    const response = await requestOutResponseIn(`${url}/entity-meta/`, undefined, stub)
+    const { timeline, nodeCount } = response.content
     expect(response.status).toBe(200)
     expect(timeline.length).toBe(4)
     expect(nodeCount).toBe(3)
@@ -212,9 +213,9 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { addBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current: { meta }, idString } = response.CBOR_SC
+    const { current: { meta }, idString } = response.content
     assert(meta.validFrom > lastValidFrom)
     lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
@@ -236,9 +237,9 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { deleteBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current: { meta }, idString } = response.CBOR_SC
+    const { current: { meta }, idString } = response.content
     assert(meta.validFrom > lastValidFrom)
     lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
@@ -260,9 +261,9 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { deleteBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current: { meta }, idString } = response.CBOR_SC
+    const { current: { meta }, idString } = response.content
     assert(meta.validFrom === lastValidFrom)
     lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
@@ -282,9 +283,9 @@ describe('A series of Tree operations', async () => {
       method: 'PATCH',
       body: { moveBranch, userID: 'userY' },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current: { meta }, idString } = response.CBOR_SC
+    const { current: { meta }, idString } = response.content
     assert(meta.validFrom > lastValidFrom)
     lastValidFrom = meta.validFrom
     if (process?.env?.VITEST_BASE_URL == null) {
@@ -301,7 +302,8 @@ describe('A series of Tree operations', async () => {
     const options = {
       headers: { 'If-Modified-Since': lastValidFrom },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
+    console.log('response: %O', response.content)
     expect(response.status).toBe(304)
   })
 
@@ -310,7 +312,7 @@ describe('A series of Tree operations', async () => {
     const options = {
       headers: { 'If-Modified-Since': ifModifiedSinceISOString },
     }
-    const response = await encodeFetchAndDecode(url, options, stub, state)
+    const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
   })
 

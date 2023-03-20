@@ -59,8 +59,10 @@ export async function requestOut(input, inputOptions) {
 }
 
 // returns a Response
-export async function responseOut(body, status = 200, contentType = DEFAULT_CONTENT_TYPE) {
-  const headers = new Headers()
+export async function responseOut(body, status = 200, contentType = DEFAULT_CONTENT_TYPE, additionalHeaders = undefined) {
+  let headers
+  if (additionalHeaders instanceof Headers) headers = additionalHeaders
+  else headers = new Headers()
   if (body != null) {
     headers.set('Content-Type', contentType)
     if (ArrayBuffer.isView(body)) {  // Assumes it's already been serialized regardless of contentType
@@ -74,10 +76,14 @@ export async function responseOut(body, status = 200, contentType = DEFAULT_CONT
   return new Response(undefined, { status, headers })
 }
 
-export function errorResponseOut(e) {
+export function errorResponseOut(e, env, idString) {
   const body = e.body ?? {}
   body.error = { message: e.message, status: e.status }
-  if (this.env?.CF_ENV !== 'production') body.error.stack = e.stack
+  if (env?.CF_ENV !== 'production') {
+    body.error.stack = e.body?.error?.stack ?? ''
+    body.error.stack += e.stack
+  }
+  body.idString = idString
   return responseOut(body, e.status ?? 500)
 }
 
@@ -175,7 +181,8 @@ async function deserializeCBOR(requestOrResponse) {
   const ab = await requestOrResponse.arrayBuffer()
   if (ab.byteLength === 0) return null
   const u8a = new Uint8Array(ab)
-  return decode(u8a)
+  const result = decode(u8a)
+  return result
 }
 const processorsCBOR = { serialize: serializeCBOR, deserialize: deserializeCBOR }
 // BodyProcessor.registerContentProcessors(['application/cbor', 'application/cbor-sc'], processorsCBOR)  // since cbor is first, it is the default

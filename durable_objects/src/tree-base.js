@@ -4,8 +4,8 @@
 
 // monorepo imports
 import {
-  responseMixin, throwIf, throwUnless, isIDString, throwIfMediaTypeHeaderInvalid,
-  throwIfAcceptHeaderInvalid, extractBody, getDebug, Debug, dateISOStringRegex, contentProcessors,
+  throwIf, throwUnless, isIDString, HTTPError,
+  requestIn, getDebug, Debug, dateISOStringRegex, errorResponseOut, requestOutResponseIn,
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
@@ -14,13 +14,6 @@ import { temporalMixin } from './temporal-mixin'
 
 // initialize imports
 const debug = getDebug('blueprint:tree')
-
-const DEFAULT_CONTENT_TYPE = 'application/cbor-sc'
-const DEFAULT_HEADERS = {
-  'Content-Type': DEFAULT_CONTENT_TYPE,
-  Accept: DEFAULT_CONTENT_TYPE,
-}
-const { serialize, deserialize } = contentProcessors[DEFAULT_CONTENT_TYPE]  // TODO: Don't use these directly. Rather use the exported functions: requestIn, responseOut, etc.
 
 /*
 
@@ -82,7 +75,6 @@ export class TreeBase  {
     else if (idString != null) this.idString = idString.toString()
     else this.idString = undefined
 
-    Object.assign(this, responseMixin)
     Object.assign(this, temporalMixin)
 
     this.hydrated = false  // using this.hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.hydrate.bind(this))
@@ -170,8 +162,6 @@ export class TreeBase  {
   }
 
   async callNodeDO(nodeType, nodeVersion, options, expectedResponseCode, idString) {
-    options.body = await serialize(options.body)
-    options.headers = { ...DEFAULT_HEADERS, ...options.headers }
     let id
     let url = `http://fake.host/${nodeType}/${nodeVersion}/`
     if (idString == null) {
@@ -181,16 +171,18 @@ export class TreeBase  {
       url += `${idString}/`
     }
     const entityStub = this.env[this.constructor.doNameString].get(id)
-    const response = await entityStub.fetch(url, options)  // TODO: Pass along the cookies
-    response.bodyObject = await deserialize(response)
-    if (expectedResponseCode != null) {
-      const { error } = response.bodyObject
-      throwIf(
-        response.status !== expectedResponseCode,
-        error?.message || `Unexpected response code ${response.status} from call to ${url}`,
-        response.status,
-        response.bodyObject,
-      )
+    const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
+    if (response.status !== expectedResponseCode) {
+      if (response.status >= 400) {
+        throw new HTTPError(response.content.error.message, response.status, response.content)
+      } else {
+        throwIf(
+          true,  // because we checked for expectedResponseCode above
+          `Unexpected response code ${response.status} from call to ${url}`,
+          response.status,
+          response.content,
+        )
+      }
     }
     return response
   }
@@ -225,19 +217,17 @@ export class TreeBase  {
     const options = {
       method: 'DELETE',
     }
-    options.headers = { Accept: DEFAULT_CONTENT_TYPE }
     const url = `http://fake.host/transactional-do-wrapper/${idString}`
     const id = this.env[this.constructor.doNameString].idFromString(idString)
     const entityStub = this.env[this.constructor.doNameString].get(id)
-    const response = await entityStub.fetch(url, options)  // TODO: Pass along the cookies
-    response.bodyObject = await deserialize(response)
+    const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
     if (response.status >= 400) {
-      const { error } = response.bodyObject
+      const { error } = response.content
       throwIf(
         true,
         error?.message || `Unexpected response code ${response.status} from call to ${url}`,
         response.status,
-        response.bodyObject,
+        response.content,
       )
     }
     return response
@@ -357,7 +347,7 @@ export class TreeBase  {
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate  TODO: Don't always do this
       this.invalidateDerived()
-      return this.getErrorResponse(e)
+      return errorResponseOut(e, this.env, this.idString)
     }
   }
 
@@ -384,13 +374,13 @@ export class TreeBase  {
     const lastValidFrom = this.entityMeta.timeline?.at(-1)
     // This next line is going to open the input gate, so we need an optimistic concurrency check. The above line is what we'll check against
     const response = await this.callNodeDO(this.constructor.rootNodeType, this.constructor.rootNodeVersion, options, 201)
-    await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.bodyObject.idString)
+    await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.content.idString)
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
-    validFrom = response.bodyObject.meta.validFrom  // in case it was changed by the Node DO
+    validFrom = response.content.meta.validFrom  // in case it was changed by the Node DO
     this.nodes = {}
     this.edges = {}
-    this.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
+    this.nodes[this.entityMeta.nodeCount] = { label: response.content.value.label, nodeIDString: response.content.idString }
 
     this.updateMetaAndSave(validFrom, userID, impersonatorID, true)
 
@@ -398,10 +388,10 @@ export class TreeBase  {
   }
 
   async POST(request) {
-    throwIfMediaTypeHeaderInvalid(request)
-    const options = await extractBody(request)
+    // throwIfMediaTypeHeaderInvalid(request)
+    const { content: options } = await requestIn(request)
     const [responseBody, status] = await this.post(options)
-    return this.getResponse(responseBody, status)
+    return this.doResponseOut(responseBody, status)
   }
 
   async patchAddNode({ addNode, userID, validFrom, impersonatorID }) {
@@ -427,11 +417,11 @@ export class TreeBase  {
     const lastValidFrom = this.entityMeta.timeline?.at(-1)
     // This next line is going to open the input gate, so we need an optimistic concurrency check. The above line is what we'll check against
     const response = await this.callNodeDO(this.constructor.nodeType, this.constructor.nodeVersion, options, 201)
-    await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.bodyObject.idString)
+    await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.content.idString)
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
-    validFrom = response.bodyObject.meta.validFrom  // in case it was changed by the Node DO
-    this.nodes[this.entityMeta.nodeCount] = { label: response.bodyObject.value.label, nodeIDString: response.bodyObject.idString }
+    validFrom = response.content.meta.validFrom  // in case it was changed by the Node DO
+    this.nodes[this.entityMeta.nodeCount] = { label: response.content.value.label, nodeIDString: response.content.idString }
     this.edges[parent] ??= []
     this.edges[parent].push(this.entityMeta.nodeCount.toString())
 
@@ -571,10 +561,9 @@ export class TreeBase  {
   }
 
   async PATCH(request) {
-    throwIfMediaTypeHeaderInvalid(request)
-    const options = await extractBody(request)
+    const { content: options } = await requestIn(request)
     const [responseBody, status] = await this.patch(options)
-    return this.getResponse(responseBody, status)
+    return this.doResponseOut(responseBody, status)
   }
 
   async get(options) {  // TODO: Accept asOfISOString
