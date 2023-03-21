@@ -166,7 +166,10 @@ async function deserializeText(requestOrResponse) {
   return requestOrResponse.text()
 }
 const processorsText = { serialize: serializeText, deserialize: deserializeText }
-registerContentProcessors(['text/plain; charset=UTF-8', 'text/plain'], processorsText)  // TODO: Confirm that there aren't other common content-types that are text
+registerContentProcessors(
+  ['text/plain; charset=UTF-8', 'text/html; charset=UTF-8', 'text/plain'],
+  processorsText,
+)  // TODO: Confirm that there aren't other common content-types that are text
 
 // TODO: Register text/yaml, application/yaml
 
