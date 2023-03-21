@@ -3,11 +3,7 @@ import { nanoid } from 'nanoid'  // TODO: Can we use webCrypto.UUID instead and 
 
 import { getDebug } from '@transformation-dev/cloudflare-do-utils'
 
-export const jsonResponse = (value) => new Response(JSON.stringify(value), {
-  headers: { 'Content-Type': 'application/json' },
-})
-
-const debug = getDebug('blueprint:_utils')
+const debug = getDebug('blueprint:_utils')  // TODO: Confirm that this works without calling Debug.enable()
 
 export const verifyCode = async ({ env, code, targetURL }) => {
   debug('_utils.verifyCode() called')

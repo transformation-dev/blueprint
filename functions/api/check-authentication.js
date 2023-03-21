@@ -1,6 +1,5 @@
 import Debug from 'debug'
-import { getDebug } from '@transformation-dev/cloudflare-do-utils'
-import { jsonResponse } from '../_utils'
+import { getDebug, responseOut } from '@transformation-dev/cloudflare-do-utils'
 
 const debug = getDebug('blueprint:api:check-authentication')
 
@@ -12,7 +11,7 @@ export async function onRequestGet({ request, env, params }) {
   const sessionID = request.headers.get('Cookie')?.split('sessionID=')[1]?.split(';')[0]
   debug('sessionID: %s', sessionID)
   if (!sessionID) {
-    return jsonResponse({ authenticated: false, message: 'No session cookie. Log in again', messageType: 'info' })
+    return responseOut({ authenticated: false, message: 'No session cookie. Log in again', messageType: 'info' }, undefined, 'application/json')
   }
 
   // get session from SESSIONS
@@ -20,8 +19,6 @@ export async function onRequestGet({ request, env, params }) {
 
   // if session is not found, clear sessionID cookie
   if (!sessionString) {
-    const res = jsonResponse({ authenticated: false, message: 'Session expired. Login again.', messageType: 'warning' })
-    res.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
     const cookieHeaderArray = [
       'sessionID=',
       'Max-Age=0',  // This seems to be the recommended way to clear a cookie
@@ -33,11 +30,18 @@ export async function onRequestGet({ request, env, params }) {
       cookieHeaderArray.push('HttpOnly')
     }
     const cookieHeader = cookieHeaderArray.join('; ')
-    res.headers.set('Set-Cookie', cookieHeader)
-    return res
+    const headers = {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Set-Cookie': cookieHeader,
+    }
+    return responseOut(
+      { authenticated: false, message: 'Session expired. Login again.', messageType: 'warning' },
+      undefined,
+      'application/json',
+      headers,
+    )
   }
 
   const session = JSON.parse(sessionString)
-  // eslint-disable-next-line object-curly-newline
-  return jsonResponse({ authenticated: true, message: 'Authentication verified', messageType: 'info', session })
+  return responseOut({ authenticated: true, message: 'Authentication verified', messageType: 'info', session }, undefined, 'application/json')
 }

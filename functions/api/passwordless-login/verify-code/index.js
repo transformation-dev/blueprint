@@ -11,7 +11,7 @@ export async function onRequestPost({ request, env, params }) {
   const { cookieHeader, success, location } = await verifyCode({ env, code, targetURL })
   debug('got results back from verifyCode(): %O', { cookieHeader, success, location })
 
-  const res = new Response(JSON.stringify({ success, location }), {
+  const res = new Response(JSON.stringify({ success, location }), {  // TODO: Use responseOut
     status: 200,
     statusText: 'OK',
   })

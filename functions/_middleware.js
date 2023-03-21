@@ -64,7 +64,7 @@ async function csp({ request, env, next }) {  // TODO: split this out to its own
         `cloudflare-static/email-decode.min.js" nonce="${nonce}"`,
       )
 
-    const newRes = new Response(html, {
+    const newRes = new Response(html, {  // Not using responseOut because it's HTML, not an API call
       status: res.status,
       statusText: res.statusText,
     })

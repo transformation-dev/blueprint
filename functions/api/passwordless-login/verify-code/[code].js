@@ -12,7 +12,7 @@ export async function onRequestGet({ request, env, params }) {
   const { cookieHeader, success, location } = await verifyCode({ env, code, targetURL: request.url.href })
 
   // Returning a redirect regardless, success redirects to target and failure redirects to login page
-  const res = new Response(null, {
+  const res = new Response(null, {  // TODO: Use responseOut
     status: 302,
     statusText: 'Redirecting',
   })
