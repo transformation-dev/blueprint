@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign */
 import { throwIf, dateISOStringRegex, responseOut } from '@transformation-dev/cloudflare-do-utils'
 
 // These are methods that are common to all TemporalEntities including Tree
@@ -65,7 +66,10 @@ export const temporalMixin = {
       headers.set('Status-Text', cleanedStatusText)
     }
     // eslint-disable-next-line no-param-reassign
-    body.idString = this.idString
+    if (body != null) {
+      body.idString = this.state?.id.toString()
+      if (this.warnings != null) body.warnings = this.warnings
+    }
     return responseOut(body, status, undefined, headers)
   },
 }

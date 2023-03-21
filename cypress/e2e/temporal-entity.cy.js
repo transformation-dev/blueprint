@@ -1,92 +1,9 @@
+/* eslint-disable no-shadow */
 /// <reference types="Cypress" />
 
-import { Encoder, encode, decode } from 'cbor-x'
-const cborSC = new Encoder({ structuredClone: true })
-
-async function encodeAndFetch(url, options) {
-  if (options.body) {
-    const u8a = cborSC.encode(options.body)
-    // const u8a = encode(options.body)  // using this seems to fail regardless of how I decode
-    options.body = u8a
-  }
-
-  const headers = new Headers(options.headers)
-  if (!headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/cbor-sc')
-  }
-  if (!headers.has('Accept')) {
-    headers.set('Accept', 'application/cbor-sc')
-  }
-  options.headers = headers
-
-  return await fetch(url, options)
-}
-
-async function encodeFetchAndDecode(url, options) {
-  const response = await encodeAndFetch(url, options)
-  const ab = await response.arrayBuffer()
-  if (ab) {
-    const u8a = new Uint8Array(ab)
-    const o = cborSC.decode(u8a)
-    // const o = decode(u8a)  // on the other hand, this works regardless of how I encode
-    response.CBOR_SC = o
-  }
-  return response
-}
+import { requestOutResponseIn } from '@transformation-dev/cloudflare-do-utils'
 
 context('TemporalEntity', () => {
-
-  // TODO: Test to confirm that for DAGs the nodes that are referenced twice are actually the same object; === rather than just deep.eq
-  
-  it('should respond with 415 on POST with Content-Type header application/json', () => {
-    const options = {
-      method: 'POST',
-      body: { value: { a: 1, b: 2 }, userID: '1' },
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }
-
-    cy.wrap(null).then(async () => {
-      const response = await encodeFetchAndDecode('/api/do/*/*', options)
-      expect(response.status).to.eq(415)
-    })
-  })
-
-  it('should respond with 406 on POST with Accept header "application/json"', () => {
-    const options = {
-      method: 'POST',
-      url: '/api/do/*/*',
-      body: { a: 1 },
-      failOnStatusCode: false,
-      headers: {
-        'Content-Type': 'application/cbor-sc',
-        'Accept': 'application/json',
-      }
-    }
-    cy.request(options).as('request')
-    cy.get('@request').then(response => {
-      expect(response.status).to.eq(406)
-    })
-  })
-
-  it('should respond with 415 because the content was not encoded in cbor-sc', () => {
-    const options = {
-      method: 'POST',
-      url: '/api/do/*/*',
-      body: { a: 1 },
-      failOnStatusCode: false,
-      headers: {
-        'Content-Type': 'application/cbor-sc',
-        'Accept': 'application/cbor-sc',
-      }
-    }
-    cy.request(options).as('request')
-    cy.get('@request').then(response => {
-      expect(response.status).to.eq(415)
-    })
-  })
-
   // Using fetch() instead of cy.request() because I couldn't get cy.request() to work for binary data
   // Had to merge four tests into one so this test would be independent of the others
   it('should allow PUT, PATCH delta, GET, DELETE, PATCH undelete, and GET entity-meta', () => {
@@ -96,27 +13,28 @@ context('TemporalEntity', () => {
     }
 
     cy.wrap(null).then(async () => {
-      const response = await encodeFetchAndDecode('/api/do/*/*', options)
+      const response = await requestOutResponseIn('/api/do/*/*', options)
       expect(response.status).to.eq(201)
-      expect(response.headers.get('Content-Type')).to.eq('application/cbor-sc')
+      expect(response.headers.get('Content-Type')).to.eq('application/cbor')
 
-      const o = response.CBOR_SC
+      const o = response.content
       expect(o.idString).to.be.a('string')
       expect(o.meta.validFrom).to.be.a('string')
 
-      const idString = o.idString
+      const { idString } = o
       const t1 = o.meta.validFrom
       delete o.meta.validFrom
+      console.log('o', o)
       expect(o).to.deep.eq({
-        "idString": idString,
-        "meta": {
-          "previousValues": { a: undefined, b: undefined },
-          "userID": "1",
-          "validTo": "9999-01-01T00:00:00.000Z",
-          "type": "*",
-          "version": "*",
+        idString,
+        meta: {
+          previousValues: { a: undefined, b: undefined },
+          userID: '1',
+          validTo: '9999-01-01T00:00:00.000Z',
+          type: '*',
+          version: '*',
         },
-        "value": { "a": 1, "b": 2, },
+        value: { a: 1, b: 2 },
         warnings: [],
       })
 
@@ -139,24 +57,23 @@ context('TemporalEntity', () => {
       }
 
       cy.wrap(null).then(async () => {
-        const response = await encodeFetchAndDecode(`/api/do/*/*/${idString}`, options2)
-        console.log('response.CBOR_SC: %O', response.CBOR_SC)
+        const response = await requestOutResponseIn(`/api/do/*/*/${idString}`, options2)
         expect(response.status).to.eq(200)
 
-        const o = response.CBOR_SC
+        const o = response.content
 
         expect(o).to.deep.eq({
-          "idString": idString,
-          "meta": {
-            "previousValues": { a: 1, b: 2 },
-            "userID": "2",
-            "validFrom": newValidFromISOString,
-            "impersonatorID": "impersonator1",
-            "validTo": "9999-01-01T00:00:00.000Z",
-            "type": "*",
-            "version": "*",
+          idString,
+          meta: {
+            previousValues: { a: 1, b: 2 },
+            userID: '2',
+            validFrom: newValidFromISOString,
+            impersonatorID: 'impersonator1',
+            validTo: '9999-01-01T00:00:00.000Z',
+            type: '*',
+            version: '*',
           },
-          "value": { "a": 10 },
+          value: { a: 10 },
           warnings: [],
         })
 
@@ -168,7 +85,7 @@ context('TemporalEntity', () => {
         }
 
         cy.wrap(null).then(async () => {
-          const response = await encodeAndFetch(`/api/do/*/*/${idString}`, options)
+          const response = await requestOutResponseIn(`/api/do/*/*/${idString}`, options)
           expect(response.status).to.eq(204)
 
           const options3 = {
@@ -176,10 +93,10 @@ context('TemporalEntity', () => {
           }
 
           cy.wrap(null).then(async () => {
-            const response = await encodeFetchAndDecode(`/api/do/*/*/${idString}`, options3)
+            const response = await requestOutResponseIn(`/api/do/*/*/${idString}`, options3)
             expect(response.status).to.eq(404)
 
-            const o = response.CBOR_SC
+            const o = response.content
 
             expect(o.error.message).to.eq('GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true')
             expect(o.error.status).to.eq(404)
@@ -189,10 +106,10 @@ context('TemporalEntity', () => {
             }
 
             cy.wrap(null).then(async () => {
-              const response = await encodeFetchAndDecode(`/api/do/*/*/${idString}/entity-meta`, options4)
+              const response = await requestOutResponseIn(`/api/do/*/*/${idString}/entity-meta`, options4)
               expect(response.status).to.eq(200)
 
-              const o = response.CBOR_SC
+              const o = response.content
 
               expect(o.timeline.length).to.eq(3)
 
@@ -201,7 +118,7 @@ context('TemporalEntity', () => {
               }
 
               cy.wrap(null).then(async () => {
-                const response = await encodeFetchAndDecode(`/api/do/*/*/${idString}`, options5)
+                const response = await requestOutResponseIn(`/api/do/*/*/${idString}`, options5)
                 expect(response.status).to.eq(404)
 
                 const options6 = {
@@ -213,7 +130,7 @@ context('TemporalEntity', () => {
                 }
 
                 cy.wrap(null).then(async () => {
-                  const response = await encodeFetchAndDecode(`/api/do/*/*/${idString}`, options6)
+                  const response = await requestOutResponseIn(`/api/do/*/*/${idString}`, options6)
                   expect(response.status).to.eq(200)
                 })
               })
@@ -230,27 +147,27 @@ context('TemporalEntity', () => {
       body: {
         value: { c: 100 },
         userID: '1',
-      }
+      },
     }
 
     cy.wrap(null).then(async () => {
-      const response = await encodeFetchAndDecode(`/api/do/*/*`, options)
+      const response = await requestOutResponseIn('/api/do/*/*', options)
       expect(response.status, 'Original POST').to.eq(201)
-      const o5 = response.CBOR_SC
-      const idString = o5.idString
+      const o5 = response.content
+      const { idString } = o5
 
       const options4 = {
         method: 'PUT',
         body: {
           value: { c: 200 },
           userID: '2',
-        }
+        },
       }
-      
-      const response2 = await encodeFetchAndDecode(`/api/do/*/*/${idString}`, options4)
+
+      const response2 = await requestOutResponseIn(`/api/do/*/*/${idString}`, options4)
       expect(response2.status, '2nd PUT with missing If-Unmodified-Since').to.eq(428)
-      const o2 = response2.CBOR_SC
-      expect(response2.headers.get('Status-Text')).to.eq(o2.error.message)
+      const o2 = response2.content
+      expect(o2.error.message).to.eq('required If-Unmodified-Since header for TemporalEntity PUT is missing')
       expect(o2.value).to.deep.eq({ c: 100 })
     })
   })
@@ -271,10 +188,10 @@ context('TemporalEntity', () => {
     }
 
     cy.wrap(null).then(async () => {
-      const response = await encodeFetchAndDecode(`/api/do/*/*`, options)
+      const response = await requestOutResponseIn('/api/do/*/*', options)
       expect(response.status, '1st call to fetch() to set date far into future').to.eq(201)
-      const o5 = response.CBOR_SC
-      const idString = o5.idString
+      const o5 = response.content
+      const { idString } = o5
 
       const options4 = {
         method: 'PUT',
@@ -287,11 +204,10 @@ context('TemporalEntity', () => {
         },
       }
 
-      const response2 = await encodeFetchAndDecode(`/api/do/*/*/${idString}`, options4)
-      const o = response2.CBOR_SC
+      const response2 = await requestOutResponseIn(`/api/do/*/*/${idString}`, options4)
+      const o = response2.content
       expect(response2.status, '2nd call to fetch() to confirm validFrom is 1ms later').to.eq(200)
       expect(o.meta.validFrom).to.eq(newValidFromISOString)
     })
   })
-
 })

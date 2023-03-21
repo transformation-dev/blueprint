@@ -7,23 +7,35 @@ import { throwIf } from './throws.js'
 export const DEFAULT_CONTENT_TYPE = 'application/cbor'
 export const contentProcessors = {}
 
+function getProcessors(contentType) {
+  const processor = contentProcessors[contentType]
+  throwIf(processor == null, `Unknown Content-Type header: ${contentType}`, 400)
+  return processor
+}
+
 // itty-router middleware which cannot have a return.
 export async function withAdvancedContent(request) {
   const contentType = request.headers.get('Content-Type')
-  throwIf(contentType == null, 'No Content-Type header supplied', 400)
-  const { deserialize } = contentProcessors[contentType]
-  throwIf(deserialize == null, `Unknown Content-Type header: ${contentType}`)
+  const { deserialize } = getProcessors(contentType)
   request.content = await deserialize(request)
 }
 
 // Same as above except it returns the request to match the signature of the remainder of these functions.
 export async function requestIn(request) {
+  const contentType = request.headers.get('Content-Type')
+  if (contentType == null) {
+    if (request.body == null) {
+      return request
+    } else {
+      throwIf(true, 'No Content-Type header supplied', 400)
+    }
+  }
   await withAdvancedContent(request)
   return request
 }
 
 export async function requestOut(input, inputOptions) {
-  if (input instanceof Request) return input
+  if (input instanceof Request) return input  // TODO: Don't do this. Rather update the Request with the same headers as below. If Content-Type is not set and it's not a ArrayBuffer.isView() then serialize
   const url = input
 
   let options
@@ -37,7 +49,7 @@ export async function requestOut(input, inputOptions) {
     headers = new Headers()
   }
 
-  if (options.body) {
+  if (options.body != null) {
     let contentType
     if (headers.has('Content-Type')) {
       contentType = headers.get('Content-Type')
@@ -45,8 +57,7 @@ export async function requestOut(input, inputOptions) {
       contentType = DEFAULT_CONTENT_TYPE
       headers.set('Content-Type', contentType)
     }
-    const { serialize } = contentProcessors[contentType]
-    throwIf(serialize == null, `Unknown Content-Type header: ${contentType}`)
+    const { serialize } = getProcessors(contentType)
     options.body = await serialize(options.body)
   }
 
@@ -68,8 +79,7 @@ export async function responseOut(body, status = 200, contentType = DEFAULT_CONT
     if (ArrayBuffer.isView(body)) {  // Assumes it's already been serialized regardless of contentType
       return new Response(body, { status, headers })
     } else {
-      const { serialize } = contentProcessors[contentType]
-      throwIf(serialize == null, `Unknown Content-Type header: ${contentType}`)
+      const { serialize } = getProcessors(contentType)
       return new Response(await serialize(body), { status, headers })
     }
   }
@@ -88,9 +98,15 @@ export function errorResponseOut(e, env, idString) {
 }
 
 export async function responseIn(response) {
-  const contentType = response.headers.get('Content-Type') ?? DEFAULT_CONTENT_TYPE
-  const { deserialize } = contentProcessors[contentType]
-  throwIf(deserialize == null, `Unknown Content-Type header: ${contentType}`)
+  const contentType = response.headers.get('Content-Type')
+  if (contentType == null) {
+    if ([304, 204].includes(response.status)) {
+      return response
+    } else {
+      throwIf(true, 'No Content-Type header supplied', 400)
+    }
+  }
+  const { deserialize } = getProcessors(contentType)
   response.content = await deserialize(response)
   return response
 }
@@ -118,60 +134,6 @@ function registerContentProcessors(contentTypeArray, processors) {  // processor
   }
 }
 
-// export class BodyProcessor {
-//   constructor(defaultContentType = 'application/cbor') {
-//     this.defaultContentType = defaultContentType
-//   }
-
-//   static contentProcessors = {}
-
-//   static registerContentProcessors(contentTypeArray, processors) {  // processors = { serialize, deserialize }
-//     for (const contentType of contentTypeArray) {
-//       this.contentProcessors[contentType] = processors
-//     }
-//   }
-
-//   response(body, status = 200, statusText = undefined) {
-//     const headers = new Headers()
-//     headers.set('Content-ID', this.idString)
-//     if (statusText != null) {
-//       const cleanedStatusText = statusText.replaceAll('\n', ' ')  // newlines are not allowed in HTTP headers
-//       headers.set('Status-Text', cleanedStatusText)  // HTTP/2 requires Status-Text match the status, but this seems to work for now in Cloudflare TODO: Test this
-//     }
-//     if (body != null) {
-//       headers.set('Content-Type', this.responseContentType)
-//       if (typeof body === 'object') {
-//         const newBody = structuredClone(body)  // TODO: C - Consider not cloning in production or preview
-//         newBody.idString = this.idString
-//         if (statusText != null) newBody.statusText = statusText
-//         if (this.warnings.length > 0) newBody.warnings = this.warnings
-//         return new Response(this.serialize(newBody), { status, headers })
-//       }
-//     }
-//     return new Response(body, { status, headers })  // assumes body is already serialized or nullish
-//   }
-
-//   async serialize(o, contentType = this.responseContentType) {
-//     try {
-//       const { serialize } = this.constructor.contentProcessors[contentType]
-//       return serialize(o)
-//     } catch (e) {
-//       throw new HTTPError(`Error serializing the supplied body: ${e.message}`, 500)
-//     }
-//   }
-
-//   async deserialize(requestOrResponse = this.request) {
-//     const contentType = requestOrResponse.headers.get('Content-Type')
-//     throwIf(contentType == null, 'No Content-Type header supplied', 400)
-//     try {
-//       const { deserialize } = this.constructor.contentProcessors[contentType]
-//       return deserialize(requestOrResponse)
-//     } catch (e) {
-//       throw new HTTPError(`Error serializing the supplied body: ${e.message}`, 500)
-//     }
-//   }
-// }
-
 // Register CBOR
 const cborSC = new Encoder({ structuredClone: true })
 async function serializeCBOR(o) {
@@ -185,7 +147,6 @@ async function deserializeCBOR(requestOrResponse) {
   return result
 }
 const processorsCBOR = { serialize: serializeCBOR, deserialize: deserializeCBOR }
-// BodyProcessor.registerContentProcessors(['application/cbor', 'application/cbor-sc'], processorsCBOR)  // since cbor is first, it is the default
 registerContentProcessors(['application/cbor', 'application/cbor-sc'], processorsCBOR)  // since cbor is first, it is the default
 
 // Register JSON
@@ -196,10 +157,16 @@ async function deserializeJSON(requestOrResponse) {
   return requestOrResponse.json()
 }
 const processorsJSON = { serialize: serializeJSON, deserialize: deserializeJSON }
-// BodyProcessor.registerContentProcessors(['application/json'], processorsJSON)
 registerContentProcessors(['application/json'], processorsJSON)
 
-// TODO: Register text
+async function serializeText(o) {
+  return JSON.stringify(o)
+}
+async function deserializeText(requestOrResponse) {
+  return requestOrResponse.text()
+}
+const processorsText = { serialize: serializeText, deserialize: deserializeText }
+registerContentProcessors(['text/plain; charset=UTF-8', 'text/plain'], processorsText)  // TODO: Confirm that there aren't other common content-types that are text
 
 // TODO: Register text/yaml, application/yaml
 

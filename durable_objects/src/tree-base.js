@@ -328,7 +328,7 @@ export class TreeBase  {
       if (isIDString(pathArray[0])) {
         this.idString = pathArray.shift()  // remove the ID
       } else {
-        this.idString = this.state?.id?.toString()
+        this.idString = this.state?.id.toString()
       }
 
       const restOfPath = `/${pathArray.join('/')}`
