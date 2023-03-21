@@ -1,5 +1,6 @@
 import Debug from 'debug'
-import { negotiatedResponse, getDebug } from '../_utils'
+// import { getDebug } from '../_utils'  // TODO: Use the version in cloudflare-do-utils
+import { getDebug, responseOut } from '@transformation-dev/cloudflare-do-utils'
 
 const debug = getDebug('blueprint:api:status')
 
@@ -19,5 +20,5 @@ export async function onRequestGet({ request, env, params }) {
     // count,
     // env.CF_ENV,  // BE CAREFUL NOT TO EVER COMMIT WITH JUST `env` OR WE'LL LEAK ENVIRONMENT VARIABLES
   }
-  return negotiatedResponse(myResponse, request)
+  return responseOut(myResponse)
 }

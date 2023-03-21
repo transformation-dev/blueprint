@@ -2,7 +2,7 @@
 import Debug from 'debug'
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
 import { nanoid } from 'nanoid'
-import { getDebug } from './_utils'
+import { getDebug } from '@transformation-dev/cloudflare-do-utils'
 
 const debug = getDebug('blueprint:_middleware')
 

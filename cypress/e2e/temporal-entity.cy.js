@@ -24,7 +24,6 @@ context('TemporalEntity', () => {
       const { idString } = o
       const t1 = o.meta.validFrom
       delete o.meta.validFrom
-      console.log('o', o)
       expect(o).to.deep.eq({
         idString,
         meta: {

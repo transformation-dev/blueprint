@@ -1,5 +1,6 @@
 import Debug from 'debug'
-import { jsonResponse, getDebug } from '../../_utils'
+import { getDebug } from '@transformation-dev/cloudflare-do-utils'
+import { jsonResponse } from '../../_utils'
 import version from '../../../public/version.json'
 
 const debug = getDebug('blueprint:api:version')

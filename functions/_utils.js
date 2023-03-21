@@ -1,89 +1,11 @@
-import Debug from 'debug'
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
-import { nanoid } from 'nanoid'
-import { Encoder } from 'cbor-x'
-// eslint-disable-next-line import/no-unresolved
+import { nanoid } from 'nanoid'  // TODO: Can we use webCrypto.UUID instead and remove this dependency?
 
-// import Accept from '@transformation-dev/accept'
-const Accept = {}
-Accept.mediaType = (contentType, supported) => {
-  if (Array.isArray(contentType)) contentType = contentType[0]
-  if (supported.includes(contentType)) return contentType
-  return null
-}
-
-import { HTTPError } from '../src/utils'
-
-export { HTTPError }  // Doing this so that _utils.js is the only server-side code that needs to reach outside of /functions
+import { getDebug } from '@transformation-dev/cloudflare-do-utils'
 
 export const jsonResponse = (value) => new Response(JSON.stringify(value), {
   headers: { 'Content-Type': 'application/json' },
 })
-
-const MEDIA_TYPES_SUPPORTED = ['application/cbor-sc', 'application/json']  // cbor-sc is my name for cbor with structuredClone extension
-const MEDIA_TYPE_FOR_ERROR = 'application/json'
-
-function returnResponse(stringifiedBody, mediaType, status) {
-  return new Response(
-    stringifiedBody,
-    {
-      headers: {
-        'Content-Type': mediaType,
-        'Content-Encoding': 'gzip',  // Causes response to be gzipped by Cloudflare Workers: https://community.cloudflare.com/t/worker-doesnt-return-gzip-brotli-compressed-data/337644/3
-        // 'Content-Encoding': 'br',  // TODO: Upgrade this to Brotli compression once Cloudflare Workers support it. It's gzip only for now
-      },
-      status: status || 200,
-    },
-  )
-}
-
-const cborSC = new Encoder({ structuredClone: true })
-function encodeBody(body, mediaType) {
-  if (mediaType === 'application/cbor-sc') {
-    return cborSC.encode(body)
-  }
-  return JSON.stringify(body)
-}
-
-export const negotiatedResponse = (body, request, supported = MEDIA_TYPES_SUPPORTED) => {  // supported is like @hapi/accept preferences but errors if chosen type is in the supported list
-  // Use my fork of @hapi/accept to decide on the best content-type to use for the response
-  const mediaType = Accept.mediaType(request.headers.get('accept'), supported)
-  const mediaTypeIfError = MEDIA_TYPE_FOR_ERROR
-
-  if (body instanceof Error) {
-    const stringifiedBody = encodeBody(body, mediaTypeIfError)
-    return returnResponse(stringifiedBody, mediaTypeIfError, body.statusCode || body.status || 500)
-  }
-
-  if (!MEDIA_TYPES_SUPPORTED.includes(mediaType)) {
-    let message = `No acceptable Content-Type. Supported: ${JSON.stringify(supported)}`
-    if (supported.length === 1 && supported[0] === 'application/cbor-sc') {
-      message += '. See: https://www.npmjs.com/package/cbor-x and use options = { structuredClone: true }'
-    }
-    return returnResponse(message, mediaTypeIfError, 406)
-  }
-
-  return returnResponse(encodeBody(body, mediaType), mediaType)
-}
-
-export const getDebug = (name, delay = 50) => {
-  const debugRaw = Debug(name)
-  let quiescent = true
-  let theTimeout
-  const theFunction = function debug(...values) {
-    clearTimeout(theTimeout)
-    theTimeout = setTimeout(() => {
-      quiescent = true
-    }, delay)
-    if (quiescent) {
-      // eslint-disable-next-line no-console
-      console.error('')
-      quiescent = false
-    }
-    debugRaw(...values)
-  }
-  return theFunction
-}
 
 const debug = getDebug('blueprint:_utils')
 

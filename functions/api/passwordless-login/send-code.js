@@ -2,7 +2,9 @@ import Debug from 'debug'
 import { customAlphabet as customAlphabetNonSecure } from 'nanoid/non-secure'
 import { customAlphabet } from 'nanoid'
 
-import { jsonResponse, getDebug } from '../../_utils'
+import { getDebug } from '@transformation-dev/cloudflare-do-utils'
+
+import { jsonResponse } from '../../_utils'
 
 const debug = getDebug('blueprint:api:passwordless-login:send-code')
 
