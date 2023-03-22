@@ -8,9 +8,14 @@ export const DEFAULT_CONTENT_TYPE = 'application/cbor'
 export const contentProcessors = {}
 
 function getProcessors(contentType) {
-  const processor = contentProcessors[contentType]
-  throwIf(processor == null, `Unknown Content-Type header: ${contentType}`, 400)
-  return processor
+  let processors = contentProcessors[contentType]
+  if (processors != null) return processors
+  let processorsKey
+  for ([processorsKey, processors] of Object.entries(contentProcessors)) {
+    if (contentType.startsWith(processorsKey)) return processors
+  }
+  throwIf(true, `Unknown Content-Type header: ${contentType}`, 400)  // using true because null checks occur above
+  return processors  // technically this is unreachable but eslint can't tell that
 }
 
 // itty-router middleware which cannot have a return.
@@ -147,7 +152,7 @@ async function deserializeCBOR(requestOrResponse) {
   return result
 }
 const processorsCBOR = { serialize: serializeCBOR, deserialize: deserializeCBOR }
-registerContentProcessors(['application/cbor', 'application/cbor-sc'], processorsCBOR)  // since cbor is first, it is the default
+registerContentProcessors(['application/cbor', 'application/cbor-sc'], processorsCBOR)
 
 // Register JSON
 async function serializeJSON(o) {
@@ -160,16 +165,14 @@ const processorsJSON = { serialize: serializeJSON, deserialize: deserializeJSON 
 registerContentProcessors(['application/json'], processorsJSON)
 
 async function serializeText(o) {
+  if (typeof o === 'string' || o instanceof String) return o
   return JSON.stringify(o)
 }
 async function deserializeText(requestOrResponse) {
   return requestOrResponse.text()
 }
 const processorsText = { serialize: serializeText, deserialize: deserializeText }
-registerContentProcessors(
-  ['text/plain; charset=UTF-8', 'text/html; charset=UTF-8', 'text/plain'],
-  processorsText,
-)  // TODO: Confirm that there aren't other common content-types that are text
+registerContentProcessors(['text/'], processorsText)  // TODO: Confirm that there aren't other common content-types that are text
 
 // TODO: Register text/yaml, application/yaml
 
