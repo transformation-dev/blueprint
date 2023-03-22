@@ -50,7 +50,6 @@
     "wrangler": "^2.12.0"
   },
   "dependencies": {
-    "@transformation-dev/accept": "file:packages/accept",
     "@transformation-dev/cloudflare-do-utils": "file:packages/cloudflare-do-utils",
     "@transformation-dev/dragster": "file:packages/dragster",
     "@transformation-dev/svelte-realtime-store": "file:packages/svelte-realtime-store",
@@ -66,7 +65,6 @@
     "packages/cloudflare-do-utils",
     "packages/cloudflare-do-testing-utils",
     "packages/dragster",
-    "packages/accept",
     "durable_objects"
   ]
 }

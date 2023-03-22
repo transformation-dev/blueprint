@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@cfworker/json-schema": "^1.12.5",
-    "@transformation-dev/accept": "file:packages/accept",
     "@transformation-dev/cloudflare-do-utils": "file:packages/cloudflare-do-utils",
     "deep-object-diff": "^1.1.9",
     "js-yaml": "^4.1.0",

@@ -34,7 +34,6 @@
     "url": "https://github.com/transformation-dev/blueprint/issues"
   },
   "dependencies": {
-    "@transformation-dev/accept": "file:packages/accept",
     "cbor-x": "^1.5.1",
     "debug": "^4.3.4"
   },
