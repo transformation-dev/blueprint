@@ -21,8 +21,7 @@
     "@cfworker/json-schema": "^1.12.5",
     "@transformation-dev/cloudflare-do-utils": "file:packages/cloudflare-do-utils",
     "deep-object-diff": "^1.1.9",
-    "js-yaml": "^4.1.0",
-    "nanoid": "^4.0.1"
+    "js-yaml": "^4.1.0"
   },
   "devDependencies": {
     "@transformation-dev/cloudflare-do-testing-utils": "file:packages/cloudflare-do-testing-utils",

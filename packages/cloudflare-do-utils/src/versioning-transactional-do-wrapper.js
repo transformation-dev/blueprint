@@ -2,6 +2,8 @@
 
 // local imports
 import { getDebug, Debug } from './debug.js'
+import { errorResponseOut } from './content-processor.js'
+import { throwIf } from './throws.js'
 
 // initialize imports
 const debug = getDebug('blueprint:transactional-do-wrapper')
@@ -11,11 +13,6 @@ export class VersioningTransactionalDOWrapperBase {
     if (this.hydrated) return
     this.transactionalWrapperMeta = await this.state.storage.get('transactionalWrapperMeta')
     this.hydrated = true
-  }
-
-  // eslint-disable-next-line class-methods-use-this
-  respondEarly(response, options) {  // TODO: Swap this out for my response mixin behavior. This will fix the fact that error responses don't honor Accept headers.
-    return new Response(response, options)
   }
 
   constructor(state, env) {
@@ -28,6 +25,16 @@ export class VersioningTransactionalDOWrapperBase {
   }
 
   async fetch(request) {
+    try {
+      const response = await this.innerFetch(request)
+      return response
+    } catch (e) {
+      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
+      return errorResponseOut(e, this.env, this.state.id.toString())
+    }
+  }
+
+  async innerFetch(request) {
     debug('%s %s', request.method, request.url)
     // I'm relying upon the built-in input gating to prevent concurrent requests from starting before this one finishes.
     // However, it's unclear to me how exactly this works just reading the docs and posts about it. However, one thing
@@ -41,23 +48,21 @@ export class VersioningTransactionalDOWrapperBase {
     if (pathArray[0] === 'transactional-do-wrapper') {  // TODO: Test this
       if (request.method === 'DELETE') {
         await this.state.storage.deleteAll()
-        return this.respondEarly(`All the data for DO ${this.idString} has been deleted. The DO will eventually disappear.`, { status: 202 })
+        return new Response(`All the data for DO ${this.idString} has been deleted. The DO will eventually disappear.`, { status: 202 })  // TODO: Consider making this an object with a message field
       }
-      return this.respondEarly(`Unrecognized HTTP method ${request.method} for ${request.url}`, { status: 405 })
+      throwIf(true, `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
     }
 
     // pull type/version from url and validate
     const type = pathArray.shift()
-    if (this.constructor.types[type] == null) {
-      return this.respondEarly(`Type ${type} not found`, { status: 404 })
-    }
-    if (this.transactionalWrapperMeta != null && this.transactionalWrapperMeta.type !== type) {
-      return this.respondEarly(`Type ${type} does not match previously stored ${this.transactionalWrapperMeta.type} for this durable object`, { status: 409 })
-    }
+    throwIf(this.constructor.types[type] == null, `Type ${type} not found`, 404)
+    throwIf(
+      this.transactionalWrapperMeta != null && this.transactionalWrapperMeta?.type !== type,
+      `Type ${type} does not match previously stored ${this.transactionalWrapperMeta?.type} for this durable object`,
+      409,
+    )
     const version = pathArray.shift()
-    if (this.constructor.types[type].versions[version] == null) {
-      return this.respondEarly(`Version ${version} for type ${type} not found`, { status: 404 })
-    }
+    throwIf(this.constructor.types[type].versions[version] == null, `Version ${version} for type ${type} not found`, 404)
 
     // set the options by combining the default options with the options for the specific type/version/environment
     const environment = this.env.CF_ENV ?? '*'
@@ -69,9 +74,7 @@ export class VersioningTransactionalDOWrapperBase {
       options[key] = lookedUpOptions[key] ?? defaultOptions[key]
     }
 
-    if (options.TheClass == null) {
-      return this.respondEarly(`TheClass for type/version/environment ${type}/${version}/${environment} or */*/* not found`, { status: 404 })
-    }
+    throwIf(options.TheClass == null, `TheClass for type/version/environment ${type}/${version}/${environment} or */*/* not found`, 404)
     debug('Options for type "%s" version "%s": %O', type, version, options)
 
     let requestToPassToWrappedDO

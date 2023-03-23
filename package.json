@@ -23,9 +23,8 @@
     "syncpack:fix": "npx syncpack fix-mismatches"
   },
   "devDependencies": {
-    "@contrast/contrast": "^1.0.13",
+    "@contrast/contrast": "^2.0.0",
     "@creativebulma/bulma-tooltip": "^1.2.0",
-    "@cypress/code-coverage": "^3.10.0",
     "@sveltejs/vite-plugin-svelte": "^2.0.2",
     "@vitest/coverage-c8": "^0.29.2",
     "agnostic-svelte": "^1.1.22",
@@ -35,7 +34,6 @@
     "cypress": "12.6",
     "eslint": "^8.10.0",
     "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "^2.25.4",
     "eslint-plugin-svelte3": "^3.4.1",
     "lerna": "^4.0.0",
     "lighthouse": "^9.5.0",

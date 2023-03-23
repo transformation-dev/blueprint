@@ -11,9 +11,10 @@
 // This function is called when a project is opened or re-opened (e.g. due to
 // the project's config changing)
 
+// eslint-disable-next-line arrow-body-style
 export default async (on, config) => {
-  const coverageTask = await import('@cypress/code-coverage/task.js')
-  coverageTask.default(on, config)
+  // const coverageTask = await import('@cypress/code-coverage/task.js')
+  // coverageTask.default(on, config)
   // include any other plugin code...
 
   // It's IMPORTANT to return the config object

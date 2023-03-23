@@ -174,6 +174,6 @@ async function deserializeText(requestOrResponse) {
 const processorsText = { serialize: serializeText, deserialize: deserializeText }
 registerContentProcessors(['text/'], processorsText)  // TODO: Confirm that there aren't other common content-types that are text
 
-// TODO: Register application/yaml. application/yaml should return an object. text/yaml should return the string.
+// TODO: Register application/yaml. application/yaml should return an object. text/yaml should use the 'text/' processors above and return the string.
 
 // TODO: Register form-data

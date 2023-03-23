@@ -504,7 +504,6 @@ export class TemporalEntityBase {
 
     // Calculate the previousValues diff and check for idempotency
     const previousValues = diff(value, oldCurrent.value)
-    debug('previousValues', previousValues)
     if (Object.keys(previousValues).length === 0) {  // idempotent
       return this.current
     }
@@ -576,9 +575,6 @@ export class TemporalEntityBase {
     const newValue = structuredClone(this.current.value)
 
     applyDelta(newValue, delta)
-
-    debug('delta: %O', delta)
-    debug('newValue: %O', newValue)
 
     return this.put(newValue, userID, validFrom, impersonatorID, ifUnmodifiedSince)
   }

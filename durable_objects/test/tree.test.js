@@ -5,7 +5,6 @@
 import { describe, it, expect, assert } from 'vitest'
 
 // monorepo imports
-// import { requestOutResponseIn } from '@transformation-dev/cloudflare-do-testing-utils'
 import { requestOutResponseIn } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
