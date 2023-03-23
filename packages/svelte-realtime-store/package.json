@@ -1,6 +1,6 @@
 {
   "name": "@transformation-dev/svelte-realtime-store",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Browser-side stores and server-side middleware for building realtime Svelte apps",
   "keywords": [
     "realtime",

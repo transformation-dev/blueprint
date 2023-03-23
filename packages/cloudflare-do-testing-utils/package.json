@@ -1,6 +1,6 @@
 {
   "name": "@transformation-dev/cloudflare-do-testing-utils",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Utilities for testing Cloudflare's Durable Objects",
   "keywords": [
     "cloudflare",
