@@ -1,5 +1,5 @@
 /* eslint-disable no-param-reassign */
-import { throwIf, dateISOStringRegex, responseOut } from '@transformation-dev/cloudflare-do-utils'
+import { throwIf, throwUnless, dateISOStringRegex, responseOut } from '@transformation-dev/cloudflare-do-utils'
 
 // These are methods that are common to all TemporalEntities including Tree
 // This assumes that this.entityMeta is defined and it has a timeline property. Note, it can have other properties as well.
@@ -11,8 +11,8 @@ export const temporalMixin = {
       if (this.entityMeta?.timeline?.length > 0) {
         throwIf(validFrom <= this.entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
       }
-      newValidFrom = validFrom
       validFromDate = new Date(validFrom)
+      newValidFrom = validFromDate.toISOString()
     } else {
       validFromDate = new Date()
       if (this.entityMeta?.timeline?.length > 0) {
@@ -54,7 +54,7 @@ export const temporalMixin = {
   async GETEntityMeta(request) {
     const ifModifiedSince = request.headers.get('If-Modified-Since')
     const [entityMeta, status] = await this.getEntityMeta(ifModifiedSince)
-    if (status === 304) return this.getStatusOnlyResponse(304)
+    if (status === 304) return responseOut(undefined, 304)
     return responseOut(entityMeta, status)
   },
 

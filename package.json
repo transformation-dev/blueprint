@@ -20,6 +20,9 @@
     "test:live": "NODE_OPTIONS=--experimental-vm-modules VITEST_BASE_URL=http://127.0.0.1:8788/api/do vitest --run",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules vitest",
     "coverage": "NODE_OPTIONS=--experimental-vm-modules vitest --coverage --run",
+    "pubish-packages:major": "lerna publish major",
+    "pubish-packages:minor": "lerna publish minor",
+    "pubish-packages:patch": "lerna publish patch",
     "syncpack:fix": "npx syncpack fix-mismatches"
   },
   "devDependencies": {

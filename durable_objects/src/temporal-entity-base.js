@@ -347,29 +347,6 @@ export class TemporalEntityBase {
     this.hydrated = true
   }
 
-  calculateValidFrom(validFrom) {
-    let validFromDate
-    if (validFrom != null) {
-      if (this.entityMeta?.timeline?.length > 0) {
-        throwIf(validFrom <= this.entityMeta.timeline.at(-1), 'the validFrom for a TemporalEntity update is not greater than the prior validFrom')
-      }
-      validFromDate = new Date(validFrom)
-    } else {
-      validFromDate = new Date()
-      if (this.entityMeta?.timeline?.length > 0) {
-        const lastTimelineDate = new Date(this.entityMeta.timeline.at(-1))
-        if (validFromDate <= lastTimelineDate) {
-          validFromDate = new Date(lastTimelineDate.getTime() + 1)
-        }
-        validFrom = new Date(validFromDate).toISOString()
-      } else {
-        validFrom = validFromDate.toISOString()
-        validFromDate = new Date(validFrom)
-      }
-    }
-    return { validFrom, validFromDate }
-  }
-
   // eslint-disable-next-line consistent-return
   async fetch(request, urlString) {  // urlString is only used when called in composition by another durable object sharing state and env
     debug('%s %s', request.method, urlString || request.url)
@@ -383,6 +360,7 @@ export class TemporalEntityBase {
         const url = new URL(request.url)
         pathArray = url.pathname.split('/')
       }
+      pathArray = pathArray.filter((s) => s !== '')
       if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
 
       this.type = pathArray.shift()
@@ -431,6 +409,7 @@ export class TemporalEntityBase {
 
   async delete(userID, validFrom, impersonatorID) {
     throwUnless(userID, 'userID required by TemporalEntity DELETE is missing')
+    // throwUnless(typeof validFrom === 'string' || validFrom instanceof String, 'validFrom must be a string')
 
     await this.hydrate()
 
@@ -444,13 +423,14 @@ export class TemporalEntityBase {
     }
     if (impersonatorID != null) metaDelta.impersonatorID = impersonatorID
     await this.patchMetaDelta(metaDelta)
-    return 204
+    // return [this.current, 204]  // TODO: Is there another status code that would allow a return body?
+    return [undefined, 204]
   }
 
   async DELETE(request) {
     const { content: options } = await requestIn(request)
-    const status = await this.delete(options.userID, options.validFrom, options.impersonatorID)
-    return this.doResponseOut(undefined, status)
+    const [current, status] = await this.delete(options.userID, options.validFrom, options.impersonatorID)
+    return this.doResponseOut(current, status)
   }
 
   async put(value, userID, validFrom, impersonatorID, ifUnmodifiedSince) {
@@ -551,6 +531,8 @@ export class TemporalEntityBase {
 
   async patchUndelete({ userID, validFrom, impersonatorID }) {
     await this.hydrate()
+
+    validFrom = this.calculateValidFrom(validFrom).validFrom
 
     throwUnless(this.current?.meta?.deleted, 'Cannot undelete a TemporalEntity that is not deleted')
     const metaDelta = {

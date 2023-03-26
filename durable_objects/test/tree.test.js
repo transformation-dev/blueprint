@@ -302,7 +302,6 @@ describe('A series of Tree operations', async () => {
       headers: { 'If-Modified-Since': lastValidFrom },
     }
     const response = await requestOutResponseIn(url, options, stub, state)
-    console.log('response: %O', response.content)
     expect(response.status).toBe(304)
   })
 

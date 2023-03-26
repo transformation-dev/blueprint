@@ -68,7 +68,6 @@ export class TreeBase  {
 
   constructor(state, env, idString) {  // idString is only used in unit tests and composition. Cloudflare only passes in two parameters.
     Debug.enable(env.DEBUG)
-    this.debug = debug
     this.state = state
     this.env = env
     if (idString === 0) this.idString = '0'

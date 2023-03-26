@@ -103,7 +103,6 @@ describe('TemporalEntity validation', async () => {
     const id = env.DO_API.newUniqueId()
     // eslint-disable-next-line no-undef
     state = await getMiniflareDurableObjectState(id)
-    // stub = await env.DO_API.get(id)  // this is how Cloudflare suggests getting the stub. However, doing it the way below allows vitest --coverage to work
     stub = new DurableAPI(state, env, id.toString())
   }
 
@@ -209,7 +208,7 @@ describe('TemporalEntity validation', async () => {
     expect(response.content.error.message).toMatch('required If-Unmodified-Since header for TemporalEntity PUT is missing')
   })
 
-  it('should return error if validFrom is prior to latest', async () => {
+  it('should return error if If-Modified-Since is prior to latest', async () => {
     const options = {
       method: 'PATCH',
       body: {
@@ -323,7 +322,62 @@ describe('TemporalEntity validation', async () => {
 //   })
 // })
 
-describe('TemporalEntity supressPreviousValues', async () => {
+// describe('TemporalEntity supressPreviousValues', async () => {
+//   let state
+//   let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
+//   if (process?.env?.VITEST_BASE_URL != null) {
+//     baseUrl = process.env.VITEST_BASE_URL
+//   } else {
+//     const id = env.DO_API.newUniqueId()
+//     // eslint-disable-next-line no-undef
+//     state = await getMiniflareDurableObjectState(id)
+//     stub = new DurableAPI(state, env, id.toString())
+//   }
+
+//   it.todo('should not have previousValues', async () => {  // TODO: Re-enable and fix once we merge the type system in TransactionDOWrapper with the one in TemporalEntity
+//     const options = {
+//       method: 'POST',
+//       body: { value: { a: 1 }, userID: 'userX' },
+//     }
+//     url = `${baseUrl}/***test-supress-previous-values***/v1`
+//     let response = await requestOutResponseIn(url, options, stub, state)
+//     console.log('1st response.content: %O', response.content)
+//     expect(response.status).toBe(200)
+//     let { meta, value } = response.content
+//     expect(meta.previousValues).toBeUndefined()
+//     idString = response.content.idString
+//     // storage operation expects/asserts to only run in miniflare (aka not live over http)
+//     if (process?.env?.VITEST_BASE_URL == null) {
+//       const storage = await state.storage.list()
+//       const entityMeta = storage.get(`${idString}/entityMeta`)
+//       expect(entityMeta.timeline.length).toBe(1)
+//     }
+//     response = await requestOutResponseIn(url, options, stub, state)
+//     console.log('2nd response.content: %O', response.content)
+//     expect(response.status).toBe(200)
+//     meta = response.content.meta
+//     expect(meta.previousValues).toBeUndefined()
+//     idString = response.content.idString
+//     // storage operation expects/asserts to only run in miniflare (aka not live over http)
+//     if (process?.env?.VITEST_BASE_URL == null) {
+//       const storage = await state.storage.list()
+//       const entityMeta = storage.get(`${idString}/entityMeta`)
+//       expect(entityMeta.timeline.length).toBe(2)
+//     }
+//   })
+// })
+
+// it.todo('should not have previousValues', async () => {
+//   const state = getStateMock()
+//   const te = new TemporalEntity(state, env, '***test-supress-previous-values***', 'v1', 'testIDString')
+//   let response = await te.put({ a: 1 }, 'userW')
+//   expect(entityMeta.timeline.length).toBe(1)
+//   response = await te.put({ a: 2 }, 'userX', undefined, undefined, response.meta.validFrom)
+//   expect(entityMeta.timeline.length).toBe(2)
+//   expect(response.meta.previousValues).toBeUndefined()
+// })
+
+describe('TemporalEntity idempotency', async () => {
   let state
   let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
   if (process?.env?.VITEST_BASE_URL != null) {
@@ -332,212 +386,454 @@ describe('TemporalEntity supressPreviousValues', async () => {
     const id = env.DO_API.newUniqueId()
     // eslint-disable-next-line no-undef
     state = await getMiniflareDurableObjectState(id)
-    // stub = await env.DO_API.get(id)  // this is how Cloudflare suggests getting the stub. However, doing it the way below allows vitest --coverage to work
     stub = new DurableAPI(state, env, id.toString())
   }
 
-  it.todo('should not have previousValues', async () => {  // TODO: Reenable once we merge the type system in TransactionDOWrapper with the one in TemporalEntity
-    const options = {
+  it('should not create new snapshots when input is idempotent', async () => {
+    url = `${baseUrl}/*/*`
+    let options = {
       method: 'POST',
       body: { value: { a: 1 }, userID: 'userX' },
     }
-    url = `${baseUrl}/***test-supress-previous-values***/v1`
     let response = await requestOutResponseIn(url, options, stub, state)
-    console.log('1st response.content: %O', response.content)
-    expect(response.status).toBe(200)
-    let { meta, value } = response.content
-    expect(meta.previousValues).toBeUndefined()
+    expect(response.status).toBe(201)
+    expect(response.content.meta.validFrom).to.be.a('string')
+
     idString = response.content.idString
-    // storage operation expects/asserts to only run in miniflare (aka not live over http)
-    if (process?.env?.VITEST_BASE_URL == null) {
-      const storage = await state.storage.list()
-      const entityMeta = storage.get(`${idString}/entityMeta`)
-      expect(entityMeta.timeline.length).toBe(1)
+    lastValidFrom = response.content.meta.validFrom
+    const entityMetaUrl = `${url}/${idString}/entity-meta/`
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(1)
+
+    url = `${url}/${idString}`
+    options = {
+      method: 'PUT',
+      body: { value: { a: 1 }, userID: 'userY' },  // Note, does not have to be the same userID to be idempotent. Just the same value.
+      headers: { 'If-Unmodified-Since': lastValidFrom },
     }
     response = await requestOutResponseIn(url, options, stub, state)
-    console.log('2nd response.content: %O', response.content)
     expect(response.status).toBe(200)
-    meta = response.content.meta
-    expect(meta.previousValues).toBeUndefined()
-    idString = response.content.idString
-    // storage operation expects/asserts to only run in miniflare (aka not live over http)
-    if (process?.env?.VITEST_BASE_URL == null) {
-      const storage = await state.storage.list()
-      const entityMeta = storage.get(`${idString}/entityMeta`)
-      expect(entityMeta.timeline.length).toBe(2)
+    expect(response.content.meta.validFrom).to.be.a('string')
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(1)
+
+    options = {
+      method: 'PUT',
+      body: { value: { a: 2 }, userID: 'userY' },  // Same userID but different value
+      headers: { 'If-Unmodified-Since': lastValidFrom },
     }
-  })
-})
+    response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.meta.validFrom).to.be.a('string')
+    lastValidFrom = response.content.meta.validFrom
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(2)
 
-it.todo('should not have previousValues', async () => {
-  const state = getStateMock()
-  const te = new TemporalEntity(state, env, '***test-supress-previous-values***', 'v1', 'testIDString')
-  let response = await te.put({ a: 1 }, 'userW')
-  expect(entityMeta.timeline.length).toBe(1)
-  response = await te.put({ a: 2 }, 'userX', undefined, undefined, response.meta.validFrom)
-  expect(entityMeta.timeline.length).toBe(2)
-  expect(response.meta.previousValues).toBeUndefined()
-})
-
-describe('TemporalEntity idempotency', async () => {
-  it.todo('should not create new snapshots when input is idempotent', async () => {
-    const state = getStateMock()
-    const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
-    let response = await te.put({ a: 1 }, 'userW')
-    expect(entityMeta.timeline.length).toBe(1)
-    response = await te.put({ a: 1 }, 'userX', undefined, undefined, response.meta.validFrom)
-    expect(entityMeta.timeline.length).toBe(1)
-    response = await te.put({ a: 2 }, 'userY', undefined, undefined, response.meta.validFrom)
-    expect(entityMeta.timeline.length).toBe(2)
-    await te.put({ a: 2 }, 'userZ', undefined, undefined, response.meta.validFrom)
-    expect(entityMeta.timeline.length).toBe(2)
+    options = {
+      method: 'PUT',
+      body: { value: { a: 2 }, userID: 'userZ' },  // Different userID but same value
+      headers: { 'If-Unmodified-Since': lastValidFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.meta.validFrom).to.be.a('string')
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(2)
   })
 })
 
 describe('TemporalEntity delete and undelete', async () => {
-  // const state = getStateMock()
-  // const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
-  // const { data } = state.storage
-  let response
+  let state
+  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
+  if (process?.env?.VITEST_BASE_URL != null) {
+    baseUrl = process.env.VITEST_BASE_URL
+  } else {
+    const id = env.DO_API.newUniqueId()
+    // eslint-disable-next-line no-undef
+    state = await getMiniflareDurableObjectState(id)
+    stub = new DurableAPI(state, env, id.toString())
+  }
+  let entityMetaUrl
 
-  it.todo('should allow delete', async () => {
-    response = await te.put({ a: 1 }, 'userW')
-    expect(entityMeta.timeline.length).toBe(1)
-    response = await te.put({ a: 2 }, 'userX', undefined, undefined, response.meta.validFrom)
-    expect(entityMeta.timeline.length).toBe(2)
-    response = await te.delete('userY')
-    expect(entityMeta.timeline.length).toBe(3)
-    const validFrom1 = data['testIDString/entityMeta'].timeline[0]
-    const validFrom2 = data['testIDString/entityMeta'].timeline[1]
-    const validFrom3 = data['testIDString/entityMeta'].timeline[2]
-    const snapshot1 = data[`testIDString/snapshot/${validFrom1}`]
-    const snapshot2 = data[`testIDString/snapshot/${validFrom2}`]
-    const snapshot3 = data[`testIDString/snapshot/${validFrom3}`]
-    expect(snapshot1.meta.validTo).toBe(snapshot2.meta.validFrom)
-    expect(snapshot2.meta.validTo).toBe(snapshot3.meta.validFrom)
-    expect(snapshot3.meta.validTo).toBe(TemporalEntity.END_OF_TIME)
-    expect(snapshot3.value).toEqual(snapshot2.value)
-    expect(snapshot3.meta.previousValues).toEqual({})
+  it('should allow delete', async () => {
+    url = `${baseUrl}/*/*`
+    let options = {
+      method: 'POST',
+      body: { value: { a: 1 }, userID: 'userW' },
+    }
+    let response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(201)
+    expect(response.content.meta.validFrom).to.be.a('string')
+    idString = response.content.idString
+    lastValidFrom = response.content.meta.validFrom
+    entityMetaUrl = `${url}/${idString}/entity-meta/`
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(1)
+
+    url = `${url}/${idString}`
+    options = {
+      method: 'PUT',
+      body: { value: { a: 2 }, userID: 'userX' },  // Same userID but different value
+      headers: { 'If-Unmodified-Since': lastValidFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.meta.validFrom).to.be.a('string')
+    lastValidFrom = response.content.meta.validFrom
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(2)
+
+    options = {
+      method: 'DELETE',
+      body: { userID: 'userY' },  // Same userID but different value
+      headers: { 'If-Unmodified-Since': lastValidFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(204)
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(3)
+    lastValidFrom = response.content.timeline.at(-1)
+
+    response = await requestOutResponseIn(url, undefined, stub, state)
+    expect(response.status).toBe(404)
+
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const storage = await state.storage.list()
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+
+      const validFrom1 = entityMeta.timeline[0]
+      const validFrom2 = entityMeta.timeline[1]
+      const validFrom3 = entityMeta.timeline[2]
+
+      const snapshot1 = storage.get(`${idString}/snapshot/${validFrom1}`)
+      const snapshot2 = storage.get(`${idString}/snapshot/${validFrom2}`)
+      const snapshot3 = storage.get(`${idString}/snapshot/${validFrom3}`)
+
+      expect(snapshot3.value).to.deep.eq(snapshot2.value)
+      expect(snapshot1.meta.validTo).toBe(snapshot2.meta.validFrom)
+      expect(snapshot2.meta.validTo).toBe(snapshot3.meta.validFrom)
+      expect(snapshot3.meta.validTo).toBe(TemporalEntity.END_OF_TIME)
+      expect(snapshot3.value).toEqual(snapshot2.value)
+      expect(snapshot3.meta.previousValues).toEqual({})
+    }
   })
 
-  it.todo('should allow undelete', async () => {
-    response = await te.patchUndelete({ userID: 'userY' })
-    const validFrom2 = data['testIDString/entityMeta'].timeline[1]
-    const validFrom3 = data['testIDString/entityMeta'].timeline[2]
-    const validFrom4 = data['testIDString/entityMeta'].timeline[3]
-    const snapshot2 = data[`testIDString/snapshot/${validFrom2}`]
-    const snapshot3 = data[`testIDString/snapshot/${validFrom3}`]
-    const snapshot4 = data[`testIDString/snapshot/${validFrom4}`]
-    expect(snapshot3.meta.validTo).toBe(snapshot4.meta.validFrom)
-    expect(snapshot4.value).toEqual(snapshot2.value)
-    expect(snapshot4.meta.previousValues).toEqual({})
+  it('should allow undelete', async () => {
+    url = `${baseUrl}/*/*`
+    const options = {
+      method: 'PATCH',
+      body: { undelete: true, userID: 'userY' },
+    }
+    let response = await requestOutResponseIn(url, options, stub, state)
+
+    expect(response.status).toBe(200)
+    expect(response.content.meta.validFrom).to.be.a('string')
+
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(4)
+    // lastValidFrom = response.content.timeline.at(-1)
+
+    response = await requestOutResponseIn(url, undefined, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.meta.validFrom).to.be.a('string')
+    expect(response.content.value).to.deep.eq({ a: 2 })
+
+    if (process?.env?.VITEST_BASE_URL == null) {
+      const storage = await state.storage.list()
+      // console.log('storage: %O', storage)
+
+      const entityMeta = storage.get(`${idString}/entityMeta`)
+
+      const validFrom2 = entityMeta.timeline[1]
+      const validFrom3 = entityMeta.timeline[2]
+      const validFrom4 = entityMeta.timeline[3]
+
+      const snapshot2 = storage.get(`${idString}/snapshot/${validFrom2}`)
+      const snapshot3 = storage.get(`${idString}/snapshot/${validFrom3}`)
+      const snapshot4 = storage.get(`${idString}/snapshot/${validFrom4}`)
+
+      expect(snapshot3.meta.validTo).toBe(snapshot4.meta.validFrom)
+      expect(snapshot4.value).toEqual(snapshot2.value)
+      expect(snapshot4.meta.previousValues).toEqual({})
+    }
   })
 })
 
 describe('TemporalEntity auto-incremented validFrom', async () => {
-  it.todo('should have validFrom 1ms later than requested', async () => {
-    const state = getStateMock()
-    const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
+  let state
+  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
+  if (process?.env?.VITEST_BASE_URL != null) {
+    baseUrl = process.env.VITEST_BASE_URL
+  } else {
+    const id = env.DO_API.newUniqueId()
+    // eslint-disable-next-line no-undef
+    state = await getMiniflareDurableObjectState(id)
+    stub = new DurableAPI(state, env, id.toString())
+  }
+
+  it('should have validFrom 1ms later than requested', async () => {
     const validFromISOString = '2200-01-01T00:00:00.000Z'
     const lastValidFromDate = new Date(validFromISOString)
     const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
     const newValidFromISOString = newValidFromDate.toISOString()
-    const response = await te.put({ a: 1 }, 'userY', validFromISOString)
-    await te.put({ a: 2 }, 'userZ', undefined, undefined, response.meta.validFrom)
-    const [result, status] = await te.get()
-    expect(result.meta.validFrom).toBe(newValidFromISOString)
+
+    url = `${baseUrl}/*/*`
+    let options = {
+      method: 'POST',
+      body: {
+        value: { a: 1 },
+        userID: 'userY',
+        validFrom: validFromISOString,
+      },
+    }
+    let response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(201)
+    expect(response.content.meta.validFrom).to.be.a('string')
+
+    idString = response.content.idString
+    url = `${url}/${idString}`
+    options = {
+      method: 'PUT',
+      body: {
+        value: { a: 2 },
+        userID: 'userZ',
+      },
+      headers: { 'If-Unmodified-Since': response.content.meta.validFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.meta.validFrom).to.be.a('string')
+    expect(response.content.meta.validFrom).toBe(newValidFromISOString)
   })
 })
 
 describe('deep object put and patch', async () => {
-  it.todo('should allow deep patching', async () => {
-    const state = getStateMock()
-    const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
+  let state
+  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
+  if (process?.env?.VITEST_BASE_URL != null) {
+    baseUrl = process.env.VITEST_BASE_URL
+  } else {
+    const id = env.DO_API.newUniqueId()
+    // eslint-disable-next-line no-undef
+    state = await getMiniflareDurableObjectState(id)
+    stub = new DurableAPI(state, env, id.toString())
+  }
+
+  it('should allow deep patching', async () => {
+    url = `${baseUrl}/*/*`
     const o = { a: 2000, o: { a: 1, b: 2, children: [1, 'a', new Date()] } }
-    const response = await te.put(o, 'userX')
-    const [result, status] = await te.get()
-    expect(result.value).toEqual(o)
-    const response2 = await te.patch(
-      {
+    let options = {
+      method: 'POST',
+      body: { value: o, userID: 'userX' },
+    }
+    let response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.content.value).toEqual(o)
+
+    idString = response.content.idString
+    url = `${url}/${idString}`
+    options = {
+      method: 'PATCH',
+      body: {
         delta: { o: { a: 2, c: 3 } },
-        userID: 'userX',
+        userID: 'userY',
         validFrom: '2200-01-01T00:00:00.000Z',
       },
-      response.meta.validFrom,
-    )
+      headers: { 'If-Unmodified-Since': response.content.meta.validFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
     const o2 = structuredClone(o)
     o2.o.a = 2
     o2.o.c = 3
-    expect(response2.value).toEqual(o2)
+    expect(response.content.value).toEqual(o2)
     const inner = Object.create(null)
     inner.a = 1
     inner.c = undefined
     const pv = Object.create(null)
     pv.o = inner
-    expect(response2.meta.previousValues).toEqual(pv)
-    const response3 = await te.patch(
-      {
+    expect(response.content.meta.previousValues).toEqual(pv)
+
+    options = {
+      method: 'PATCH',
+      body: {
         delta: { o: { children: { 3: 'pushed' } } },
         userID: 'userX',
         validFrom: '2200-01-02T00:00:00.000Z',
       },
-      response2.meta.validFrom,
-    )
+      headers: { 'If-Unmodified-Since': response.content.meta.validFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
     const o3 = structuredClone(o2)
     o3.o.children.push('pushed')
-    expect(response3.value).toEqual(o3)
+    expect(response.content.value).toEqual(o3)
   })
 })
 
 describe('304 behavior for get and getEntityMeta', async () => {
-  it.todo('should return 304 status code and no body with correct ifModifiedSince', async () => {
-    const state = getStateMock()
-    const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
-    const response = await te.put({ a: 1 }, 'userY')
-    const [result, status] = await te.get()
-    lastValidFrom = result.meta.validFrom
-    const ifModifiedSince1msEarlier = new Date(new Date(lastValidFrom).valueOf() - 1).toISOString()
-    expect(status).toBe(200)
-    expect(result.value).toEqual({ a: 1 })
-    const [result2, status2] = await te.get({ ifModifiedSince: lastValidFrom })
-    expect(status2).toBe(304)
-    expect(result2).toBeUndefined()
-    const [result5, status5] = await te.get({ ifModifiedSince: ifModifiedSince1msEarlier })
-    expect(status5).toBe(200)
-    expect(result5).not.toBeUndefined()
-    const [result3, status3] = await te.getEntityMeta(lastValidFrom)
-    expect(status3).toBe(304)
-    expect(result3).toBeUndefined()
-    const [result4, status4] = await te.getEntityMeta(ifModifiedSince1msEarlier)
-    expect(status4).toBe(200)
-    expect(result4).not.toBeUndefined()
+  let state
+  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
+  if (process?.env?.VITEST_BASE_URL != null) {
+    baseUrl = process.env.VITEST_BASE_URL
+  } else {
+    const id = env.DO_API.newUniqueId()
+    // eslint-disable-next-line no-undef
+    state = await getMiniflareDurableObjectState(id)
+    stub = new DurableAPI(state, env, id.toString())
+  }
+  let ifModifiedSince1msEarlier
+
+  it('should return 304 and no body with correct If-Modified-Since on GET /', async () => {
+    url = `${baseUrl}/*/*`
+    let options = {
+      method: 'POST',
+      body: {
+        value: { a: 1 },
+        userID: 'userY',
+      },
+    }
+    let response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(201)
+    expect(response.content.meta.validFrom).to.be.a('string')
+
+    idString = response.content.idString
+    url = `${url}/${idString}`
+    lastValidFrom = response.content.meta.validFrom
+    options = {
+      headers: { 'If-Modified-Since': lastValidFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(304)
+    expect(response.content).toBeUndefined()
+
+    ifModifiedSince1msEarlier = new Date(new Date(lastValidFrom).valueOf() - 1).toISOString()
+    options = {
+      headers: { 'If-Modified-Since': ifModifiedSince1msEarlier },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.meta.validFrom).to.be.a('string')
+    expect(response.content).not.toBeUndefined()
+  })
+
+  it('should return 304 and no body with correct If-Modified-Since on GET /entity-meta', async () => {
+    const entityMetaUrl = `${url}/entity-meta/`
+    let options = {
+      headers: { 'If-Modified-Since': lastValidFrom },
+    }
+    let response = await requestOutResponseIn(entityMetaUrl, options, stub, state)
+    expect(response.status).toBe(304)
+    expect(response.content).toBeUndefined()
+
+    options = {
+      headers: { 'If-Modified-Since': ifModifiedSince1msEarlier },
+    }
+    response = await requestOutResponseIn(entityMetaUrl, options, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content).not.toBeUndefined()
   })
 })
 
 describe('TemporalEntity debouncing', async () => {
-  it.todo('should not create new snapshots when updated within granularity', async () => {
-    const state = getStateMock()
-    const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
-    const firstCurrent = await te.put({ a: 1 }, 'userY')
-    const middleCurrent = await te.put({ a: 2 }, 'userY', undefined, undefined, firstCurrent.meta.validFrom)
-    expect(entityMeta.timeline.length).toBe(1)
-    const [{ meta, value }, status] = await te.get()
-    expect(value).toEqual({ a: 2 })
-    expect(meta.validFrom, firstCurrent.meta.validFrom, 'should get back first validFrom')
+  let state
+  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
+  if (process?.env?.VITEST_BASE_URL != null) {
+    baseUrl = process.env.VITEST_BASE_URL
+  } else {
+    const id = env.DO_API.newUniqueId()
+    // eslint-disable-next-line no-undef
+    state = await getMiniflareDurableObjectState(id)
+    stub = new DurableAPI(state, env, id.toString())
+  }
+
+  it('should not create new snapshots when updated within granularity', async () => {
+    url = `${baseUrl}/*/*`
+    let options = {
+      method: 'POST',
+      body: {
+        value: { a: 1 },
+        userID: 'userY',
+      },
+    }
+    let response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(201)
+    expect(response.content.meta.validFrom).to.be.a('string')
+
+    const firstValidFrom = response.content.meta.validFrom
+
+    idString = response.content.idString
+    url = `${url}/${idString}`
+    options = {
+      method: 'PUT',
+      body: {
+        value: { a: 2 },
+        userID: 'userY',
+      },
+      headers: { 'If-Unmodified-Since': response.content.meta.validFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.meta.validFrom).to.be.a('string')
+
+    const entityMetaUrl = `${url}/entity-meta/`
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.timeline.length).toBe(1)
+
+    response = await requestOutResponseIn(url, undefined, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.meta.validFrom).to.be.a('string')
+    expect(response.content.value).toEqual({ a: 2 })
+    expect(response.content.meta.validFrom, firstValidFrom, 'should get back first validFrom')
     const pv = Object.create(null)
     pv.a = undefined
-    expect(meta.previousValues).toEqual(pv)
-    const secondCurrent = await te.put({ a: 3 }, 'userZ', undefined, undefined, middleCurrent.meta.validFrom)
-    await te.put({ a: 4 }, 'userZ', undefined, undefined, secondCurrent.meta.validFrom)
-    expect(entityMeta.timeline.length).toBe(2)
-    const [newCurrent, newStatus] = await te.get()
-    expect(newCurrent.value).toEqual({ a: 4 })
-    expect(newCurrent.meta.validFrom).toBe(secondCurrent.meta.validFrom)
-    const newValidFromDate = new Date(new Date(newCurrent.meta.validFrom).getTime() + 61 * 60 * 1000) // 61 minutes later
-    await te.put({ a: 5 }, 'userZ', newValidFromDate.toISOString(), undefined, newCurrent.meta.validFrom)
-    expect(entityMeta.timeline.length).toBe(3)
-    const [newCurrent3, newStatus3] = await te.get()
-    expect(newCurrent3.value).toEqual({ a: 5 })
+    expect(response.content.meta.previousValues).toEqual(pv)
+
+    options = {
+      method: 'PUT',
+      body: {
+        value: { a: 3 },
+        userID: 'userZ',
+      },
+      headers: { 'If-Unmodified-Since': firstValidFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.meta.validFrom).to.be.a('string')
+
+    options = {
+      method: 'PUT',
+      body: {
+        value: { a: 4 },
+        userID: 'userZ',
+      },
+      headers: { 'If-Unmodified-Since': response.content.meta.validFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.meta.validFrom).to.be.a('string')
+    expect(response.content.value).toEqual({ a: 4 })
+    lastValidFrom = response.content.meta.validFrom
+
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(2)
+
+    const newValidFromDate = new Date(new Date(lastValidFrom).getTime() + 61 * 60 * 1000) // 61 minutes later
+
+    options = {
+      method: 'PUT',
+      body: {
+        value: { a: 5 },
+        userID: 'userZ',
+        validFrom: newValidFromDate,
+      },
+      headers: { 'If-Unmodified-Since': lastValidFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(200)
+    expect(response.content.value).toEqual({ a: 5 })
+    expect(response.content.meta.validFrom).to.be.a('string')
+
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(3)
   })
 })
 
@@ -552,26 +848,5 @@ describe('TemporalEntity granularity', async () => {
     newValidFromDate = new Date(new Date(response.meta.validFrom).getTime() + 500) // 500 ms later
     response = await te.put({ a: 2 }, 'userX', newValidFromDate.toISOString(), undefined, response.meta.validFrom)
     expect(entityMeta.timeline.length).toBe(2)
-  })
-})
-
-describe('TemporalEntity PUT with old If-Unmodified-Since', async () => {
-  it.todo('should throw if old If-Unmodified-Since is used', async () => {
-    const state = getStateMock()
-    const te = new TemporalEntity(state, env, '*', '*', 'testIDString')
-    const response3 = await te.put({ a: 1, b: 2, c: 3, d: 4 }, 'userY', '2200-01-01T00:00:00.000Z')
-    expect(entityMeta.timeline.length).toBe(1)
-    const response4 = await te.put({ a: 10, b: 2, c: 3, d: 4 }, 'userY', '2200-01-02T00:00:00.000Z', undefined, response3.meta.validFrom)
-    expect(entityMeta.timeline.length).toBe(2)
-    try {
-      await te.put({ a: 1, b: 2, c: 25, d: 40 }, 'userY', '2200-01-05T00:00:00.000Z', undefined, response3.meta.validFrom)
-      assert(false)
-    } catch (e) {
-      expect(e.message).toMatch('If-Unmodified-Since is earlier than the last time this TemporalEntity was modified')
-      expect(e.status).toBe(412)
-      expect(e.body.value).toEqual({ a: 10, b: 2, c: 3, d: 4 })
-      expect(e.body.meta.validFrom).toBe('2200-01-02T00:00:00.000Z')
-      expect(e.body.error.status).toBe(412)
-    }
   })
 })
