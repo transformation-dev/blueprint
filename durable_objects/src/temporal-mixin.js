@@ -58,14 +58,9 @@ export const temporalMixin = {
     return responseOut(entityMeta, status)
   },
 
-  async doResponseOut(body, status = 200, statusText = undefined) {
+  async doResponseOut(body, status = 200) {
     const headers = new Headers()
     headers.set('Content-ID', this.idString)
-    if (statusText) {
-      const cleanedStatusText = statusText.replaceAll('\n', ' ')
-      headers.set('Status-Text', cleanedStatusText)
-    }
-    // eslint-disable-next-line no-param-reassign
     if (body != null) {
       body.idString = this.state?.id.toString()
       if (this.warnings != null) body.warnings = this.warnings

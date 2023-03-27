@@ -90,5 +90,12 @@ export class DurableAPI extends VersioningTransactionalDOWrapperBase {
         },
       },
     },
+    '***test-granularity***': {
+      versions: {
+        v1: {
+          environments: { '*': { TheClass: TemporalEntity } },
+        },
+      },
+    },
   }
 }

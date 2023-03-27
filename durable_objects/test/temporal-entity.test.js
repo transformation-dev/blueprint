@@ -838,15 +838,61 @@ describe('TemporalEntity debouncing', async () => {
 })
 
 describe('TemporalEntity granularity', async () => {
-  it.todo('should not debounce when update is outside of granularity', async () => {
-    const state = getStateMock()
-    const te = new TemporalEntity(state, env, '***test-granularity***', 'v1', 'testIDString')
-    let response = await te.put({ a: 1 }, 'userX')
-    let newValidFromDate = new Date(new Date(response.meta.validFrom).getTime() + 1500) // 1500 ms later
-    response = await te.put({ a: 2 }, 'userX', newValidFromDate.toISOString(), undefined, response.meta.validFrom)
-    expect(entityMeta.timeline.length).toBe(2)
-    newValidFromDate = new Date(new Date(response.meta.validFrom).getTime() + 500) // 500 ms later
-    response = await te.put({ a: 2 }, 'userX', newValidFromDate.toISOString(), undefined, response.meta.validFrom)
-    expect(entityMeta.timeline.length).toBe(2)
+  let state
+  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
+  if (process?.env?.VITEST_BASE_URL != null) {
+    baseUrl = process.env.VITEST_BASE_URL
+  } else {
+    const id = env.DO_API.newUniqueId()
+    // eslint-disable-next-line no-undef
+    state = await getMiniflareDurableObjectState(id)
+    stub = new DurableAPI(state, env, id.toString())
+  }
+
+  it('should not debounce when update is outside of granularity', async () => {
+    url = `${baseUrl}/***test-granularity***/v1`
+    let options = {
+      method: 'POST',
+      body: {
+        value: { a: 1 },
+        userID: 'userX',
+      },
+    }
+    let response = await requestOutResponseIn(url, options, stub, state)
+
+    let newValidFromDate = new Date(new Date(response.content.meta.validFrom).getTime() + 1500) // 1500 ms later
+    idString = response.content.idString
+    url = `${url}/${idString}`
+    options = {
+      method: 'PUT',
+      body: {
+        value: { a: 2 },
+        userID: 'userX',
+        validFrom: newValidFromDate.toISOString(),
+      },
+      headers: { 'If-Unmodified-Since': response.content.meta.validFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    lastValidFrom = response.content.meta.validFrom
+
+    const entityMetaUrl = `${url}/entity-meta/`
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(2)
+
+    newValidFromDate = new Date(new Date(lastValidFrom).getTime() + 500) // 500 ms later
+    options = {
+      method: 'PUT',
+      body: {
+        value: { a: 2 },
+        userID: 'userX',
+        validFrom: newValidFromDate.toISOString(),
+      },
+      headers: { 'If-Unmodified-Since': lastValidFrom },
+    }
+    response = await requestOutResponseIn(url, options, stub, state)
+    lastValidFrom = response.content.meta.validFrom
+
+    response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
+    expect(response.content.timeline.length).toBe(2)
   })
 })
