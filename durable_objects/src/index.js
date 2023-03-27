@@ -11,6 +11,7 @@ import { Tree } from './tree.js'
 
 export * from './temporal-entity.js'  // Need this for unit testing TemporalEntity which has imported YAML schemas
 export * from './tree.js'  // And this is needed because Tree uses TemporalEntity
+export * from './experimenter-v2'
 
 // Worker that does nothing and is never used but necessary since durable objects require a Worker
 export default {}

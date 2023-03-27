@@ -38,7 +38,6 @@
     "debug": "^4.3.4"
   },
   "devDependencies": {
-    "@transformation-dev/cloudflare-do-testing-utils": "file:packages/cloudflare-do-testing-utils",
     "@vitest/coverage-c8": "^0.29.2",
     "node-fetch": "^3.3.0",
     "vitest": "^0.29.1",

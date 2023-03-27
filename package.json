@@ -64,7 +64,6 @@
   },
   "workspaces": [
     "packages/cloudflare-do-utils",
-    "packages/cloudflare-do-testing-utils",
     "packages/dragster",
     "durable_objects"
   ]
