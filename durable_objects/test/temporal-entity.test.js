@@ -226,102 +226,123 @@ describe('TemporalEntity validation', async () => {
   })
 })
 
-// describe('TemporalEntity DAG', async () => {
-//   it.todo('should not throw with valid DAG matching schema', async () => {
-//     const state = getStateMock()
-//     const te = new TemporalEntity(state, env, '***test-dag***', 'v1', 'testIDString')
-//     const dag = {
-//       id: '1',
-//       children: [
-//         {
-//           id: '2',
-//         },
-//       ],
-//     }
-//     const value = {
-//       a: 1,
-//       dag,
-//     }
-//     try {
-//       const response = await te.put(value, 'userW')
-//       expect(response.value).toEqual(value)
-//     } catch (e) {
-//       assert(false)
-//     }
-//   })
+describe('TemporalEntity DAG', async () => {
+  let state
+  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
+  if (process?.env?.VITEST_BASE_URL != null) {
+    baseUrl = process.env.VITEST_BASE_URL
+  } else {
+    const id = env.DO_API.newUniqueId()
+    // eslint-disable-next-line no-undef
+    state = await getMiniflareDurableObjectState(id)
+    stub = new DurableAPI(state, env, id.toString())
+  }
 
-//   it.todo('should throw on invalid DAG because of cycle', async () => {
-//     const state = getStateMock()
-//     const te = new TemporalEntity(state, env, '***test-dag***', 'v1', 'testIDString')
-//     const dag = {
-//       id: '1',
-//       children: [
-//         {
-//           id: '1',
-//         },
-//       ],
-//     }
-//     const value = {
-//       a: 1,
-//       dag,
-//     }
-//     try {
-//       const response = await te.put(value, 'userW')
-//       assert(false)
-//     } catch (e) {
-//       expect(e.message).toMatch('contains duplicate ids')
-//     }
-//   })
+  it('should not throw with valid DAG matching schema', async () => {
+    url = `${baseUrl}/***test-dag***/v1`
 
-//   it.todo('should throw on invalid DAG because of duplicate sibling', async () => {
-//     const state = getStateMock()
-//     const te = new TemporalEntity(state, env, '***test-dag***', 'v1', 'testIDString')
-//     const dag = {
-//       id: '1',
-//       children: [
-//         {
-//           id: '2',
-//         },
-//         {
-//           id: '2',
-//         },
-//       ],
-//     }
-//     const value = {
-//       a: 1,
-//       dag,
-//     }
-//     try {
-//       const response = await te.put(value, 'userW')
-//       assert(false)
-//     } catch (e) {
-//       expect(e.message).toMatch('contain duplicate ids')
-//     }
-//   })
+    const dag = {
+      id: '1',
+      children: [
+        {
+          id: '2',
+        },
+      ],
+    }
+    const valueIn = {
+      a: 1,
+      dag,
+    }
 
-//   it.todo('should throw on valid DAG but not matching schema', async () => {
-//     const state = getStateMock()
-//     const te = new TemporalEntity(state, env, '***test-dag***', 'v1', 'testIDString')
-//     const dag = {
-//       id: '1',
-//       children: [
-//         {
-//           id: '2',
-//         },
-//       ],
-//     }
-//     const value = {
-//       a: 'string when a number is expected',
-//       dag,
-//     }
-//     try {
-//       const response = await te.put(value, 'userW')
-//       assert(false)
-//     } catch (e) {
-//       expect(e.message).toMatch('Schema validation failed')
-//     }
-//   })
-// })
+    const options = {
+      method: 'POST',
+      body: { value: valueIn, userID: 'userW' },
+    }
+    const response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(201)
+    const { meta, value, warnings } = response.content
+    expect(response.content.value).toEqual(value)
+    idString = response.content.idString
+    lastValidFrom = meta.validFrom
+    url = `${url}/${idString}`
+  })
+
+  it('should throw on invalid DAG because of cycle', async () => {
+    const dag = {
+      id: '1',
+      children: [
+        {
+          id: '1',
+        },
+      ],
+    }
+    const valueIn = {
+      a: 1,
+      dag,
+    }
+
+    const options = {
+      method: 'PUT',
+      body: { value: valueIn, userID: 'userW' },
+      headers: { 'If-Unmodified-Since': lastValidFrom },
+    }
+    const response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(400)
+    expect(response.content.error.message).toMatch('contains duplicate ids')
+  })
+
+  it('should throw on invalid DAG because of duplicate sibling', async () => {
+    const dag = {
+      id: '1',
+      children: [
+        {
+          id: '2',
+        },
+        {
+          id: '2',
+        },
+      ],
+    }
+    const valueIn = {
+      a: 1,
+      dag,
+    }
+
+    const options = {
+      method: 'PUT',
+      body: { value: valueIn, userID: 'userW' },
+      headers: { 'If-Unmodified-Since': lastValidFrom },
+    }
+    const response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(400)
+    expect(response.content.error.message).toMatch('contain duplicate ids')
+  })
+
+  it('should throw on valid DAG but not matching schema', async () => {
+    const dag = {
+      id: '1',
+      children: [
+        {
+          id: '2',
+        },
+      ],
+    }
+    const valueIn = {
+      a: 'string when a number is expected',
+      dag,
+    }
+
+    const options = {
+      method: 'PUT',
+      body: { value: valueIn, userID: 'userW' },
+      headers: { 'If-Unmodified-Since': lastValidFrom },
+    }
+    const response = await requestOutResponseIn(url, options, stub, state)
+    console.log('response.content: %O', response.content)
+    expect(response.status).toBe(400)
+    expect(response.content.error.message).toMatch('Schema validation failed')
+  })
+})
 
 // describe('TemporalEntity supressPreviousValues', async () => {
 //   let state

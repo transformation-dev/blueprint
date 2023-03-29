@@ -3,7 +3,7 @@
 import { load as yamlLoad } from 'js-yaml'
 
 // monorepo imports
-// import { throwIfNotDag, throwIf, throwUnless } from '@transformation-dev/cloudflare-do-utils'  // so you can use them in validation
+import { throwIfNotDag } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
 import { Experimenter } from './experimenter.js'
@@ -12,8 +12,10 @@ import { TemporalEntity } from './temporal-entity.js'
 import { Tree } from './tree.js'
 import rootOrgTreeNodeSchemaV1String from './schemas/root-org-tree-node.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
 import orgTreeNodeSchemaV1String from './schemas/org-tree-node.v1.yaml?raw'
+import testDagSchemaV1String from './schemas/***test-dag***.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
 
 // initialize imports
+const testDagSchemaV1 = yamlLoad(testDagSchemaV1String)  // convert yaml string to javascript object
 const rootOrgTreeNodeSchemaV1 = yamlLoad(rootOrgTreeNodeSchemaV1String)  // convert yaml string to javascript object
 const orgTreeNodeSchemaV1 = yamlLoad(orgTreeNodeSchemaV1String)  // convert yaml string to javascript object
 
@@ -27,7 +29,7 @@ const orgTreeNodeSchemaV1 = yamlLoad(orgTreeNodeSchemaV1String)  // convert yaml
  *               supressPreviousValues: true,     // defaults to false if not specified
  *               granularity: 'minute',           // defaults to 'hour' if not specified
  *               schema: widgetSchemaV1,
- *               additionalValidation(value) {
+ *               additionalValidation: (value) => {
  *                 throwIfNotDag(value.dag)
  *               },
  *             },
@@ -128,6 +130,17 @@ export default {
     versions: {
       v1: {
         granularity: 'second',
+        environments: { '*': { TheClass: TemporalEntity } },
+      },
+    },
+  },
+  '***test-dag***': {
+    versions: {
+      v1: {
+        schema: testDagSchemaV1,
+        additionalValidation: (value) => {
+          throwIfNotDag(value.dag)
+        },
         environments: { '*': { TheClass: TemporalEntity } },
       },
     },
