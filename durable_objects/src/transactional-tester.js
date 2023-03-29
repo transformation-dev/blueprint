@@ -7,7 +7,7 @@ import { temporalMixin } from './temporal-mixin.js'
 // initialize imports
 const debug = getDebug('blueprint:durable-objects:experimenter-v2')
 
-export class ExperimenterV2 {
+export class TransactionalTester {
   async hydrate() {
     if (this.hydrated) return
     this.name = await this.state.storage.get('name')

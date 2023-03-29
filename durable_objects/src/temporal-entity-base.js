@@ -194,52 +194,6 @@ const debug = getDebug('blueprint:temporal-entity')
  *      while we attempt to supply a more useful Status-Text in the header, error responses also include a body with an error
  *      field which in turn has a useful message field. Error bodies are also encoded in CBOR using the structured clone extension.
  *
- * ## Types and versions
- *
- * Here is an example of subclassing TemporalEntityBase and specifying types and versions:
- *
- *     import { TemporalEntityBase } from '@transformation-dev/temporal-entity'
- *     import { throwIfNotDag } from '@transformation-dev/cloudflare-do-utils'
- *
- *     import widgetSchemaV1 from './schemas/widget.v1.yaml'  // use esbuild plugin esbuild-plugin-yaml to inline
- *
- *     export class Entity extends TemporalEntityBase {
- *
- *       static types = {
- *         ...super.types,  // required if you want the defaults identified by type='*', version='*'
- *         'widget': {
- *           versions: {
- *             v1: {  // each version must start with 'v' but you can use anything after that
- *               supressPreviousValues: true,     // defaults to false if not specified
- *               granularity: 'minute',           // defaults to 'hour' if not specified
- *               schema: widgetSchemaV1,
- *               additionalValidation(value) {
- *                 throwIfNotDag(value.dag)
- *               },
- *             },
- *             v2: {  // the order rather than the integer is significant for upgrades and downgrades
- *               ...
- *               upgrade: (priorVersionValueAndMeta) => {...},  // returns the upgraded from v1 { value, meta }
- *               downgrade: (currentVersionValueAndMeta) => {...},  // returns the downgraded to v1 { value, meta }
- *             },
- *           },
- *         },
- *         'zorch': {
- *           versions: {
- *             v1: {
- *               schema: {  // example of inline schema
- *                 type: 'object',
- *                 properties: {
- *                   foo: { type: 'string' },
- *                 },
- *               },
- *             },
- *           },
- *         },
- *       }
- *
- *     }
- *
  * ## Using the @transformation-dev/cloudflare-do-proxy
  *
  * You must specify a type and version in the first two path segments after the base URL
@@ -254,78 +208,32 @@ const debug = getDebug('blueprint:temporal-entity')
 export class TemporalEntityBase {
   static END_OF_TIME = '9999-01-01T00:00:00.000Z'
 
-  static types = {
-    '*': {  // default type
-      versions: {
-        '*': {  // only allowed version with default version
-          supressPreviousValues: false,
-          hasChildren: false,
-          hasParents: false,
-          granularity: 3600000,  // 1 hour
-        },
-      },
-    },
-    '***test-supress-previous-values***': {
-      versions: { v1: { supressPreviousValues: true } },
-    },
-    '***test-granularity***': {
-      versions: { v1: { granularity: 'second' } },
-    },
-    '***test-dag***': {
-      versions: {
-        v1: {
-          schema: testDagSchemaV1,
-          additionalValidation(value) {
-            throwIfNotDag(value.dag)
-          },
-        },
-      },
-    },
-    '***test-has-children-and-parents***': {
-      versions: { v1: { hasChildren: true, hasParents: true } },
-    },
-    '***test-has-children***': {
-      versions: { v1: { hasChildren: true } },
-    },
-  }
-
-  constructor(state, env, type, version, idString) {  // type, version, and idString are only used in unit tests and composition. Cloudflare only passes in two parameters.
+  // typeVersionConfig: { schema: JSON schema object, granularity: string or integer milliseconds, supressPreviousValues: boolean }
+  constructor(state, env, typeVersionConfig) {  // Cloudflare only passes in two parameters, so either subclass and call super() or use in composition with a third parameter
+    throwUnless(typeVersionConfig != null, 'typeVersionConfig is required as the third parameter when creating a TemporalEntityBase instance', 500)
     Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
-    this.type = type
-    this.version = version
-    if (idString === 0) this.idString = '0'
-    else if (idString != null) this.idString = idString.toString()
-    else this.idString = undefined
+    this.typeVersionConfig = typeVersionConfig
+    this.hydrateTypeVersionConfig()
 
     Object.assign(this, temporalMixin)
 
     this.hydrated = false  // using this.hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.hydrate.bind(this))
   }
 
-  hydrateTypeVersionConfig() {  // We don't store typeVersionConfig which allows for the values to be changed over time
-    throwUnless(this.constructor.types[this.type], `Entity type, ${this.type}, not found`, 404)
-    const defaultTypeVersionConfig = this.constructor.types['*'].versions['*']
-    const lookedUpTypeVersionConfig = this.constructor.types[this.type].versions[this.version]
-    throwUnless(lookedUpTypeVersionConfig, `Entity version, ${this.version}, not found for type, ${this.type}`, 404)
-    this.typeVersionConfig = {}
-    const keys = new Set([...Reflect.ownKeys(defaultTypeVersionConfig), ...Reflect.ownKeys(lookedUpTypeVersionConfig)])
-    for (const key of keys) {
-      this.typeVersionConfig[key] = lookedUpTypeVersionConfig[key] ?? defaultTypeVersionConfig[key]
-      if (key === 'granularity' && typeof this.typeVersionConfig.granularity === 'string') {
-        if (['sec', 'second'].includes(this.typeVersionConfig.granularity)) this.typeVersionConfig.granularity = 1000
-        else if (['min', 'minute'].includes(this.typeVersionConfig.granularity)) this.typeVersionConfig.granularity = 60000
-        else if (['hr', 'hour'].includes(this.typeVersionConfig.granularity)) this.typeVersionConfig.granularity = 3600000
-        else if (this.typeVersionConfig.granularity === 'day') this.typeVersionConfig.granularity = 86400000
-        else throwIf(true, `Unsupported granularity: ${this.typeVersionConfig.granularity}`, 500)
-      }
+  hydrateTypeVersionConfig() {
+    if (this.typeVersionConfig?.granularity != null && typeof this.typeVersionConfig.granularity === 'string') {
+      if (['sec', 'second'].includes(this.typeVersionConfig.granularity)) this.typeVersionConfig.granularity = 1000
+      else if (['min', 'minute'].includes(this.typeVersionConfig.granularity)) this.typeVersionConfig.granularity = 60000
+      else if (['hr', 'hour'].includes(this.typeVersionConfig.granularity)) this.typeVersionConfig.granularity = 3600000
+      else if (this.typeVersionConfig.granularity === 'day') this.typeVersionConfig.granularity = 86400000
+      else throwIf(true, `Unsupported granularity: ${this.typeVersionConfig.granularity}`, 500)
     }
   }
 
   async hydrate() {
-    debug('hydrate() called')
-    debug('this.hydrated: %O', this.hydrated)
+    // debug('hydrate() called. this.hydrated: %O', this.hydrated)
     if (this.hydrated) return
 
     // validation
@@ -339,38 +247,21 @@ export class TemporalEntityBase {
       this.current = await this.state.storage.get(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}`)
     }
 
-    // preferably, this.type and this.version are set earlier, but if not, we'll try to set them here from this.current.meta
-    if (this.type == null && this.current?.meta?.type != null) this.type = this.current.meta.type
-    if (this.version == null && this.current?.meta?.version != null) this.version = this.current.meta.version
-    this.hydrateTypeVersionConfig()
-
     this.hydrated = true
   }
 
   // eslint-disable-next-line consistent-return
-  async fetch(request, urlString) {  // urlString is only used when called in composition by another durable object sharing state and env
-    debug('%s %s', request.method, urlString || request.url)
+  async fetch(request) {
+    debug('%s %s', request.method, request.url)
     this.nextStatus = undefined  // TODO: maybe find a way to do this in the lower methods like we do in GET expecting [value, status] from get
     this.warnings = []
     try {
-      let pathArray
-      if (urlString != null) {
-        pathArray = urlString.split('/')
-      } else {
-        const url = new URL(request.url)
-        pathArray = url.pathname.split('/')
-      }
-      pathArray = pathArray.filter((s) => s !== '')
-      if (pathArray[0] === '') pathArray.shift()  // remove the leading slash
+      const url = new URL(request.url)
+      const pathArray = url.pathname.split('/').filter((s) => s !== '')
 
       this.type = pathArray.shift()
-      const typeConfig = this.constructor.types[this.type]
-      throwUnless(typeConfig, `Unrecognized type ${this.type}`, 404)
 
       this.version = pathArray.shift()
-      if (this.type === '*') throwUnless(this.version === '*', 'The type * can only be used with version *', 404)
-      const typeVersionConfig = typeConfig.versions?.[this.version]
-      throwUnless(typeVersionConfig, `Unrecognized version ${this.version}`, 404)
 
       if (this.idString != null) {  // It might be set when instantiated manually
         const otherIDString = pathArray.shift()
@@ -409,7 +300,6 @@ export class TemporalEntityBase {
 
   async delete(userID, validFrom, impersonatorID) {
     throwUnless(userID, 'userID required by TemporalEntity DELETE is missing')
-    // throwUnless(typeof validFrom === 'string' || validFrom instanceof String, 'validFrom must be a string')
 
     await this.hydrate()
 

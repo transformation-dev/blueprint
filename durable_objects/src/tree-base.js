@@ -545,7 +545,7 @@ export class TreeBase  {
 
   // eslint-disable-next-line no-unused-vars
   async patch(options) {
-    throwUnless(options.userID, 'userID required by TemporalEntity PATCH is missing')
+    throwUnless(options.userID, 'userID required by Tree PATCH is missing')
 
     if (options.addNode != null) return this.patchAddNode(options)
     if (options.addBranch != null) return this.patchAddBranch(options)  // does not use If-Modified-Since because it's idempotent

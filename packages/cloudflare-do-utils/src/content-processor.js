@@ -93,7 +93,7 @@ export async function responseOut(body, status = 200, contentType = DEFAULT_CONT
 
 export function errorResponseOut(e, env, idString) {
   const body = e.body ?? {}
-  body.error = { message: e.message, status: e.status }
+  body.error = { message: e.message, status: e.status ?? 500 }
   if (env?.CF_ENV !== 'production') {
     body.error.stack = e.body?.error?.stack ?? ''
     body.error.stack += e.stack
@@ -116,20 +116,38 @@ export async function responseIn(response) {
   return response
 }
 
+export function errorResponseIn(e, env, idString) {
+  const body = e.body ?? {}
+  body.error = { message: e.message, status: e.status ?? 500 }
+  if (env?.CF_ENV !== 'production') {
+    body.error.stack = e.body?.error?.stack ?? ''
+    body.error.stack += e.stack
+  }
+  body.idString = idString
+  const response = {  // Note, this is not a real Response object. It just has status and content
+    status: e.status ?? 500,
+    content: body,
+  }
+  return response
+}
+
 export async function requestOutResponseIn(url, options, stub, state) {
   const request = await requestOut(url, options)
-
   let response
-  if (stub != null) {
-    if (state != null && globalThis.runWithMiniflareDurableObjectGates != null) {  // Means we must be running tests in miniflare
-      response = await globalThis.runWithMiniflareDurableObjectGates(state, () => stub.fetch(request))  // I hope this allows console.log's to finish before vitest exits
-    } else {
-      response = await stub.fetch(request)
-    }
-  } else {
-    response = await fetch(request)
-  }
 
+  try {
+    if (stub != null) {
+      if (state != null && globalThis.runWithMiniflareDurableObjectGates != null) {  // Means we must be running tests in miniflare
+        response = await globalThis.runWithMiniflareDurableObjectGates(state, () => stub.fetch(request))  // I hope this allows console.log's to finish before vitest exits
+      } else {
+        response = await stub.fetch(request)
+      }
+    } else {
+      response = await fetch(request)
+    }
+  } catch (e) {
+    return errorResponseIn(e, this.env, state.id.toString())
+  }
   return responseIn(response)
 }
 

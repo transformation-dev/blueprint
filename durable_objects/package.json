@@ -19,8 +19,10 @@
   },
   "dependencies": {
     "@cfworker/json-schema": "^1.12.5",
+    "@cloudflare/itty-router-openapi": "^0.0.15",
     "@transformation-dev/cloudflare-do-utils": "file:packages/cloudflare-do-utils",
     "deep-object-diff": "^1.1.9",
+    "itty-router": "^3.0.12",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {
