@@ -66,13 +66,10 @@ export class TreeBase  {
   //   <id: string>: [<id: string>],
   // }
 
-  constructor(state, env, idString) {  // idString is only used in unit tests and composition. Cloudflare only passes in two parameters.
+  constructor(state, env) {
     Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
-    if (idString === 0) this.idString = '0'
-    else if (idString != null) this.idString = idString.toString()
-    else this.idString = undefined
 
     Object.assign(this, temporalMixin)
 
@@ -123,11 +120,6 @@ export class TreeBase  {
 
   isChildOf(parentID, childID) {  // is childID (2nd parameter) a child of parentID (1st parameter)?
     return this.edges?.[parentID]?.includes(childID)
-  }
-
-  isParentOf(childID, parentID) {  // is parentID (2nd parameter) a parent of childID (1st parameter)?
-    this.deriveReverseEdges()
-    return this.reverseEdges[childID]?.includes(parentID) ?? false
   }
 
   async throwIfInvalidID(id) {

@@ -208,7 +208,12 @@ const debug = getDebug('blueprint:temporal-entity')
 export class TemporalEntityBase {
   static END_OF_TIME = '9999-01-01T00:00:00.000Z'
 
-  // typeVersionConfig: { schema: JSON schema object, granularity: string or integer milliseconds, supressPreviousValues: boolean }
+  // typeVersionConfig: {
+  //  schema: JSON schema object,
+  //  additionalValidation: (object) => boolean; Return true if valid. Throw if not valid.
+  //  granularity: string or integer milliseconds,
+  //  supressPreviousValues: boolean,
+  // }
   constructor(state, env, typeVersionConfig) {  // Cloudflare only passes in two parameters, so either subclass and call super() or use in composition with a third parameter
     throwUnless(typeVersionConfig != null, 'typeVersionConfig is required as the third parameter when creating a TemporalEntityBase instance', 500)
     Debug.enable(env.DEBUG)

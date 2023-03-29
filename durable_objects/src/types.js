@@ -20,7 +20,6 @@ const orgTreeNodeSchemaV1 = yamlLoad(orgTreeNodeSchemaV1String)  // convert yaml
 /*
  * ## Types and versions
  *
- *
  *       static types = {
  *         'widget': {
  *           versions: {
