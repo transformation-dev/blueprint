@@ -146,7 +146,7 @@ export async function requestOutResponseIn(url, options, stub, state) {
       response = await fetch(request)
     }
   } catch (e) {
-    return errorResponseIn(e, this.env, state.id.toString())
+    return errorResponseIn(e, this.env, state?.id.toString())
   }
   return responseIn(response)
 }

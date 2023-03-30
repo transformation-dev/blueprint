@@ -25,17 +25,17 @@ const orgTreeNodeSchemaV1 = yamlLoad(orgTreeNodeSchemaV1String)  // convert yaml
  *       static types = {
  *         'widget': {
  *           versions: {
- *             v1: {  // each version must start with 'v' but you can use anything after that
+ *             v1: {  // "v#" is just an example. The version can be anything you want
  *               supressPreviousValues: true,     // defaults to false if not specified
  *               granularity: 'minute',           // defaults to 'hour' if not specified
- *               schema: widgetSchemaV1,
+ *               schema: widgetSchemaV1,          // example of imported schema
  *               additionalValidation: (value) => {
  *                 throwIfNotDag(value.dag)
  *               },
  *             },
  *             v2: {  // the order rather than the integer is significant for upgrades and downgrades
  *               ...
- *               upgrade: (priorVersionValueAndMeta) => {...},  // returns the upgraded from v1 { value, meta }
+ *               upgrade: (priorVersionValueAndMeta) => {...},      // returns the upgraded from v1 { value, meta }
  *               downgrade: (currentVersionValueAndMeta) => {...},  // returns the downgraded to v1 { value, meta }
  *             },
  *           },
@@ -141,6 +141,14 @@ export default {
         additionalValidation: (value) => {
           throwIfNotDag(value.dag)
         },
+        environments: { '*': { TheClass: TemporalEntity } },
+      },
+    },
+  },
+  '***test-supress-previous-values***': {
+    versions: {
+      v1: {
+        supressPreviousValues: true,
         environments: { '*': { TheClass: TemporalEntity } },
       },
     },

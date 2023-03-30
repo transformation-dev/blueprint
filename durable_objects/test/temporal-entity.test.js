@@ -14,17 +14,18 @@ import { TemporalEntityBase } from '../src/temporal-entity-base.js'
 const env = getMiniflareBindings()
 // env.DEBUG = 'blueprint:*'
 env.DEBUG = 'blueprint:temporal-entity'
-env.DEBUG = 'nothing'
+// env.DEBUG = 'nothing'
 
 let lastValidFrom
 let idString
-let baseUrl = 'http://fake.host'
-let url = `${baseUrl}/*/*`
 
-describe('TemporalEntity put(), patch(), and rehydrate', async () => {
+const isLive = process?.env?.VITEST_BASE_URL != null
+
+async function getCleanState() {
+  let baseUrl
   let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-  if (process?.env?.VITEST_BASE_URL != null) {
+  let stub
+  if (isLive) {
     baseUrl = process.env.VITEST_BASE_URL
   } else {
     const id = env.DO_API.newUniqueId()
@@ -32,7 +33,15 @@ describe('TemporalEntity put(), patch(), and rehydrate', async () => {
     state = await getMiniflareDurableObjectState(id)
     // stub = await env.DO_API.get(id)  // this is how Cloudflare suggests getting the stub. However, doing it the way below allows vitest --coverage to work
     stub = new DurableAPI(state, env, id.toString())
+    baseUrl = 'http://fake.host'
   }
+  const url = `${baseUrl}/*/*`  // This is a default that will often work but can be overwritten per test
+  return ({ state, stub, baseUrl, url })
+}
+
+describe('TemporalEntity POST and PATCH', async () => {
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should allow POST with only value and userID', async () => {
     const options = {
@@ -40,7 +49,6 @@ describe('TemporalEntity put(), patch(), and rehydrate', async () => {
       body: { value: { a: 1, b: 2 }, userID: 'userW' },
     }
     const response = await requestOutResponseIn(url, options, stub, state)
-
     const { meta, value, warnings } = response.content
     idString = response.content.idString
     lastValidFrom = meta.validFrom
@@ -52,7 +60,7 @@ describe('TemporalEntity put(), patch(), and rehydrate', async () => {
     expect(meta).to.not.haveOwnProperty('impersonatorID')
   })
 
-  it('should allow patch() with validFrom and impersonatorID (note, this also tests put())', async () => {
+  it('should allow PATCH with validFrom and impersonatorID (note, this also tests put())', async () => {
     const lastValidFromISOString = lastValidFrom
     const lastValidFromDate = new Date(lastValidFromISOString)
     const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
@@ -79,7 +87,7 @@ describe('TemporalEntity put(), patch(), and rehydrate', async () => {
     expect(value).toEqual({ b: 3, c: 4 })
     expect(meta.impersonatorID).toBe('impersonator1')
     // storage operation expects/asserts to only run in miniflare (aka not live over http)
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
       expect(entityMeta.timeline.at(-1)).toBe(newValidFromISOString)
@@ -96,26 +104,20 @@ describe('TemporalEntity END_OF_TIME', async () => {
 })
 
 describe('TemporalEntity validation', async () => {
-  let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-  if (process?.env?.VITEST_BASE_URL != null) {
-    baseUrl = process.env.VITEST_BASE_URL
-  } else {
-    const id = env.DO_API.newUniqueId()
-    // eslint-disable-next-line no-undef
-    state = await getMiniflareDurableObjectState(id)
-    stub = new DurableAPI(state, env, id.toString())
-  }
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should return error on missing type', async () => {
-    const options = {
-      method: 'POST',
-      body: { value: { a: 1, b: 2 }, userID: 'userW' },
+    if (isLive) {  // The URL with the double slash (indicating a missing type) does not work against a live server, but it does work in vitest
+      const options = {
+        method: 'POST',
+        body: { value: { a: 1, b: 2 }, userID: 'userW' },
+      }
+      url = `${baseUrl}//*`
+      const response = await requestOutResponseIn(url, options, stub, state)
+      expect(response.status).toBe(404)
+      expect(response.content.error.message).toMatch('Version undefined for type * not found')
     }
-    url = `${baseUrl}//*`
-    const response = await requestOutResponseIn(url, options, stub, state)
-    expect(response.status).toBe(404)
-    expect(response.content.error.message).toMatch('Version undefined for type * not found')
   })
 
   it('should return error on unknown type', async () => {
@@ -130,6 +132,9 @@ describe('TemporalEntity validation', async () => {
   })
 
   it('should return error on PATCH with no prior value', async () => {
+    // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+    let { state, stub, baseUrl, url } = await getCleanState()
+
     const options = {
       method: 'PATCH',
       body: {
@@ -227,16 +232,8 @@ describe('TemporalEntity validation', async () => {
 })
 
 describe('TemporalEntity DAG', async () => {
-  let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-  if (process?.env?.VITEST_BASE_URL != null) {
-    baseUrl = process.env.VITEST_BASE_URL
-  } else {
-    const id = env.DO_API.newUniqueId()
-    // eslint-disable-next-line no-undef
-    state = await getMiniflareDurableObjectState(id)
-    stub = new DurableAPI(state, env, id.toString())
-  }
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should not throw with valid DAG matching schema', async () => {
     url = `${baseUrl}/***test-dag***/v1`
@@ -338,78 +335,31 @@ describe('TemporalEntity DAG', async () => {
       headers: { 'If-Unmodified-Since': lastValidFrom },
     }
     const response = await requestOutResponseIn(url, options, stub, state)
-    console.log('response.content: %O', response.content)
     expect(response.status).toBe(400)
     expect(response.content.error.message).toMatch('Schema validation failed')
   })
 })
 
-// describe('TemporalEntity supressPreviousValues', async () => {
-//   let state
-//   let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-//   if (process?.env?.VITEST_BASE_URL != null) {
-//     baseUrl = process.env.VITEST_BASE_URL
-//   } else {
-//     const id = env.DO_API.newUniqueId()
-//     // eslint-disable-next-line no-undef
-//     state = await getMiniflareDurableObjectState(id)
-//     stub = new DurableAPI(state, env, id.toString())
-//   }
+describe('TemporalEntity supressPreviousValues', async () => {
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
 
-//   it.todo('should not have previousValues', async () => {  // TODO: Re-enable and fix once we merge the type system in TransactionDOWrapper with the one in TemporalEntity
-//     const options = {
-//       method: 'POST',
-//       body: { value: { a: 1 }, userID: 'userX' },
-//     }
-//     url = `${baseUrl}/***test-supress-previous-values***/v1`
-//     let response = await requestOutResponseIn(url, options, stub, state)
-//     console.log('1st response.content: %O', response.content)
-//     expect(response.status).toBe(200)
-//     let { meta, value } = response.content
-//     expect(meta.previousValues).toBeUndefined()
-//     idString = response.content.idString
-//     // storage operation expects/asserts to only run in miniflare (aka not live over http)
-//     if (process?.env?.VITEST_BASE_URL == null) {
-//       const storage = await state.storage.list()
-//       const entityMeta = storage.get(`${idString}/entityMeta`)
-//       expect(entityMeta.timeline.length).toBe(1)
-//     }
-//     response = await requestOutResponseIn(url, options, stub, state)
-//     console.log('2nd response.content: %O', response.content)
-//     expect(response.status).toBe(200)
-//     meta = response.content.meta
-//     expect(meta.previousValues).toBeUndefined()
-//     idString = response.content.idString
-//     // storage operation expects/asserts to only run in miniflare (aka not live over http)
-//     if (process?.env?.VITEST_BASE_URL == null) {
-//       const storage = await state.storage.list()
-//       const entityMeta = storage.get(`${idString}/entityMeta`)
-//       expect(entityMeta.timeline.length).toBe(2)
-//     }
-//   })
-// })
-
-// it.todo('should not have previousValues', async () => {
-//   const state = getStateMock()
-//   const te = new TemporalEntity(state, env, '***test-supress-previous-values***', 'v1', 'testIDString')
-//   let response = await te.put({ a: 1 }, 'userW')
-//   expect(entityMeta.timeline.length).toBe(1)
-//   response = await te.put({ a: 2 }, 'userX', undefined, undefined, response.meta.validFrom)
-//   expect(entityMeta.timeline.length).toBe(2)
-//   expect(response.meta.previousValues).toBeUndefined()
-// })
+  it('should not have previousValues', async () => {  // TODO: Re-enable and fix once we merge the type system in TransactionDOWrapper with the one in TemporalEntity
+    const options = {
+      method: 'POST',
+      body: { value: { a: 1 }, userID: 'userX' },
+    }
+    url = `${baseUrl}/***test-supress-previous-values***/v1`
+    const response = await requestOutResponseIn(url, options, stub, state)
+    expect(response.status).toBe(201)
+    const { meta } = response.content
+    expect(meta.previousValues).toBeUndefined()
+  })
+})
 
 describe('TemporalEntity idempotency', async () => {
-  let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-  if (process?.env?.VITEST_BASE_URL != null) {
-    baseUrl = process.env.VITEST_BASE_URL
-  } else {
-    const id = env.DO_API.newUniqueId()
-    // eslint-disable-next-line no-undef
-    state = await getMiniflareDurableObjectState(id)
-    stub = new DurableAPI(state, env, id.toString())
-  }
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should not create new snapshots when input is idempotent', async () => {
     url = `${baseUrl}/*/*`
@@ -465,17 +415,8 @@ describe('TemporalEntity idempotency', async () => {
 })
 
 describe('TemporalEntity delete and undelete', async () => {
-  let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-  if (process?.env?.VITEST_BASE_URL != null) {
-    baseUrl = process.env.VITEST_BASE_URL
-  } else {
-    const id = env.DO_API.newUniqueId()
-    // eslint-disable-next-line no-undef
-    state = await getMiniflareDurableObjectState(id)
-    stub = new DurableAPI(state, env, id.toString())
-  }
-  let entityMetaUrl
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should allow delete', async () => {
     url = `${baseUrl}/*/*`
@@ -488,7 +429,7 @@ describe('TemporalEntity delete and undelete', async () => {
     expect(response.content.meta.validFrom).to.be.a('string')
     idString = response.content.idString
     lastValidFrom = response.content.meta.validFrom
-    entityMetaUrl = `${url}/${idString}/entity-meta/`
+    const entityMetaUrl = `${url}/${idString}/entity-meta/`
     response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
     expect(response.content.timeline.length).toBe(1)
 
@@ -519,7 +460,7 @@ describe('TemporalEntity delete and undelete', async () => {
     response = await requestOutResponseIn(url, undefined, stub, state)
     expect(response.status).toBe(404)
 
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
 
@@ -541,7 +482,6 @@ describe('TemporalEntity delete and undelete', async () => {
   })
 
   it('should allow undelete', async () => {
-    url = `${baseUrl}/*/*`
     const options = {
       method: 'PATCH',
       body: { undelete: true, userID: 'userY' },
@@ -551,16 +491,18 @@ describe('TemporalEntity delete and undelete', async () => {
     expect(response.status).toBe(200)
     expect(response.content.meta.validFrom).to.be.a('string')
 
+    idString = response.content.idString
+    const entityMetaUrl = `${url}/entity-meta/`
+
     response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
     expect(response.content.timeline.length).toBe(4)
-    // lastValidFrom = response.content.timeline.at(-1)
 
     response = await requestOutResponseIn(url, undefined, stub, state)
     expect(response.status).toBe(200)
     expect(response.content.meta.validFrom).to.be.a('string')
     expect(response.content.value).to.deep.eq({ a: 2 })
 
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (isLive) {
       const storage = await state.storage.list()
       // console.log('storage: %O', storage)
 
@@ -582,16 +524,8 @@ describe('TemporalEntity delete and undelete', async () => {
 })
 
 describe('TemporalEntity auto-incremented validFrom', async () => {
-  let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-  if (process?.env?.VITEST_BASE_URL != null) {
-    baseUrl = process.env.VITEST_BASE_URL
-  } else {
-    const id = env.DO_API.newUniqueId()
-    // eslint-disable-next-line no-undef
-    state = await getMiniflareDurableObjectState(id)
-    stub = new DurableAPI(state, env, id.toString())
-  }
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should have validFrom 1ms later than requested', async () => {
     const validFromISOString = '2200-01-01T00:00:00.000Z'
@@ -630,16 +564,8 @@ describe('TemporalEntity auto-incremented validFrom', async () => {
 })
 
 describe('deep object put and patch', async () => {
-  let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-  if (process?.env?.VITEST_BASE_URL != null) {
-    baseUrl = process.env.VITEST_BASE_URL
-  } else {
-    const id = env.DO_API.newUniqueId()
-    // eslint-disable-next-line no-undef
-    state = await getMiniflareDurableObjectState(id)
-    stub = new DurableAPI(state, env, id.toString())
-  }
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should allow deep patching', async () => {
     url = `${baseUrl}/*/*`
@@ -691,16 +617,9 @@ describe('deep object put and patch', async () => {
 })
 
 describe('304 behavior for get and getEntityMeta', async () => {
-  let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-  if (process?.env?.VITEST_BASE_URL != null) {
-    baseUrl = process.env.VITEST_BASE_URL
-  } else {
-    const id = env.DO_API.newUniqueId()
-    // eslint-disable-next-line no-undef
-    state = await getMiniflareDurableObjectState(id)
-    stub = new DurableAPI(state, env, id.toString())
-  }
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
+
   let ifModifiedSince1msEarlier
 
   it('should return 304 and no body with correct If-Modified-Since on GET /', async () => {
@@ -755,16 +674,8 @@ describe('304 behavior for get and getEntityMeta', async () => {
 })
 
 describe('TemporalEntity debouncing', async () => {
-  let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-  if (process?.env?.VITEST_BASE_URL != null) {
-    baseUrl = process.env.VITEST_BASE_URL
-  } else {
-    const id = env.DO_API.newUniqueId()
-    // eslint-disable-next-line no-undef
-    state = await getMiniflareDurableObjectState(id)
-    stub = new DurableAPI(state, env, id.toString())
-  }
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should not create new snapshots when updated within granularity', async () => {
     url = `${baseUrl}/*/*`
@@ -860,16 +771,8 @@ describe('TemporalEntity debouncing', async () => {
 })
 
 describe('TemporalEntity granularity', async () => {
-  let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-  if (process?.env?.VITEST_BASE_URL != null) {
-    baseUrl = process.env.VITEST_BASE_URL
-  } else {
-    const id = env.DO_API.newUniqueId()
-    // eslint-disable-next-line no-undef
-    state = await getMiniflareDurableObjectState(id)
-    stub = new DurableAPI(state, env, id.toString())
-  }
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should not debounce when update is outside of granularity', async () => {
     url = `${baseUrl}/***test-granularity***/v1`
