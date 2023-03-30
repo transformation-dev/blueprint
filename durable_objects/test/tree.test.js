@@ -16,20 +16,29 @@ const env = getMiniflareBindings()
 // env.DEBUG = 'blueprint:tree'
 env.DEBUG = 'nothing'
 
-describe('A series of Tree operations', async () => {
-  let baseUrl = 'http://fake.host'
+const isLive = process?.env?.VITEST_BASE_URL != null
+
+async function getCleanState() {
+  let baseUrl
   let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
-  if (process?.env?.VITEST_BASE_URL != null) {
+  let stub
+  if (isLive) {
     baseUrl = process.env.VITEST_BASE_URL
   } else {
     const id = env.DO_API.newUniqueId()
+    // eslint-disable-next-line no-undef
     state = await getMiniflareDurableObjectState(id)
     // stub = await env.DO_API.get(id)  // this is how Cloudflare suggests getting the stub. However, doing it the way below allows vitest --coverage to work
     stub = new DurableAPI(state, env, id.toString())
+    baseUrl = 'http://fake.host'
   }
-  const coreUrl = `${baseUrl}/tree/v1`
-  let url = coreUrl
+  const url = `${baseUrl}/tree/v1`  // This is a default that will often work but can be overwritten per test
+  return ({ state, stub, baseUrl, url })
+}
+
+describe('A series of Tree operations', async () => {
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should allow tree creation with POST', async () => {
     const rootNodeValue = { label: 'root (aka node0)' }
@@ -51,7 +60,7 @@ describe('A series of Tree operations', async () => {
     url += `/${idString}`
 
     // storage operation expects/asserts to only run in miniflare (aka not live over http)
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
       expect(entityMeta.timeline.length).toBe(1)
@@ -73,7 +82,7 @@ describe('A series of Tree operations', async () => {
     expect(response.status).toBe(200)
     const { current, idString } = response.content
     const { meta } = current
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
       expect(entityMeta.timeline.length).toBe(2)
@@ -111,7 +120,7 @@ describe('A series of Tree operations', async () => {
     const { current, idString } = response.content
     const { meta } = current
     lastValidFrom = meta.validFrom
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
       expect(entityMeta.timeline.length).toBe(3)
@@ -139,7 +148,7 @@ describe('A series of Tree operations', async () => {
     const { error, idString } = response.content
     expect(response.status).toBe(409)
     expect(error.message).toMatch('Adding this branch would create a cycle')
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (!isLive) {
       const storage = await state.storage.list()
       const entityMetaFromStorage = storage.get(`${idString}/entityMeta`)
       expect(entityMetaFromStorage.timeline.length).toBe(3)
@@ -160,7 +169,7 @@ describe('A series of Tree operations', async () => {
     expect(response.status).toBe(200)
     const { current, idString } = response.content
     const { meta } = current
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
       expect(entityMeta.nodeCount).to.eq(3)
@@ -217,7 +226,7 @@ describe('A series of Tree operations', async () => {
     const { current: { meta }, idString } = response.content
     assert(meta.validFrom > lastValidFrom)
     lastValidFrom = meta.validFrom
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
       expect(entityMeta.nodeCount).to.eq(3)
@@ -241,7 +250,7 @@ describe('A series of Tree operations', async () => {
     const { current: { meta }, idString } = response.content
     assert(meta.validFrom > lastValidFrom)
     lastValidFrom = meta.validFrom
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
       expect(entityMeta.nodeCount).to.eq(3)
@@ -265,7 +274,7 @@ describe('A series of Tree operations', async () => {
     const { current: { meta }, idString } = response.content
     assert(meta.validFrom === lastValidFrom)
     lastValidFrom = meta.validFrom
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
       expect(entityMeta.timeline.length).toBe(5)
@@ -287,7 +296,7 @@ describe('A series of Tree operations', async () => {
     const { current: { meta }, idString } = response.content
     assert(meta.validFrom > lastValidFrom)
     lastValidFrom = meta.validFrom
-    if (process?.env?.VITEST_BASE_URL == null) {
+    if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
       expect(entityMeta.timeline.length).toBe(6)
