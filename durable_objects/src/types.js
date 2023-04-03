@@ -55,8 +55,15 @@ const orgTreeNodeSchemaV1 = yamlLoad(orgTreeNodeSchemaV1String)  // convert yaml
  *       }
  */
 
+export const defaultTypeVersionConfig = {
+  supressPreviousValues: false,
+  granularity: 'hour',
+  schema: null,
+  additionalValidation: null,
+}
+
 // TemporalEntity is TheClass for many different types below but they can still have different schemas, validation, migrations, etc.
-export default {
+export const types = {
   '*': {  // These are the defaults for settings used below but also allows you to make calls like /*/*/foo which can be useful for testing
     versions: {
       '*': {
@@ -92,7 +99,7 @@ export default {
         environments: {
           preview: {
             TheClass: TransactionalTester,
-            flags: { disableUseOfTransaction: true },
+            flags: { disableUseOfTransaction: true },  // TODO: Move this up a level
           },
           production: null,
           '*': {

@@ -75,6 +75,7 @@ export class VersioningTransactionalDOWrapperBase {
     const environment = this.env.CF_ENV ?? '*'
     const environmentOptions = {}
     const defaultEnvironmentOptions = defaultTypeVersionConfig.environments['*'] ?? {}
+    // const defaultEnvironmentOptions = {}
     const lookedUpEnvironmentOptions = lookedUpTypeVersionConfig.environments[environment] ?? {}
     const keys = new Set([...Reflect.ownKeys(defaultEnvironmentOptions), ...Reflect.ownKeys(lookedUpEnvironmentOptions)])
     for (const key of keys) {
@@ -105,14 +106,12 @@ export class VersioningTransactionalDOWrapperBase {
 
     try {
       if (environmentOptions.flags.disableUseOfTransaction) {
-        // if (this.classInstance == null) this.classInstance = new environmentOptions.TheClass(this.state, this.env, undefined, undefined, undefined, typeVersionConfig)
         if (this.classInstance == null) this.classInstance = new environmentOptions.TheClass(this.state, this.env, typeVersionConfig)
         response = await this.classInstance.fetch(requestToPassToWrappedDO)
         return response
       } else {
         response = await this.state.storage.transaction(async (txn) => {
           const alteredState = { ...this.state, storage: txn }
-          // if (this.classInstance == null) this.classInstance = new environmentOptions.TheClass(alteredState, this.env, undefined, undefined, undefined, typeVersionConfig)
           if (this.classInstance == null) this.classInstance = new environmentOptions.TheClass(alteredState, this.env, typeVersionConfig)
           else this.classInstance.state = alteredState  // Must reset this for each transaction. Means the DO must use this.state
           const responseInsideTransaction = await this.classInstance.fetch(requestToPassToWrappedDO)
