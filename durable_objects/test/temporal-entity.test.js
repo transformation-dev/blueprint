@@ -87,7 +87,7 @@ describe('TemporalEntity POST and PATCH', async () => {
     expect(value).toEqual({ b: 3, c: 4 })
     expect(meta.impersonatorID).toBe('impersonator1')
     // storage operation expects/asserts to only run in miniflare (aka not live over http)
-    if (isLive) {
+    if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
       expect(entityMeta.timeline.at(-1)).toBe(newValidFromISOString)
@@ -108,7 +108,7 @@ describe('TemporalEntity validation prior to successful creation', async () => {
   let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should return error on missing type', async () => {
-    if (isLive) {  // The URL with the double slash (indicating a missing type) does not work against a live server, but it does work in vitest
+    if (!isLive) {  // The URL with the double slash (indicating a missing type) does not work against a live server, but it does work in vitest
       const options = {
         method: 'POST',
         body: { value: { a: 1, b: 2 }, userID: 'userW' },
@@ -460,7 +460,7 @@ describe('TemporalEntity delete and undelete', async () => {
     response = await requestOutResponseIn(url, undefined, stub, state)
     expect(response.status).toBe(404)
 
-    if (isLive) {
+    if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
 
@@ -502,7 +502,7 @@ describe('TemporalEntity delete and undelete', async () => {
     expect(response.content.meta.validFrom).to.be.a('string')
     expect(response.content.value).to.deep.eq({ a: 2 })
 
-    if (isLive) {
+    if (!isLive) {
       const storage = await state.storage.list()
       // console.log('storage: %O', storage)
 

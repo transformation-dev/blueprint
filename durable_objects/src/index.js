@@ -11,7 +11,7 @@ export default {}
 
 // Durable Object
 export class DurableAPI extends VersioningTransactionalDOWrapperBase {  // TODO: Find a way to do this with configuration rather than subclassing
-  static types = types
-
-  static defaultTypeVersionConfig = defaultTypeVersionConfig
+  constructor(state, env) {
+    super(state, env, { types, defaultTypeVersionConfig })
+  }
 }

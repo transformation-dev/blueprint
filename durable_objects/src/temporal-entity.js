@@ -210,7 +210,7 @@ export class TemporalEntity {
   //  granularity: string or integer milliseconds,
   //  supressPreviousValues: boolean,
   // }
-  constructor(state, env, typeVersionConfig) {  // Cloudflare only passes in two parameters, so either subclass and call super() or use in composition with a third parameter
+  constructor(state, env, typeVersionConfig) {  // Cloudflare only passes in 2 parameters, so either subclass and call super() or use in composition (like we do in versioningTransactionalDOWrapper) with a 3rd parameter
     throwUnless(typeVersionConfig != null, 'typeVersionConfig is required as the third parameter when creating a TemporalEntityBase instance', 500)
     Debug.enable(env.DEBUG)
     this.state = state

@@ -15,10 +15,12 @@ export class VersioningTransactionalDOWrapperBase {
     this.hydrated = true
   }
 
-  constructor(state, env) {
+  constructor(state, env, { types, defaultTypeVersionConfig }) {  // Cloudflare only passes in 2 parameters, so either subclass and call super() or use in composition with a 3rd parameter
     Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
+    this.types = types
+    this.defaultTypeVersionConfig = defaultTypeVersionConfig
 
     this.hydrated = false
     this.classInstance = null
@@ -46,7 +48,7 @@ export class VersioningTransactionalDOWrapperBase {
 
     // pull type/version from url and validate
     const type = pathArray.shift()
-    if (this.constructor.types[type] == null) {
+    if (this.types[type] == null) {
       return errorResponseOut(new HTTPError(`Type ${type} not found`, 404), this.env, this.state.id.toString())
     }
     if (this.transactionalWrapperMeta != null && this.transactionalWrapperMeta?.type !== type) {
@@ -56,18 +58,17 @@ export class VersioningTransactionalDOWrapperBase {
       ), this.env, this.state.it.toString())
     }
     const version = pathArray.shift()
-    if (this.constructor.types[type].versions[version] == null) {
+    if (this.types[type].versions[version] == null) {
       return errorResponseOut(new HTTPError(`Version ${version} for type ${type} not found`, 404), this.env, this.state.id.toString())
     }
 
     // set the typeVersionConfig by combining the default with the specific type/version
     const typeVersionConfig = {}
-    const { defaultTypeVersionConfig, types } = this.constructor
-    const lookedUpTypeVersionConfig = types[type]?.versions[version] ?? {}
-    const typeVersionConfigKeys = new Set([...Reflect.ownKeys(defaultTypeVersionConfig), ...Reflect.ownKeys(lookedUpTypeVersionConfig)])
+    const lookedUpTypeVersionConfig = this.types[type]?.versions[version] ?? {}
+    const typeVersionConfigKeys = new Set([...Reflect.ownKeys(this.defaultTypeVersionConfig), ...Reflect.ownKeys(lookedUpTypeVersionConfig)])
     for (const key of typeVersionConfigKeys) {
       if (key !== 'environments') {
-        typeVersionConfig[key] = lookedUpTypeVersionConfig[key] ?? defaultTypeVersionConfig[key]
+        typeVersionConfig[key] = lookedUpTypeVersionConfig[key] ?? this.defaultTypeVersionConfig[key]
       }
     }
 
