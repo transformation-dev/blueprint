@@ -9,7 +9,7 @@ import { throwIfNotDag } from '@transformation-dev/cloudflare-do-utils'
 import { Experimenter } from './experimenter.js'
 import { TransactionalTester } from './transactional-tester.js'
 import { TemporalEntity } from './temporal-entity.js'
-import { Tree } from './tree.js'
+import { OrgTree } from './org-tree.js'
 import rootOrgTreeNodeSchemaV1String from './schemas/root-org-tree-node.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
 import orgTreeNodeSchemaV1String from './schemas/org-tree-node.v1.yaml?raw'
 import testDagSchemaV1String from './schemas/***test-dag***.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
@@ -106,7 +106,7 @@ export const types = {
   tree: {
     versions: {
       v1: {
-        environments: { '*': { TheClass: Tree } },
+        environments: { '*': { TheClass: OrgTree } },
       },
     },
   },

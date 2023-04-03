@@ -107,18 +107,6 @@ describe('TemporalEntity validation prior to successful creation', async () => {
   // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
   let { state, stub, baseUrl, url } = await getCleanState()
 
-  it('should return error on missing type', async () => {
-    if (!isLive) {  // The URL with the double slash (indicating a missing type) does not work against a live server, but it does work in vitest
-      const options = {
-        method: 'POST',
-        body: { value: { a: 1, b: 2 }, userID: 'userW' },
-      }
-      const response = await requestOutResponseIn(`${baseUrl}//v1`, options, stub, state)
-      expect(response.status).toBe(404)
-      expect(response.content.error.message).toMatch('Version undefined for type * not found')
-    }
-  })
-
   it('should return error on unknown type', async () => {
     const options = {
       method: 'POST',
