@@ -9,7 +9,7 @@ import {
 } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
-import { TemporalEntityBase } from './temporal-entity-base'
+import { TemporalEntity } from './temporal-entity'
 import { temporalMixin } from './temporal-mixin'
 
 // initialize imports
@@ -190,7 +190,7 @@ export class TreeBase  {
     throwUnless(this.hydrated, 'updateMetaAndSave() called before hydrate()')
     this.current.meta = {
       validFrom,
-      validTo: TemporalEntityBase.END_OF_TIME,
+      validTo: TemporalEntity.END_OF_TIME,
       userID,
       type: 'tree',
       version: 'v1',  // TODO: For now, there is only one version of tree, but if there later is a v2, this will need to be changed

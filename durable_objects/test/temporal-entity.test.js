@@ -6,7 +6,7 @@ import { requestOutResponseIn } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
 import { DurableAPI } from '../src/index.js'
-import { TemporalEntityBase } from '../src/temporal-entity-base.js'
+import { TemporalEntity } from '../src/temporal-entity.js'
 
 // initialize imports
 // const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks
@@ -56,7 +56,7 @@ describe('TemporalEntity POST and PATCH', async () => {
     expect(meta.userID).toBe('userW')
     expect(meta.previousValues).toMatchObject({ a: undefined, b: undefined })
     assert(meta.validFrom <= new Date().toISOString)
-    expect(meta.validTo, TemporalEntityBase.END_OF_TIME, 'should initialize validTo with TemporalEntityBase.END_OF_TIME')
+    expect(meta.validTo, TemporalEntity.END_OF_TIME, 'should initialize validTo with TemporalEntityBase.END_OF_TIME')
     expect(meta).to.not.haveOwnProperty('impersonatorID')
   })
 
@@ -99,7 +99,7 @@ describe('TemporalEntity POST and PATCH', async () => {
 
 describe('TemporalEntity END_OF_TIME', async () => {
   it('should have END_OF_TIME', () => {
-    expect(TemporalEntityBase.END_OF_TIME).toBe('9999-01-01T00:00:00.000Z')
+    expect(TemporalEntity.END_OF_TIME).toBe('9999-01-01T00:00:00.000Z')
   })
 })
 
@@ -475,7 +475,7 @@ describe('TemporalEntity delete and undelete', async () => {
       expect(snapshot3.value).to.deep.eq(snapshot2.value)
       expect(snapshot1.meta.validTo).toBe(snapshot2.meta.validFrom)
       expect(snapshot2.meta.validTo).toBe(snapshot3.meta.validFrom)
-      expect(snapshot3.meta.validTo).toBe(TemporalEntityBase.END_OF_TIME)
+      expect(snapshot3.meta.validTo).toBe(TemporalEntity.END_OF_TIME)
       expect(snapshot3.value).toEqual(snapshot2.value)
       expect(snapshot3.meta.previousValues).toEqual({})
     }
