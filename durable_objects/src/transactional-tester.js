@@ -1,13 +1,11 @@
 // mono-repo imports
 import { Debug, getDebug } from '@transformation-dev/cloudflare-do-utils'
-
-// local imports
-import { temporalMixin } from './temporal-mixin.js'
+import { temporalMixin } from '@transformation-dev/cloudflare-do-utils/src/temporal-mixin.js'
 
 // initialize imports
 const debug = getDebug('blueprint:durable-objects:experimenter-v2')
 
-export class TransactionalTester {
+export class TransactionalTester {  // TODO: Move this to cloudflare-do-utils
   async hydrate() {
     if (this.hydrated) return
     this.name = await this.state.storage.get('name')

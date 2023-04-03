@@ -1,5 +1,8 @@
 /* eslint-disable no-param-reassign */
-import { throwIf, throwUnless, dateISOStringRegex, responseOut } from '@transformation-dev/cloudflare-do-utils'
+
+import { responseOut } from './content-processor.js'
+import { throwIf } from './throws.js'
+import { dateISOStringRegex } from './date-utils.js'
 
 // These are methods that are common to all TemporalEntities including Tree
 // This assumes that this.entityMeta is defined and it has a timeline property. Note, it can have other properties as well.

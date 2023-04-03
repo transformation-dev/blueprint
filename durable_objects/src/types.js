@@ -3,12 +3,11 @@
 import { load as yamlLoad } from 'js-yaml'
 
 // monorepo imports
-import { throwIfNotDag } from '@transformation-dev/cloudflare-do-utils'
+import { throwIfNotDag, TemporalEntity } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
 import { Experimenter } from './experimenter.js'
 import { TransactionalTester } from './transactional-tester.js'
-import { TemporalEntity } from './temporal-entity.js'
 import { OrgTree } from './org-tree.js'
 import rootOrgTreeNodeSchemaV1String from './schemas/root-org-tree-node.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
 import orgTreeNodeSchemaV1String from './schemas/org-tree-node.v1.yaml?raw'

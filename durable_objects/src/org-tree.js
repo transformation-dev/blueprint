@@ -1,4 +1,4 @@
-import { Tree } from './tree.js'
+import { Tree } from '@transformation-dev/cloudflare-do-utils'
 
 export class OrgTree extends Tree {
   constructor(state, env) {
