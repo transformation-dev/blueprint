@@ -13,7 +13,7 @@ import { DurableAPI } from '../src/index.js'
 const env = getMiniflareBindings()
 // env.DEBUG = 'blueprint:*'
 // env.DEBUG = 'blueprint:transactional-tester'
-env.DEBUG = 'nothing'
+env.DEBUG = ''
 
 let response
 

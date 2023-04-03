@@ -13,8 +13,8 @@ import { TemporalEntityBase } from '../src/temporal-entity-base.js'
 // eslint-disable-next-line no-undef
 const env = getMiniflareBindings()
 // env.DEBUG = 'blueprint:*'
-env.DEBUG = 'blueprint:temporal-entity'
-// env.DEBUG = 'nothing'
+// env.DEBUG = 'blueprint:temporal-entity'
+env.DEBUG = ''
 
 let lastValidFrom
 let idString
@@ -35,7 +35,7 @@ async function getCleanState() {
     stub = new DurableAPI(state, env, id.toString())
     baseUrl = 'http://fake.host'
   }
-  const url = `${baseUrl}/*/*`  // This is a default that will often work but can be overwritten per test
+  const url = `${baseUrl}/temporal-entity/v1`  // This is a default that will often work but can be overwritten per test
   return ({ state, stub, baseUrl, url })
 }
 
@@ -103,7 +103,7 @@ describe('TemporalEntity END_OF_TIME', async () => {
   })
 })
 
-describe('TemporalEntity validation', async () => {
+describe('TemporalEntity validation prior to successful creation', async () => {
   // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
   let { state, stub, baseUrl, url } = await getCleanState()
 
@@ -113,8 +113,7 @@ describe('TemporalEntity validation', async () => {
         method: 'POST',
         body: { value: { a: 1, b: 2 }, userID: 'userW' },
       }
-      url = `${baseUrl}//*`
-      const response = await requestOutResponseIn(url, options, stub, state)
+      const response = await requestOutResponseIn(`${baseUrl}//v1`, options, stub, state)
       expect(response.status).toBe(404)
       expect(response.content.error.message).toMatch('Version undefined for type * not found')
     }
@@ -125,8 +124,7 @@ describe('TemporalEntity validation', async () => {
       method: 'POST',
       body: { value: { a: 1, b: 2 }, userID: 'userW' },
     }
-    url = `${baseUrl}/***unknown***/*`
-    const response = await requestOutResponseIn(url, options, stub, state)
+    const response = await requestOutResponseIn(`${baseUrl}/***unknown***/*`, options, stub, state)
     expect(response.status).toBe(404)
     expect(response.content.error.message).toMatch('Type ***unknown*** not found')
   })
@@ -142,20 +140,18 @@ describe('TemporalEntity validation', async () => {
         userID: 'userX',
       },
     }
-    url = `${baseUrl}/*/*`
     const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(400)
     expect(response.content.error.message).toMatch('cannot call TemporalEntity PATCH when there is no prior value')
   })
 
-  it('should return error on PUT with no value', async () => {
+  it('should return error on POST with no value', async () => {
     const options = {
-      method: 'PUT',
+      method: 'POST',
       body: {
         userID: 'userX',
       },
     }
-    url = `${baseUrl}/*/*`
     const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(400)
     expect(response.content.error.message).toMatch('body.value field required by TemporalEntity PUT is missing')
@@ -168,23 +164,29 @@ describe('TemporalEntity validation', async () => {
         value: { a: 100 },
       },
     }
-    url = `${baseUrl}/*/*`
     const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(400)
     expect(response.content.error.message).toMatch('userID required by TemporalEntity operation is missing')
   })
+})
+
+describe('TemporalEntity validation on existing entity', async () => {
+  // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
+  let { state, stub, baseUrl, url } = await getCleanState()
+
+  let options = {
+    method: 'POST',
+    body: {
+      value: { a: 100 },
+      userID: 'userX',
+    },
+  }
+  let response = await requestOutResponseIn(url, options, stub, state)
+  lastValidFrom = response.content.meta.validFrom
+  idString = response.content.idString
+  url += `/${idString}`
 
   it('should return error if validFrom is prior to latest', async () => {
-    let options = {
-      method: 'PUT',
-      body: {
-        value: { a: 100 },
-        userID: 'userX',
-      },
-    }
-    url = `${baseUrl}/*/*/${idString}`
-    let response = await requestOutResponseIn(url, options, stub, state)
-    lastValidFrom = response.content.meta.validFrom
     options = {
       method: 'PUT',
       body: {
@@ -202,20 +204,20 @@ describe('TemporalEntity validation', async () => {
   })
 
   it('should return error if If-Unmodified-Since is missing', async () => {
-    const options = {
+    options = {
       method: 'PUT',
       body: {
         value: { a: 300 },
         userID: 'userX',
       },
     }
-    const response = await requestOutResponseIn(url, options, stub, state)
+    response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(428)
     expect(response.content.error.message).toMatch('required If-Unmodified-Since header for TemporalEntity PUT is missing')
   })
 
   it('should return error if If-Modified-Since is prior to latest', async () => {
-    const options = {
+    options = {
       method: 'PATCH',
       body: {
         delta: { a: 2000 },
@@ -225,7 +227,7 @@ describe('TemporalEntity validation', async () => {
         'If-Unmodified-Since': new Date(new Date().valueOf() - 1000).toISOString(),
       },
     }
-    const response = await requestOutResponseIn(url, options, stub, state)
+    response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(412)
     expect(response.content.error.message).toMatch('If-Unmodified-Since is earlier than the last time this TemporalEntity was modified')
   })
@@ -362,7 +364,6 @@ describe('TemporalEntity idempotency', async () => {
   let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should not create new snapshots when input is idempotent', async () => {
-    url = `${baseUrl}/*/*`
     let options = {
       method: 'POST',
       body: { value: { a: 1 }, userID: 'userX' },
@@ -419,7 +420,6 @@ describe('TemporalEntity delete and undelete', async () => {
   let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should allow delete', async () => {
-    url = `${baseUrl}/*/*`
     let options = {
       method: 'POST',
       body: { value: { a: 1 }, userID: 'userW' },
@@ -533,7 +533,6 @@ describe('TemporalEntity auto-incremented validFrom', async () => {
     const newValidFromDate = new Date(lastValidFromDate.getTime() + 1)  // 1 millisecond later
     const newValidFromISOString = newValidFromDate.toISOString()
 
-    url = `${baseUrl}/*/*`
     let options = {
       method: 'POST',
       body: {
@@ -568,7 +567,6 @@ describe('deep object put and patch', async () => {
   let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should allow deep patching', async () => {
-    url = `${baseUrl}/*/*`
     const o = { a: 2000, o: { a: 1, b: 2, children: [1, 'a', new Date()] } }
     let options = {
       method: 'POST',
@@ -623,7 +621,6 @@ describe('304 behavior for get and getEntityMeta', async () => {
   let ifModifiedSince1msEarlier
 
   it('should return 304 and no body with correct If-Modified-Since on GET /', async () => {
-    url = `${baseUrl}/*/*`
     let options = {
       method: 'POST',
       body: {
@@ -678,7 +675,6 @@ describe('TemporalEntity debouncing', async () => {
   let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should not create new snapshots when updated within granularity', async () => {
-    url = `${baseUrl}/*/*`
     let options = {
       method: 'POST',
       body: {

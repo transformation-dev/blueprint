@@ -60,22 +60,16 @@ export const defaultTypeVersionConfig = {
   granularity: 'hour',
   schema: null,
   additionalValidation: null,
+  passFullUrl: true,  // TODO: Change this to false and modify TemporaryEntity to not look for type and version in the url anymore
+  disableUseOfTransaction: false,
 }
 
 // TemporalEntity is TheClass for many different types below but they can still have different schemas, validation, migrations, etc.
 export const types = {
-  '*': {  // These are the defaults for settings used below but also allows you to make calls like /*/*/foo which can be useful for testing
+  'temporal-entity': {
     versions: {
-      '*': {
-        granularity: 3600000,  // 1 hour
-        environments: {
-          '*': {
-            TheClass: TemporalEntity,  // Let TemporalEntity handle the type and version
-            flags: {
-              passFullUrl: true,  // false will strip the type and version segments which allows you to use many DOs as-is
-            },
-          },
-        },
+      v1: {
+        environments: { '*': { TheClass: TemporalEntity } },
       },
     },
   },
@@ -96,15 +90,14 @@ export const types = {
         },
       },
       'without-transaction': {
+        disableUseOfTransaction: true,
         environments: {
           preview: {
             TheClass: TransactionalTester,
-            flags: { disableUseOfTransaction: true },  // TODO: Move this up a level
           },
           production: null,
           '*': {
             TheClass: TransactionalTester,
-            flags: { disableUseOfTransaction: true },
           },
         },
       },

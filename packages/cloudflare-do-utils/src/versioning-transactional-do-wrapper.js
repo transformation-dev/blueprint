@@ -60,10 +60,10 @@ export class VersioningTransactionalDOWrapperBase {
       return errorResponseOut(new HTTPError(`Version ${version} for type ${type} not found`, 404), this.env, this.state.id.toString())
     }
 
-    // set the typeVersionConfig by combining the default (*) with the specific type/version
+    // set the typeVersionConfig by combining the default with the specific type/version
     const typeVersionConfig = {}
-    const defaultTypeVersionConfig = this.constructor.types['*']?.versions['*'] ?? {}
-    const lookedUpTypeVersionConfig = this.constructor.types[type]?.versions[version] ?? {}
+    const { defaultTypeVersionConfig, types } = this.constructor
+    const lookedUpTypeVersionConfig = types[type]?.versions[version] ?? {}
     const typeVersionConfigKeys = new Set([...Reflect.ownKeys(defaultTypeVersionConfig), ...Reflect.ownKeys(lookedUpTypeVersionConfig)])
     for (const key of typeVersionConfigKeys) {
       if (key !== 'environments') {
@@ -71,11 +71,10 @@ export class VersioningTransactionalDOWrapperBase {
       }
     }
 
-    // set the options by combining the default options with the options for the specific type/version/environment
+    // set the environment options by combining the default with the options for the specific environment
     const environment = this.env.CF_ENV ?? '*'
     const environmentOptions = {}
-    const defaultEnvironmentOptions = defaultTypeVersionConfig.environments['*'] ?? {}
-    // const defaultEnvironmentOptions = {}
+    const defaultEnvironmentOptions = lookedUpTypeVersionConfig.environments['*'] ?? {}
     const lookedUpEnvironmentOptions = lookedUpTypeVersionConfig.environments[environment] ?? {}
     const keys = new Set([...Reflect.ownKeys(defaultEnvironmentOptions), ...Reflect.ownKeys(lookedUpEnvironmentOptions)])
     for (const key of keys) {
@@ -91,7 +90,7 @@ export class VersioningTransactionalDOWrapperBase {
     debug('Options for type "%s" version "%s": %O', type, version, environmentOptions)
 
     let requestToPassToWrappedDO
-    if (environmentOptions.flags.passFullUrl) {
+    if (typeVersionConfig.passFullUrl) {
       requestToPassToWrappedDO = request
       debug('Passing along full request. request.url: %s', request.url)
     } else {
@@ -105,7 +104,7 @@ export class VersioningTransactionalDOWrapperBase {
     let response
 
     try {
-      if (environmentOptions.flags.disableUseOfTransaction) {
+      if (typeVersionConfig.disableUseOfTransaction) {
         if (this.classInstance == null) this.classInstance = new environmentOptions.TheClass(this.state, this.env, typeVersionConfig)
         response = await this.classInstance.fetch(requestToPassToWrappedDO)
         return response
