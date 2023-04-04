@@ -32,7 +32,7 @@ async function getCleanState() {
     stub = new DurableAPI(state, env, id.toString())
     baseUrl = 'http://fake.host'
   }
-  const url = `${baseUrl}/tree/v1`  // This is a default that will often work but can be overwritten per test
+  const url = `${baseUrl}/tree-for-testing/v1`  // This is a default that will often work but can be overwritten per test
   return ({ state, stub, baseUrl, url })
 }
 

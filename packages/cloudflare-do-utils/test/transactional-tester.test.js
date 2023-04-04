@@ -17,22 +17,16 @@ env.DEBUG = ''
 
 let response
 
-describe('Concurrency Experimenter', async () => {  // TODO: Move this to cloudflare-do-utils
-  let baseUrl = 'http://fake.host'
+describe('Transactional Tester', async () => {
+  const baseUrl = 'http://fake.host'
   let state
-  let stub  // if stub is left undefined, then fetch is used instead of stub.fetch
+  let stub
   let idString
 
   it('should stay consistent', async () => {
-    if (process?.env?.VITEST_BASE_URL != null) {
-      baseUrl = process.env.VITEST_BASE_URL
-    } else {
-      const id = env.DO_API.newUniqueId()
-      // eslint-disable-next-line no-undef
-      state = await getMiniflareDurableObjectState(id)
-      // stub = await env.DO_API.get(id)  // this is how Cloudflare suggests getting the stub. However, doing it the way below allows vitest --coverage to work
-      stub = new DurableAPI(state, env, id.toString())
-    }
+    // eslint-disable-next-line no-undef
+    state = await getMiniflareDurableObjectState('with-transaction')
+    stub = new DurableAPI(state, env)
 
     let url = `${baseUrl}/transactional-tester/with-transaction`
 
@@ -51,15 +45,9 @@ describe('Concurrency Experimenter', async () => {  // TODO: Move this to cloudf
   })
 
   it('should not stay consistent', async () => {
-    if (process?.env?.VITEST_BASE_URL != null) {
-      baseUrl = process.env.VITEST_BASE_URL
-    } else {
-      const id = env.DO_API.newUniqueId()
-      // eslint-disable-next-line no-undef
-      state = await getMiniflareDurableObjectState(id)
-      // stub = await env.DO_API.get(id)  // this is how Cloudflare suggests getting the stub. However, doing it the way below allows vitest --coverage to work
-      stub = new DurableAPI(state, env, id.toString())
-    }
+    // eslint-disable-next-line no-undef
+    state = await getMiniflareDurableObjectState('without-transaction')
+    stub = new DurableAPI(state, env)
 
     let url = `${baseUrl}/transactional-tester/without-transaction`  // difference between with-transaction and without-transaction is that without-transaction is not wrapped
 

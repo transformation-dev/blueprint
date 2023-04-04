@@ -27,7 +27,7 @@
   },
   "scripts": {
     "build": "npx vite build",
-    "test": "npm run build build && npm run test:run",
+    "test": "npm run build && npm run test:run",
     "test:run": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
     "test:watch": "npx vite && NODE_OPTIONS=--experimental-vm-modules vitest",
     "coverage": "npx vite build && NODE_OPTIONS=--experimental-vm-modules vitest run --coverage"

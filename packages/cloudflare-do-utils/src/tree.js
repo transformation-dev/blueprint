@@ -3,10 +3,12 @@
 // file deepcode ignore StaticAccessThis: I disagree with the rule. Repeating the class name is not DRY.
 
 // monorepo imports
-import {
-  throwIf, throwUnless, isIDString, HTTPError,
-  requestIn, getDebug, Debug, dateISOStringRegex, errorResponseOut, requestOutResponseIn,
-} from '@transformation-dev/cloudflare-do-utils'
+import { requestOutResponseIn, errorResponseOut, requestIn } from './content-processor.js'
+import { throwIf, throwUnless } from './throws.js'
+import { isIDString } from './id-string.js'
+import { getDebug, Debug } from './debug.js'
+import { HTTPError } from './http-error.js'
+import { dateISOStringRegex } from './date-utils'
 
 // local imports
 import { TemporalEntity } from './temporal-entity'
@@ -51,8 +53,6 @@ TODO: Refactor so all methods use destructuring on options/body for parameters
  *
  * */
 export class Tree  {
-  // using base class constructor
-
   // TODO: upgrade VersioningTransactionalDOWrapper to not always eject from memory on errors. Not sure how to decide.
 
   // <NodeStub> = {
@@ -311,11 +311,11 @@ export class Tree  {
       const url = new URL(request.url)
       const pathArray = url.pathname.split('/').filter((s) => s !== '')
 
-      const type = pathArray.shift()
-      throwUnless(type === 'tree', `Unrecognized type ${type}`, 404)
+      const type = pathArray.shift()  // TODO: Remove this and don't send in the full URL
+      // throwUnless(type === 'tree', `Unrecognized type ${type}`, 404)
 
-      const version = pathArray.shift()
-      throwUnless(version === 'v1', `Unrecognized version ${version}`, 404)
+      const version = pathArray.shift()  // TODO: Remove this and don't send in the full URL
+      // throwUnless(version === 'v1', `Unrecognized version ${version}`, 404)
 
       if (isIDString(pathArray[0])) {
         this.idString = pathArray.shift()  // remove the ID
@@ -331,6 +331,7 @@ export class Tree  {
 
         case '/entity-meta':  // This doesn't require type or version but this.hydrate may in the future and this calls this.hydrate
           throwUnless(request.method === 'GET', `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
+          // @ts-ignore: It's in temporalMixin
           return await this.GETEntityMeta(request)
 
         default:

@@ -24,6 +24,7 @@ export default defineConfig({
     environmentOptions: {
       // bindings: { KEY: "value" },
       // kvNamespaces: ["TEST_NAMESPACE"],
+
       modules: true,
       scriptPath: scriptPath,
       durableObjects: {
