@@ -41,3 +41,7 @@ new_classes = ["Greeter"]
 [[migrations]]
 tag = "v8"
 deleted_classes = ["Greeter", "Counter"]
+
+[[migrations]]
+tag = "v9"
+deleted_classes = ["TemporalEntity", "Tree"]

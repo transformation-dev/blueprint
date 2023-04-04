@@ -1,7 +1,7 @@
 import path from 'path'
 import { defineConfig } from "vitest/config"
 
-// const scriptPath = path.join(__dirname, "durable_objects/index.mjs")
+const scriptPath = path.join(__dirname, "test/test-harness/dist/index.mjs")
 
 export default defineConfig({
   test: {
@@ -25,10 +25,10 @@ export default defineConfig({
       // bindings: { KEY: "value" },
       // kvNamespaces: ["TEST_NAMESPACE"],
       modules: true,
-      // scriptPath: scriptPath,
-      // durableObjects: {
-      //   DO_API: "DurableAPI",
-      // },
+      scriptPath: scriptPath,
+      durableObjects: {
+        DO_API: "DurableAPI",
+      },
     },
   },
 })

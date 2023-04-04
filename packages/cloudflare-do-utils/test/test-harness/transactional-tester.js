@@ -1,6 +1,6 @@
 // mono-repo imports
-import { Debug, getDebug } from '@transformation-dev/cloudflare-do-utils'
-import { temporalMixin } from '@transformation-dev/cloudflare-do-utils/src/temporal-mixin.js'
+import { Debug, getDebug } from '../../src/debug.js'
+import { temporalMixin } from '../../src/temporal-mixin.js'
 
 // initialize imports
 const debug = getDebug('blueprint:durable-objects:experimenter-v2')

@@ -8,7 +8,7 @@ import { HTTPError } from './http-error.js'
 // initialize imports
 const debug = getDebug('blueprint:transactional-do-wrapper')
 
-export class VersioningTransactionalDOWrapperBase {
+export class VersioningTransactionalDOWrapper {
   async hydrate() {
     if (this.hydrated) return
     this.transactionalWrapperMeta = await this.state.storage.get('transactionalWrapperMeta')

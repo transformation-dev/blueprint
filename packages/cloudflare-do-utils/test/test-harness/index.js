@@ -1,7 +1,7 @@
 // 3rd party imports
 
 // mono-repo imports
-import { VersioningTransactionalDOWrapperBase } from '@transformation-dev/cloudflare-do-utils'
+import { VersioningTransactionalDOWrapper } from '../../src/versioning-transactional-do-wrapper.js'
 
 // local imports
 import typeConfig from './types.js'
@@ -10,7 +10,7 @@ import typeConfig from './types.js'
 export default {}
 
 // Durable Object
-export class DurableAPI extends VersioningTransactionalDOWrapperBase {  // TODO: Find a way to do this with configuration rather than subclassing
+export class DurableAPI extends VersioningTransactionalDOWrapper {  // TODO: Find a way to do this with configuration rather than subclassing
   constructor(state, env) {
     super(state, env, typeConfig)
   }
