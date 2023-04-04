@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* eslint-disable no-param-reassign */  // safe because durable objects are airgapped so to speak
 // file deepcode ignore AttrAccessOnNull: Everytime I see this, I think it's a false positive
 // file deepcode ignore StaticAccessThis: I disagree with the rule. Repeating the class name is not DRY.
@@ -9,8 +10,6 @@ import { isIDString } from './id-string.js'
 import { getDebug, Debug } from './debug.js'
 import { HTTPError } from './http-error.js'
 import { dateISOStringRegex } from './date-utils'
-
-// local imports
 import { TemporalEntity } from './temporal-entity'
 import { temporalMixin } from './temporal-mixin'
 
@@ -153,6 +152,30 @@ export class Tree  {
     return this.recurseThrowIfIDInAncestry(parent, child, pathFromAncestorToChild)
   }
 
+  async save() {  // TODO: Upgrade this to support a large number of nodes once we have a customer getting close to that limit. Determine the limit now with testing.
+    debug('save() called')
+    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
+    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`, this.nodes)
+    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/edges`, this.edges)
+  }
+
+  async updateMetaAndSave(validFrom, userID, impersonatorID, incrementNodeCount = false) {  // You must update current.nodes or current.edges before calling this.
+    debug('updateMetaAndSave() called')
+    throwUnless(this.hydrated, 'updateMetaAndSave() called before hydrate()')
+    this.current.meta = {
+      validFrom,
+      validTo: TemporalEntity.END_OF_TIME,
+      userID,
+      type: 'tree',
+      version: 'v1',  // TODO: For now, there is only one version of tree, but if there later is a v2, this will need to be changed
+      // We don't maintain previousValues for the tree itself, but we do for the nodes
+    }
+    if (impersonatorID != null) this.current.meta.impersonatorID = impersonatorID
+    this.entityMeta.timeline.push(validFrom)
+    if (incrementNodeCount) this.entityMeta.nodeCount++
+    return this.save()
+  }
+
   async callNodeDO(nodeType, nodeVersion, options, expectedResponseCode, idString) {
     let id
     let url = `http://fake.host/${nodeType}/${nodeVersion}/`
@@ -177,30 +200,6 @@ export class Tree  {
       }
     }
     return response
-  }
-
-  async save() {  // TODO: Upgrade this to support a large number of nodes once we have a customer getting close to that limit. Determine the limit now with testing.
-    debug('save() called')
-    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
-    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`, this.nodes)
-    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/edges`, this.edges)
-  }
-
-  async updateMetaAndSave(validFrom, userID, impersonatorID, incrementNodeCount = false) {  // You must update current.nodes or current.edges before calling this.
-    debug('updateMetaAndSave() called')
-    throwUnless(this.hydrated, 'updateMetaAndSave() called before hydrate()')
-    this.current.meta = {
-      validFrom,
-      validTo: TemporalEntity.END_OF_TIME,
-      userID,
-      type: 'tree',
-      version: 'v1',  // TODO: For now, there is only one version of tree, but if there later is a v2, this will need to be changed
-      // We don't maintain previousValues for the tree itself, but we do for the nodes
-    }
-    if (impersonatorID != null) this.current.meta.impersonatorID = impersonatorID
-    this.entityMeta.timeline.push(validFrom)
-    if (incrementNodeCount) this.entityMeta.nodeCount++
-    return this.save()
   }
 
   async hardDeleteDO(idString) {  // TODO: Move this to cloudflare-do-utils if we can make it generic enough
@@ -312,10 +311,8 @@ export class Tree  {
       const pathArray = url.pathname.split('/').filter((s) => s !== '')
 
       const type = pathArray.shift()  // TODO: Remove this and don't send in the full URL
-      // throwUnless(type === 'tree', `Unrecognized type ${type}`, 404)
 
       const version = pathArray.shift()  // TODO: Remove this and don't send in the full URL
-      // throwUnless(version === 'v1', `Unrecognized version ${version}`, 404)
 
       if (isIDString(pathArray[0])) {
         this.idString = pathArray.shift()  // remove the ID

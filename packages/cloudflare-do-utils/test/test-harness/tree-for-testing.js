@@ -7,7 +7,7 @@ export class TreeForTesting extends Tree {
       rootNodeVersion: 'v1',
       nodeType: 'temporal-entity',
       nodeVersion: 'v1',
-      nodeDOEnvNamespace: 'DO_API',  // TODO: Make it possible to pass in something here to indicate that we're in testing mode so the tree can use a local stub (like we import DurableAPI directly) instead of a miniflare supplied one
+      nodeDOEnvNamespace: 'DO_API',
     }
     super(state, env, config)
   }

@@ -4,6 +4,7 @@
 import { getDebug, Debug } from './debug.js'
 import { errorResponseOut } from './content-processor.js'
 import { HTTPError } from './http-error.js'
+import { isIDString } from './id-string.js'
 
 // initialize imports
 const debug = getDebug('blueprint:transactional-do-wrapper')
@@ -62,8 +63,10 @@ export class VersioningTransactionalDOWrapper {
       return errorResponseOut(new HTTPError(`Version ${version} for type ${type} not found`, 404), this.env, this.state.id.toString())
     }
 
+    if (isIDString(pathArray[0])) pathArray.shift()  // remove the ID
+
     // set the typeVersionConfig by combining the default with the specific type/version
-    const typeVersionConfig = {}
+    const typeVersionConfig = { type, version }
     const lookedUpTypeVersionConfig = this.types[type]?.versions[version] ?? {}
     const typeVersionConfigKeys = new Set([...Reflect.ownKeys(this.defaultTypeVersionConfig), ...Reflect.ownKeys(lookedUpTypeVersionConfig)])
     for (const key of typeVersionConfigKeys) {
@@ -96,8 +99,10 @@ export class VersioningTransactionalDOWrapper {
       debug('Passing along full request. request.url: %s', request.url)
     } else {
       const joinedPath = pathArray.join('/')
-      let urlToPassToWrappedDO = `http://fake.host/${joinedPath}`
-      urlToPassToWrappedDO += request.url.slice(request.url.indexOf(joinedPath) + joinedPath.length)
+      debug('Joined path: %s', joinedPath)
+      let urlToPassToWrappedDO = 'http://fake.host/'
+      urlToPassToWrappedDO += `${joinedPath}`
+      urlToPassToWrappedDO += request.url.slice(request.url.indexOf(url.pathname) + url.pathname.length)
       debug('URL to pass to wrapped DO: %s', urlToPassToWrappedDO)
       requestToPassToWrappedDO = new Request(urlToPassToWrappedDO, request)
     }

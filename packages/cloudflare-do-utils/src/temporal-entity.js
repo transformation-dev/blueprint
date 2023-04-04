@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* eslint-disable no-param-reassign */  // safe because durable objects are airgapped so to speak
 /* eslint-disable no-irregular-whitespace */  // because I use non-breaking spaces in comments
 
@@ -6,12 +7,11 @@ import { diff } from 'deep-object-diff'
 import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 
 // monorepo imports
-import {
-  throwIf, throwUnless, isIDString,
-  applyDelta, getDebug, Debug, requestIn, dateISOStringRegex, errorResponseOut,
-} from '@transformation-dev/cloudflare-do-utils'
-
-// local imports
+import { errorResponseOut, requestIn } from './content-processor.js'
+import { throwIf, throwUnless } from './throws.js'
+import { getDebug, Debug } from './debug.js'
+import { applyDelta } from './apply-delta.js'
+import { dateISOStringRegex } from './date-utils'
 import { temporalMixin } from './temporal-mixin'
 
 // initialize imports
@@ -205,6 +205,8 @@ export class TemporalEntity {
   static END_OF_TIME = '9999-01-01T00:00:00.000Z'
 
   // typeVersionConfig: {
+  //  type: string,
+  //  version: string,
   //  schema: JSON schema object,
   //  additionalValidation: (object) => boolean; Return true if valid. Throw if not valid.
   //  granularity: string or integer milliseconds,
@@ -237,8 +239,7 @@ export class TemporalEntity {
     // debug('hydrate() called. this.hydrated: %O', this.hydrated)
     if (this.hydrated) return
 
-    // validation
-    throwUnless(this.idString, 'Entity id is required', 404)
+    this.idString = this.state.id.toString()
 
     // hydrate #entityMeta
     this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { timeline: [] }
@@ -254,25 +255,10 @@ export class TemporalEntity {
   // eslint-disable-next-line consistent-return
   async fetch(request) {
     debug('%s %s', request.method, request.url)
-    this.nextStatus = undefined  // TODO: maybe find a way to do this in the lower methods like we do in GET expecting [value, status] from get
     this.warnings = []
     try {
       const url = new URL(request.url)
       const pathArray = url.pathname.split('/').filter((s) => s !== '')
-
-      this.type = pathArray.shift()
-
-      this.version = pathArray.shift()
-
-      if (this.idString != null) {  // It might be set when instantiated manually
-        const otherIDString = pathArray.shift()
-        throwIf(otherIDString && otherIDString !== this.idString, `The ID in the URL, ${otherIDString}, does not match the ID in the entity, ${this.idString}`, 404)
-      } else if (isIDString(pathArray[0])) {
-        this.idString = pathArray.shift()  // remove the ID
-      } else {
-        this.idString = this.state?.id?.toString()
-        this.nextStatus = 201  // This means that the entity was created on this PUT or POST
-      }
 
       const restOfPath = `/${pathArray.join('/')}`
 
@@ -320,8 +306,8 @@ export class TemporalEntity {
 
   async DELETE(request) {
     const { content: options } = await requestIn(request)
-    const [current, status] = await this.delete(options.userID, options.validFrom, options.impersonatorID)
-    return this.doResponseOut(current, status)
+    const [responseBody, status] = await this.delete(options.userID, options.validFrom, options.impersonatorID)
+    return this.doResponseOut(responseBody, status)
   }
 
   async put(value, userID, validFrom, impersonatorID, ifUnmodifiedSince) {
@@ -376,7 +362,7 @@ export class TemporalEntity {
     // Calculate the previousValues diff and check for idempotency
     const previousValues = diff(value, oldCurrent.value)
     if (Object.keys(previousValues).length === 0) {  // idempotent
-      return this.current
+      return this.get()
     }
 
     // Update the old current and save it
@@ -391,8 +377,6 @@ export class TemporalEntity {
       userID,
       validFrom,
       validTo: this.constructor.END_OF_TIME,
-      type: this.type,  // I'm putting this here rather than entityMeta on the off chance that a migration changes the type
-      version: this.version,
     }
     if (!this.typeVersionConfig.supressPreviousValues) this.current.meta.previousValues = previousValues
     if (impersonatorID != null) this.current.meta.impersonatorID = impersonatorID
@@ -404,20 +388,22 @@ export class TemporalEntity {
     await this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
     // return the new current
-    return this.current
+    return this.get()
   }
 
   async PUT(request) {
-    throwUnless(this.idString, 'Cannot PUT when there is no prior value')
     const { content: options } = await requestIn(request)
     const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
-    const current = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
-    return this.doResponseOut(current, this.nextStatus)
+    const [responseBody, status] = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
+    return this.doResponseOut(responseBody, status)
   }
 
-  async POST(request) {  // I originally wrote PUT as an UPSERT but it's better to have a separate POST
-    throwUnless(this.nextStatus === 201, 'TemporalEntity POST is only allowed when there is no prior value')
-    return this.PUT(request)
+  async POST(request) {
+    const { content: options } = await requestIn(request)
+    const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
+    const [responseBody, status] = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
+    if (status === 200) return this.doResponseOut(responseBody, 201)
+    else return this.doResponseOut(responseBody, status)
   }
 
   async patchUndelete({ userID, validFrom, impersonatorID }) {
@@ -432,7 +418,8 @@ export class TemporalEntity {
       deleted: undefined,
     }
     if (impersonatorID != null) metaDelta.impersonatorID = impersonatorID
-    return this.patchMetaDelta(metaDelta)
+    await this.patchMetaDelta(metaDelta)
+    return this.get()
   }
 
   async patchDelta({ delta, userID, validFrom, impersonatorID }, ifUnmodifiedSince) {
@@ -468,8 +455,6 @@ export class TemporalEntity {
     this.entityMeta.timeline.push(metaDelta.validFrom)
     await this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     await this.state.storage.put(`${this.idString}/snapshot/${metaDelta.validFrom}`, this.current)
-
-    return this.current
   }
 
   async patch(options, ifUnmodifiedSince) {
@@ -489,8 +474,8 @@ export class TemporalEntity {
     try {
       const { content: options } = await requestIn(request)
       const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
-      const current = await this.patch(options, ifUnmodifiedSince)
-      return this.doResponseOut(current)
+      const [responseBody, status] = await this.patch(options, ifUnmodifiedSince)
+      return this.doResponseOut(responseBody, status)
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate
       return errorResponseOut(e, this.env, this.idString)  // TODO: add e2e test for the body of the response

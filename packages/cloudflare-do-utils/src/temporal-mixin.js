@@ -47,7 +47,7 @@ export const temporalMixin = {
       ifModifiedSince != null && !dateISOStringRegex.test(ifModifiedSince),
       'If-Modified-Since must be in YYYY:MM:DDTHH:MM:SS.mmmZ format because we need millisecond granularity',
       400,
-      this.current,
+      this.current,  // TODO: Does Tree have this.current?
     )
     await this.hydrate()
     if (this.entityMeta.timeline.at(-1) <= ifModifiedSince) return [undefined, 304]

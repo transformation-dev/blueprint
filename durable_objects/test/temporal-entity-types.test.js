@@ -2,11 +2,10 @@
 import { describe, it, expect, assert } from 'vitest'
 
 // monorepo imports
-import { requestOutResponseIn } from '@transformation-dev/cloudflare-do-utils'
+import { requestOutResponseIn, TemporalEntity } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
 import { DurableAPI } from '../src/index.js'
-import { TemporalEntity } from '@transformation-dev/cloudflare-do-utils/src/temporal-entity.js'
 
 // initialize imports
 // const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks

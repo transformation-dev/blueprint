@@ -12,9 +12,9 @@ import { DurableAPI } from './test-harness/index.js'
 // const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks
 // eslint-disable-next-line no-undef
 const env = getMiniflareBindings()
+env.DEBUG = ''
 // env.DEBUG = 'blueprint:*'
 // env.DEBUG = 'blueprint:temporal-entity'
-env.DEBUG = ''
 
 let lastValidFrom
 let idString
@@ -147,7 +147,7 @@ describe('TemporalEntity validation prior to successful creation', async () => {
 
   it('should return error when userID is missing', async () => {
     const options = {
-      method: 'PUT',
+      method: 'POST',
       body: {
         value: { a: 100 },
       },
@@ -475,7 +475,6 @@ describe('TemporalEntity delete and undelete', async () => {
       body: { undelete: true, userID: 'userY' },
     }
     let response = await requestOutResponseIn(url, options, stub, state)
-
     expect(response.status).toBe(200)
     expect(response.content.meta.validFrom).to.be.a('string')
 
