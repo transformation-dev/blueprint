@@ -6,7 +6,6 @@
 // monorepo imports
 import { requestOutResponseIn, errorResponseOut, requestIn } from './content-processor.js'
 import { throwIf, throwUnless } from './throws.js'
-import { isIDString } from './id-string.js'
 import { getDebug, Debug } from './debug.js'
 import { HTTPError } from './http-error.js'
 import { dateISOStringRegex } from './date-utils'
@@ -73,6 +72,7 @@ export class Tree  {
 
     Object.assign(this, temporalMixin)
 
+    this.idString = this.state.id.toString()
     this.hydrated = false  // using this.hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.hydrate.bind(this))
   }
 
@@ -81,9 +81,6 @@ export class Tree  {
   async hydrate() {
     debug('hydrate() called. this.hydrated: %O', this.hydrated)
     if (this.hydrated) return
-
-    // validation
-    throwUnless(this.idString, 'Entity id is required', 404)
 
     // hydrate #entityMeta
     const defaultEntityMeta = {
@@ -309,16 +306,6 @@ export class Tree  {
     try {
       const url = new URL(request.url)
       const pathArray = url.pathname.split('/').filter((s) => s !== '')
-
-      const type = pathArray.shift()  // TODO: Remove this and don't send in the full URL
-
-      const version = pathArray.shift()  // TODO: Remove this and don't send in the full URL
-
-      if (isIDString(pathArray[0])) {
-        this.idString = pathArray.shift()  // remove the ID
-      } else {
-        this.idString = this.state?.id.toString()
-      }
 
       const restOfPath = `/${pathArray.join('/')}`
       switch (restOfPath) {
