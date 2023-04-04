@@ -1,7 +1,7 @@
 import path from 'path'
 import { defineConfig } from "vitest/config"
 
-const scriptPath = path.join(__dirname, "index.mjs")
+const scriptPath = path.join(__dirname, "dist/index.mjs")
 
 export default defineConfig({
   test: {
