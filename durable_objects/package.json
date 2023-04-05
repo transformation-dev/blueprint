@@ -8,14 +8,14 @@
     "test": "test"
   },
   "scripts": {
-    "publish": "npm run build && npx wrangler publish",
-    "build": "npx vite build && npm run test",
+    "publish": "npm run test && npx wrangler publish",
+    "build": "npx vite build",
     "dev:watch": "npx vite build --watch",
     "dev:host": "npx wrangler dev --local",
-    "test": "NODE_OPTIONS='--experimental-vm-modules' vitest --run",
+    "test": "npm run build && NODE_OPTIONS='--experimental-vm-modules' vitest --run",
     "test:live": "NODE_OPTIONS=--experimental-vm-modules VITEST_BASE_URL=http://127.0.0.1:8788/api/do vitest --run",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules vitest",
-    "coverage": "NODE_OPTIONS=--experimental-vm-modules vitest --coverage --run"
+    "coverage": "npm run build && NODE_OPTIONS=--experimental-vm-modules vitest --coverage --run"
   },
   "dependencies": {
     "@cloudflare/itty-router-openapi": "^0.0.15",

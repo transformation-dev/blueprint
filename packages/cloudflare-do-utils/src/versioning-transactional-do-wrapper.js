@@ -74,6 +74,7 @@ export class VersioningTransactionalDOWrapper {
         typeVersionConfig[key] = lookedUpTypeVersionConfig[key] ?? this.defaultTypeVersionConfig[key]
       }
     }
+    debug('Type/version config for type "%s" version "%s": %O', type, version, typeVersionConfig)
 
     // set the environment options by combining the default with the options for the specific environment
     const environment = this.env.CF_ENV ?? '*'
@@ -96,10 +97,9 @@ export class VersioningTransactionalDOWrapper {
     let requestToPassToWrappedDO
     if (typeVersionConfig.passFullUrl) {
       requestToPassToWrappedDO = request
-      debug('Passing along full request. request.url: %s', request.url)
+      debug('Passing along original request. request.url: %s', request.url)
     } else {
       const joinedPath = pathArray.join('/')
-      debug('Joined path: %s', joinedPath)
       let urlToPassToWrappedDO = 'http://fake.host/'
       urlToPassToWrappedDO += `${joinedPath}`
       urlToPassToWrappedDO += request.url.slice(request.url.indexOf(url.pathname) + url.pathname.length)

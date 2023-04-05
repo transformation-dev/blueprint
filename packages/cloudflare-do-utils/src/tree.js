@@ -277,6 +277,8 @@ export class Tree  {
   async deriveTree() {
     await this.hydrate()
 
+    if (this.entityMeta.nodeCount === 0) return
+
     if (this.tree != null) return
 
     const nodesCopy = structuredClone(this.nodes)

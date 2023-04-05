@@ -55,7 +55,7 @@ const defaultTypeVersionConfig = {
   granularity: 'hour',
   schema: null,
   additionalValidation: null,
-  passFullUrl: false,  // TODO: Change this to false and modify TemporaryEntity to not look for type and version in the url anymore
+  passFullUrl: false,
   disableUseOfTransaction: false,
 }
 
