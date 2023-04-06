@@ -58,9 +58,9 @@
     "@transformation-dev/svelte-viewstate-store": "file:packages/svelte-viewstate-store",
     "cbor-x": "^1.5.2",
     "debug": "^4.3.4",
-    "nanoid": "^4.0.1",
+    "nanoid": "^4.0.2",
     "sort-on": "^5.2.0",
-    "svelte": "^3.55.1",
+    "svelte": "^3.58.0",
     "svelte-spa-router": "^3.3.0"
   },
   "workspaces": [
