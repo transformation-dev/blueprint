@@ -1,5 +1,3 @@
-// TODO: Add an option for stripping out the id from the url
-
 // local imports
 import { responseIn } from './content-processor.js'
 import { getDebug, Debug } from './debug.js'

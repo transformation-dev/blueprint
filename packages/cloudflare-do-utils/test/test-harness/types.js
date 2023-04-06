@@ -5,10 +5,10 @@ import { load as yamlLoad } from 'js-yaml'
 // monorepo imports
 import { throwIfNotDag } from '../../src/throws.js'
 import { TemporalEntity } from '../../src/temporal-entity.js'
+import { Tree } from '../../src/tree.js'
 
 // local imports
 import { TransactionalTester } from './transactional-tester.js'
-import { TreeForTesting } from './tree-for-testing.js'
 import testDagSchemaV1String from './schemas/***test-dag***.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
 
 // initialize imports
@@ -94,7 +94,12 @@ const types = {
   'tree-for-testing': {
     versions: {
       v1: {
-        environments: { '*': { TheClass: TreeForTesting } },
+        rootNodeType: 'temporal-entity',
+        rootNodeVersion: 'v1',
+        nodeType: 'temporal-entity',
+        nodeVersion: 'v1',
+        nodeDOEnvNamespace: 'DO_API',
+        environments: { '*': { TheClass: Tree } },
       },
     },
   },

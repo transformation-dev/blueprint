@@ -41,7 +41,8 @@ export class VersioningTransactionalDOWrapper {
     if (pathArray[0] === 'transactional-do-wrapper') {  // TODO: Test this
       if (request.method === 'DELETE') {
         await this.state.storage.deleteAll()
-        return new Response(`All the data for DO ${this.state.id.toString()} has been deleted. The DO will eventually disappear unless there is a datacenter error.`, { status: 202 })  // TODO: Consider making this an object with a message field
+        // TODO: The Response below is one of the few places I return raw text. Consider making this an object with a message field and using content-processor
+        return new Response(`All the data for DO ${this.state.id.toString()} has been deleted. The DO will eventually disappear unless there is a datacenter error.`, { status: 202 })
       }
       return errorResponseOut(new HTTPError(`Unrecognized HTTP method ${request.method} for ${request.url}`, 405), this.env, this.state.id.toString())
       // throwIf(true, `Unrecognized HTTP method ${request.method} for ${request.url}`, 405)
@@ -120,7 +121,7 @@ export class VersioningTransactionalDOWrapper {
           if (this.classInstance == null) this.classInstance = new environmentOptions.TheClass(alteredState, this.env, typeVersionConfig)
           else this.classInstance.state = alteredState  // Must reset this for each transaction. Means the DO must use this.state
           const responseInsideTransaction = await this.classInstance.fetch(requestToPassToWrappedDO)
-          if (responseInsideTransaction.status >= 400) {
+          if (responseInsideTransaction.status >= 400) {  // TODO: upgrade to not always eject from memory on errors. Not sure how to decide.
             txn.rollback()  // explicit rollback whenever there is a non-2xx, non-3xx response
             this.classInstance = null  // reset the class instance so all memory will be rehydrated from storage on next request
             debug('Rolling back transaction because response had status code: %s', responseInsideTransaction.status)

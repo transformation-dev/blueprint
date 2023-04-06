@@ -55,6 +55,8 @@ describe('A series of Tree operations', async () => {
     expect(meta.validFrom).to.be.a('string')
     assert(meta.validFrom <= new Date().toISOString())
     expect(meta.userID).to.eq('userW')
+    expect(meta.type).to.eq('tree-for-testing')
+    expect(meta.version).to.eq('v1')
     expect(response.headers.get('Content-ID')).to.eq(idString)
     expect(idString).to.be.a('string')
     url += `/${idString}`

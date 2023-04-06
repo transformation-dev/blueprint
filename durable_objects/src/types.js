@@ -3,11 +3,10 @@
 import { load as yamlLoad } from 'js-yaml'
 
 // monorepo imports
-import { TemporalEntity } from '@transformation-dev/cloudflare-do-utils'
+import { TemporalEntity, Tree } from '@transformation-dev/cloudflare-do-utils'
 
 // local imports
 import { Experimenter } from './experimenter.js'
-import { OrgTree } from './org-tree.js'
 import rootOrgTreeNodeSchemaV1String from './schemas/root-org-tree-node.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
 import orgTreeNodeSchemaV1String from './schemas/org-tree-node.v1.yaml?raw'
 
@@ -72,7 +71,12 @@ const types = {
   'org-tree': {
     versions: {
       v1: {
-        environments: { '*': { TheClass: OrgTree } },
+        rootNodeType: 'root-org-tree-node',
+        rootNodeVersion: 'v1',
+        nodeType: 'org-tree-node',
+        nodeVersion: 'v1',
+        nodeDOEnvNamespace: 'DO_API',
+        environments: { '*': { TheClass: Tree } },
       },
     },
   },

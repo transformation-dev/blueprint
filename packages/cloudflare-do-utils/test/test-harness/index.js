@@ -10,7 +10,7 @@ import typeConfig from './types.js'
 export default {}
 
 // Durable Object
-export class DurableAPI extends VersioningTransactionalDOWrapper {  // TODO: Find a way to do this with configuration rather than subclassing
+export class DurableAPI extends VersioningTransactionalDOWrapper {
   constructor(state, env) {
     super(state, env, typeConfig)
   }

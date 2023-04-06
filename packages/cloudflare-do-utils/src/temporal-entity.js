@@ -34,11 +34,11 @@ const debug = getDebug('blueprint:temporal-entity')
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO A: Refactor so all methods use destructuring on options/body for parameters
-
 // TODO A: Create People DO. A Person is a just a TemporalEntity but the People DO is not temporal. It'll store the list of people
 //       in a single storage object under the key 1 for now but later we can spread it out over multiple storage objects,
 //       People batches 2 thru n if you will.
+//       I don't think we should reuse the Tree DO because having it be a DAG doesn't make sense. However, we might be able
+//       to start with the Tree code and simplify it. Maybe extract the code that saves the nodes.
 
 // TODO A: Implement query using npm module sift https://github.com/crcn/sift.js.
 //       Support a query parameter to include soft-deleted items in the query but default to not including them.
@@ -46,18 +46,12 @@ const debug = getDebug('blueprint:temporal-entity')
 
 // TODO A: Cause queries to go down recursively into children of the DAG as well as meta.attachments of the entity
 
-// TODO B: Add a check for invalid type or version name. Cannot have any forward slashs, dashes, or periods.
-
-// TODO B: Make sure all throw messages are constants (for logging) and put the additional context in a context property of the error body
-
-// TODO: B. Timeline
+// TODO: B. Port TZTime.Timeline
 
 // TODO: B. Implement query against all snapshots that intersect with a Timeline.
 
 // TODO: B. When there is an enum in the schema, use that order for $gt, $gte, $lt, and $lte. Fork sift or convert the query if the left side of $gt, etc. is the fieldname of an enum.
 //       Make this work for the value but not entityMeta for now since that has no enum types at the moment.
-
-// TODO: B. Replace cbor-sc with cbor once we get an answer on the GitHub cbor-x discussion board https://github.com/kriszyp/cbor-x/issues/66
 
 // TODO: B. Add migrations to type registry.
 //       Migrations can be provided for both directions (upgrade and downgrade). If there is no continuous upgrade or downgrade path from the current
@@ -67,15 +61,10 @@ const debug = getDebug('blueprint:temporal-entity')
 //       stop being supported at some point. Even if there exists an appropriate downgrade migration, the client might want to know that the
 //       version they are using is not the latest so they can plan to upgrade their code.
 
-// TODO: C. Add a GET /types endpoint that returns all the types and/or...
 // TODO: C. OpenAPI documentation. Create top-level schemas for PUT and PATCH requests but don't use them for validation because I want to
 //       keep doing that in code because I like my error messages. It's only for documentation. Create schemas for responses.
 
-// TODO: C. Implement ticks
-
 // TODO C: Logging
-
-// TODO: C. Move TemporalEntity to its own package.
 
 // TODO: C. Add a HEAD method that returns the same headers as GET but no body.
 
@@ -290,7 +279,7 @@ export class TemporalEntity {
 
     await this.hydrate()
 
-    throwIf(this.current?.meta?.deleted, 'Cannot delete a TemporalEntity that is already deleted', 404)
+    if (this.current?.meta?.deleted) return [this.current, 200]
     throwUnless(this.entityMeta?.timeline?.length > 0, 'cannot call TemporalEntity DELETE when there is no prior value')
 
     const metaDelta = {
@@ -300,8 +289,7 @@ export class TemporalEntity {
     }
     if (impersonatorID != null) metaDelta.impersonatorID = impersonatorID
     await this.patchMetaDelta(metaDelta)
-    // return [this.current, 204]  // TODO: Is there another status code that would allow a return body?
-    return [undefined, 204]
+    return [this.current, 200]
   }
 
   async DELETE(request) {
@@ -478,7 +466,7 @@ export class TemporalEntity {
       return this.doResponseOut(responseBody, status)
     } catch (e) {
       this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return errorResponseOut(e, this.env, this.idString)  // TODO: add e2e test for the body of the response
+      return errorResponseOut(e, this.env, this.idString)
     }
   }
 
@@ -491,7 +479,7 @@ export class TemporalEntity {
       this.current,
     )
     await this.hydrate()
-    throwIf(this.current?.meta?.deleted, 'GET on deleted TemporalEntity not allowed. Use POST to "query" and set includeDeleted to true', 404)
+    throwIf(this.current?.meta?.deleted, 'Resource is soft deleted. If you DELETE again, it will return the current value and meta.', 404)
     if (this.entityMeta.timeline.at(-1) <= ifModifiedSince) return [undefined, 304]
     return [this.current, statusToReturn]
   }

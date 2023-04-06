@@ -5,7 +5,7 @@ import { temporalMixin } from '../../src/temporal-mixin.js'
 // initialize imports
 const debug = getDebug('blueprint:durable-objects:experimenter-v2')
 
-export class TransactionalTester {  // TODO: Move this to cloudflare-do-utils
+export class TransactionalTester {
   async hydrate() {
     if (this.hydrated) return
     this.name = await this.state.storage.get('name')

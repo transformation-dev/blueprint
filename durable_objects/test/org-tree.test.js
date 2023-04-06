@@ -41,7 +41,7 @@ describe('Org Tree', async () => {
   let { state, stub, baseUrl, url } = await getCleanState()
 
   it('should respond with 200', async () => {
-    const response = await requestOutResponseIn(url, undefined, stub, state)
+    const response = await requestOutResponseIn(url, undefined, stub, state)  // All this does is confirm that the DO_API compiles and can respond to a GET. The tests in cloudflare-do-utils are thorough.
     expect(response.status).toBe(200)
   })
 })

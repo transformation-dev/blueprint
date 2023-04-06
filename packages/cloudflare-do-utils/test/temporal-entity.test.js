@@ -334,7 +334,7 @@ describe('TemporalEntity supressPreviousValues', async () => {
   // eslint-disable-next-line prefer-const, no-unused-vars, no-shadow
   let { state, stub, baseUrl, url } = await getCleanState()
 
-  it('should not have previousValues', async () => {  // TODO: Re-enable and fix once we merge the type system in TransactionDOWrapper with the one in TemporalEntity
+  it('should not have previousValues', async () => {
     const options = {
       method: 'POST',
       body: { value: { a: 1 }, userID: 'userX' },
@@ -440,7 +440,7 @@ describe('TemporalEntity delete and undelete', async () => {
       headers: { 'If-Unmodified-Since': lastValidFrom },
     }
     response = await requestOutResponseIn(url, options, stub, state)
-    expect(response.status).toBe(204)
+    expect(response.status).toBe(200)
     response = await requestOutResponseIn(entityMetaUrl, undefined, stub, state)
     expect(response.content.timeline.length).toBe(3)
     lastValidFrom = response.content.timeline.at(-1)

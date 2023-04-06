@@ -37,8 +37,6 @@ const debug = getDebug('blueprint:tree')
   TODO B: POST - execute the aggregation. Starting nodeIDString in body or root if omitted. First version just gathers all matching nodes.
 
 TODO: Use Cloudflare queues to communicate changes to node TemporalEntities to the Tree instance
-
-TODO: Refactor so all methods use destructuring on options/body for parameters
 */
 
 /**
@@ -51,8 +49,6 @@ TODO: Refactor so all methods use destructuring on options/body for parameters
  *
  * */
 export class Tree  {
-  // TODO: upgrade VersioningTransactionalDOWrapper to not always eject from memory on errors. Not sure how to decide.
-
   // <NodeStub> = {
   //   label: string,  // denormalized from the node itself
   //   idString: string  // idString for the DO that holds the actual node
@@ -64,11 +60,11 @@ export class Tree  {
   //   <id: string>: [<id: string>],
   // }
 
-  constructor(state, env, config) {
+  constructor(state, env, typeVersionConfig) {
     Debug.enable(env.DEBUG)
     this.state = state
     this.env = env
-    this.config = config
+    this.typeVersionConfig = typeVersionConfig
 
     Object.assign(this, temporalMixin)
 
@@ -163,8 +159,8 @@ export class Tree  {
       validFrom,
       validTo: TemporalEntity.END_OF_TIME,
       userID,
-      type: 'tree',
-      version: 'v1',  // TODO: For now, there is only one version of tree, but if there later is a v2, this will need to be changed
+      type: this.typeVersionConfig.type,
+      version: this.typeVersionConfig.version,
       // We don't maintain previousValues for the tree itself, but we do for the nodes
     }
     if (impersonatorID != null) this.current.meta.impersonatorID = impersonatorID
@@ -177,12 +173,12 @@ export class Tree  {
     let id
     let url = `http://fake.host/${nodeType}/${nodeVersion}/`
     if (idString == null) {
-      id = this.env[this.config.nodeDOEnvNamespace].newUniqueId()
+      id = this.env[this.typeVersionConfig.nodeDOEnvNamespace].newUniqueId()
     } else {
-      id = this.env[this.config.nodeDOEnvNamespace].idFromString(idString)
+      id = this.env[this.typeVersionConfig.nodeDOEnvNamespace].idFromString(idString)
       url += `${idString}/`
     }
-    const entityStub = this.env[this.config.nodeDOEnvNamespace].get(id)
+    const entityStub = this.env[this.typeVersionConfig.nodeDOEnvNamespace].get(id)
     const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
     if (response.status !== expectedResponseCode) {
       if (response.status >= 400) {
@@ -199,15 +195,15 @@ export class Tree  {
     return response
   }
 
-  async hardDeleteDO(idString) {  // TODO: Move this to cloudflare-do-utils if we can make it generic enough
+  async hardDeleteDO(idString) {
     debug('hardDeleteDO() called. idString: %s', idString)
     throwIf(idString == null, 'Required parameter, idString, missing from call to hardDeleteDO()')
     const options = {
       method: 'DELETE',
     }
     const url = `http://fake.host/transactional-do-wrapper/${idString}`
-    const id = this.env[this.config.nodeDOEnvNamespace].idFromString(idString)
-    const entityStub = this.env[this.config.nodeDOEnvNamespace].get(id)
+    const id = this.env[this.typeVersionConfig.nodeDOEnvNamespace].idFromString(idString)
+    const entityStub = this.env[this.typeVersionConfig.nodeDOEnvNamespace].get(id)
     const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
     if (response.status >= 400) {
       const { error } = response.content
@@ -352,7 +348,7 @@ export class Tree  {
     // TODO: wrap this in a try/catch block and retry if the optimistic concurrency check fails
     const lastValidFrom = this.entityMeta.timeline?.at(-1)
     // This next line is going to open the input gate, so we need an optimistic concurrency check. The above line is what we'll check against
-    const response = await this.callNodeDO(this.config.rootNodeType, this.config.rootNodeVersion, options, 201)
+    const response = await this.callNodeDO(this.typeVersionConfig.rootNodeType, this.typeVersionConfig.rootNodeVersion, options, 201)
     await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.content.idString)
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
@@ -395,7 +391,7 @@ export class Tree  {
     // TODO: wrap this in a try/catch block and retry if the optimistic concurrency check fails
     const lastValidFrom = this.entityMeta.timeline?.at(-1)
     // This next line is going to open the input gate, so we need an optimistic concurrency check. The above line is what we'll check against
-    const response = await this.callNodeDO(this.config.nodeType, this.config.nodeVersion, options, 201)
+    const response = await this.callNodeDO(this.typeVersionConfig.nodeType, this.typeVersionConfig.nodeVersion, options, 201)
     await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.content.idString)
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
