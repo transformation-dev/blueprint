@@ -36,10 +36,10 @@
     "url": "https://github.com/transformation-dev/blueprint/issues"
   },
   "dependencies": {
-    "cbor-x": "^1.5.1",
+    "@cfworker/json-schema": "^1.12.5",
+    "cbor-x": "^1.5.2",
     "debug": "^4.3.4",
     "deep-object-diff": "^1.1.9",
-    "@cfworker/json-schema": "^1.12.5",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {
