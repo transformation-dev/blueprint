@@ -23,7 +23,8 @@
     "pubish-packages:major": "lerna publish major",
     "pubish-packages:minor": "lerna publish minor",
     "pubish-packages:patch": "lerna publish patch",
-    "syncpack:fix": "npx syncpack fix-mismatches"
+    "syncpack:fix": "npx syncpack fix-mismatches",
+    "git:remove-deleted-remotes": "git remote prune origin"
   },
   "devDependencies": {
     "@contrast/contrast": "^2.0.0",
