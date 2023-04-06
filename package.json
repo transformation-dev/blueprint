@@ -10,22 +10,25 @@
     "cypress:run": "cypress run",
     "eslint": "npx eslint -c .eslintrc.cjs --ext .js,.svelte,.html .",
     "lint": "npm run eslint",
-    "postinstall-not-needed": "cd durable_objects && npm install",
     "build": "npm run build:version.json && npm run build:ui",
     "build:version.json": "printf '{\"sha\":\"' > ./public/version.json && printf $(git show -s --format=%H) >> ./public/version.json && echo '\"}' >> ./public/version.json",
     "build:ui": "npx vite build",
     "build:durable_objects": "cd durable_objects && npm run build",
     "build:sourcemaps": "npx vite build --config vite-sourcemaps.config.js",
-    "test": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
+    "build:cloudflare-do-utils": "cd packages/cloudflare-do-utils && npm run build",
+    "test": "npm run build:cloudflare-do-utils && npm run build:durable_objects && NODE_OPTIONS=--experimental-vm-modules vitest --run",
     "test:live": "NODE_OPTIONS=--experimental-vm-modules VITEST_BASE_URL=http://127.0.0.1:8788/api/do vitest --run",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules vitest",
-    "coverage": "NODE_OPTIONS=--experimental-vm-modules vitest --coverage --run",
+    "coverage:raw": "NODE_OPTIONS=--experimental-vm-modules vitest --coverage --run",
+    "coverage": "npm run build:cloudflare-do-utils && npm run build:durable_objects && NODE_OPTIONS=--experimental-vm-modules vitest --coverage --run",
+    "pubish-packages:major": "lerna publish major",
+    "pubish-packages:minor": "lerna publish minor",
+    "pubish-packages:patch": "lerna publish patch",
     "syncpack:fix": "npx syncpack fix-mismatches"
   },
   "devDependencies": {
-    "@contrast/contrast": "^1.0.13",
+    "@contrast/contrast": "^2.0.0",
     "@creativebulma/bulma-tooltip": "^1.2.0",
-    "@cypress/code-coverage": "^3.10.0",
     "@sveltejs/vite-plugin-svelte": "^2.0.2",
     "@vitest/coverage-c8": "^0.29.2",
     "agnostic-svelte": "^1.1.22",
@@ -35,7 +38,6 @@
     "cypress": "12.6",
     "eslint": "^8.10.0",
     "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "^2.25.4",
     "eslint-plugin-svelte3": "^3.4.1",
     "lerna": "^4.0.0",
     "lighthouse": "^9.5.0",
@@ -50,7 +52,6 @@
     "wrangler": "^2.12.0"
   },
   "dependencies": {
-    "@transformation-dev/accept": "file:packages/accept",
     "@transformation-dev/cloudflare-do-utils": "file:packages/cloudflare-do-utils",
     "@transformation-dev/dragster": "file:packages/dragster",
     "@transformation-dev/svelte-realtime-store": "file:packages/svelte-realtime-store",
@@ -64,9 +65,7 @@
   },
   "workspaces": [
     "packages/cloudflare-do-utils",
-    "packages/cloudflare-do-testing-utils",
     "packages/dragster",
-    "packages/accept",
     "durable_objects"
   ]
 }

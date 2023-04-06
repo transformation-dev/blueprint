@@ -1,6 +1,6 @@
 {
   "name": "@transformation-dev/cloudflare-do-utils",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "Utilities for working with Cloudflare's Durable Objects",
   "keywords": [
     "cloudflare",
@@ -26,20 +26,23 @@
     "test": "test"
   },
   "scripts": {
-    "test": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
-    "test:watch": "NODE_OPTIONS=--experimental-vm-modules vitest",
-    "coverage": "NODE_OPTIONS=--experimental-vm-modules vitest run --coverage"
+    "build": "npx vite build",
+    "test": "npm run build && npm run test:run",
+    "test:run": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
+    "test:watch": "npx vite && NODE_OPTIONS=--experimental-vm-modules vitest",
+    "coverage": "npx vite build && NODE_OPTIONS=--experimental-vm-modules vitest run --coverage"
   },
   "bugs": {
     "url": "https://github.com/transformation-dev/blueprint/issues"
   },
   "dependencies": {
-    "@transformation-dev/accept": "file:packages/accept",
     "cbor-x": "^1.5.1",
-    "debug": "^4.3.4"
+    "debug": "^4.3.4",
+    "deep-object-diff": "^1.1.9",
+    "@cfworker/json-schema": "^1.12.5",
+    "js-yaml": "^4.1.0"
   },
   "devDependencies": {
-    "@transformation-dev/cloudflare-do-testing-utils": "file:packages/cloudflare-do-testing-utils",
     "@vitest/coverage-c8": "^0.29.2",
     "node-fetch": "^3.3.0",
     "vitest": "^0.29.1",

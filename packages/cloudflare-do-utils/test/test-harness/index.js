@@ -1,5 +1,7 @@
+// 3rd party imports
+
 // mono-repo imports
-import { VersioningTransactionalDOWrapper } from '@transformation-dev/cloudflare-do-utils'
+import { VersioningTransactionalDOWrapper } from '../../src/versioning-transactional-do-wrapper.js'
 
 // local imports
 import typeConfig from './types.js'

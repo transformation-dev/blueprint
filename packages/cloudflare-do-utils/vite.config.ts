@@ -4,9 +4,9 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   build: {
     sourcemap: true,
-    outDir: 'dist',
+    outDir: 'test/test-harness/dist',
     lib: {
-      entry: 'src/index.js',
+      entry: 'test/test-harness/index.js',
       formats: ['es'],
       fileName: (format, entryName) => `${entryName}.mjs`,
     },

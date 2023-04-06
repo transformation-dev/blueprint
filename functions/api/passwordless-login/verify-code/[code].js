@@ -1,5 +1,6 @@
 import Debug from 'debug'
-import { jsonResponse, getDebug, verifyCode } from '../../../_utils'
+import { getDebug } from '@transformation-dev/cloudflare-do-utils'
+import { verifyCode } from '../../../_utils'
 
 const debug = getDebug('blueprint:api:passwordless-login:verify-code:[code]')
 
@@ -11,7 +12,7 @@ export async function onRequestGet({ request, env, params }) {
   const { cookieHeader, success, location } = await verifyCode({ env, code, targetURL: request.url.href })
 
   // Returning a redirect regardless, success redirects to target and failure redirects to login page
-  const res = new Response(null, {
+  const res = new Response(null, {  // TODO: Use responseOut
     status: 302,
     statusText: 'Redirecting',
   })

@@ -1,5 +1,5 @@
 import Debug from 'debug'
-import { jsonResponse, getDebug } from '../_utils'
+import { getDebug, responseOut } from '@transformation-dev/cloudflare-do-utils'
 
 const debug = getDebug('blueprint:api:logout')
 
@@ -12,10 +12,6 @@ export async function onRequestGet({ request, env, params }) {
   //   statusText: 'Logged out',
   // })
 
-  const res = jsonResponse({ authenticated: false })
-
-  res.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
-
   const cookieHeaderArray = [
     'sessionID=',
     'Max-Age=0',  // This seems to be the recommended way to clear a cookie
@@ -27,7 +23,10 @@ export async function onRequestGet({ request, env, params }) {
     cookieHeaderArray.push('HttpOnly')
   }
   const cookieHeader = cookieHeaderArray.join('; ')
-  res.headers.set('Set-Cookie', cookieHeader)
+  const headers = {
+    'Set-Cookie': cookieHeader,
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+  }
 
-  return res
+  return responseOut({ authenticated: false }, undefined, 'application/json', headers)
 }

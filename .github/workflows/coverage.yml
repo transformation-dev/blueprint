@@ -11,7 +11,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [17.x]
+        node-version: [18.x]
         os: [ubuntu-latest]
         # os: [macos-12]
 
@@ -36,6 +36,7 @@ jobs:
         TESTING_OVERRIDE_CODE: ${{ secrets.TESTING_OVERRIDE_CODE }}
       run: |
         npm run build:durable_objects
+        npm run build:cloudflare-do-utils
         npm run coverage
 
     - name: Upload coverage files to Codecov

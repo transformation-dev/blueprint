@@ -1,11 +1,14 @@
 
 <script>
-  import { parseBody } from '../utils'
+  // import { parseBody } from '../utils'
+  import { requestOutResponseIn } from '@transformation-dev/cloudflare-do-utils'
 
   async function status() {
-    const response = await fetch('/api/status')
-    const status = await parseBody(response)
-    return status
+    // const response = await fetch('/api/status')
+    // const status = await parseBody(response)
+    const response = await requestOutResponseIn('/api/status')
+    return response.content
+    // return status
   }
 
   const hashPosition = window.location.href.indexOf('#/')

@@ -2,7 +2,7 @@
 import Debug from 'debug'
 import { nanoid as nanoidNonSecure } from 'nanoid/non-secure'
 import { nanoid } from 'nanoid'
-import { getDebug } from './_utils'
+import { getDebug } from '@transformation-dev/cloudflare-do-utils'
 
 const debug = getDebug('blueprint:_middleware')
 
@@ -64,7 +64,7 @@ async function csp({ request, env, next }) {  // TODO: split this out to its own
         `cloudflare-static/email-decode.min.js" nonce="${nonce}"`,
       )
 
-    const newRes = new Response(html, {
+    const newRes = new Response(html, {  // Not using responseOut because it's HTML, not an API call
       status: res.status,
       statusText: res.statusText,
     })

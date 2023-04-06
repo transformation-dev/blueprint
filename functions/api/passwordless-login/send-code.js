@@ -2,7 +2,9 @@ import Debug from 'debug'
 import { customAlphabet as customAlphabetNonSecure } from 'nanoid/non-secure'
 import { customAlphabet } from 'nanoid'
 
-import { jsonResponse, getDebug } from '../../_utils'
+import { getDebug, responseOut } from '@transformation-dev/cloudflare-do-utils'
+
+// import { jsonResponse } from '../../_utils'
 
 const debug = getDebug('blueprint:api:passwordless-login:send-code')
 
@@ -23,7 +25,7 @@ export async function onRequestPost({ request, env, params }) {
   const body = await request.json()
   const { email, targetURL } = body
   if (!email) {  // TODO: upgrade this with a real email validator
-    return jsonResponse({ success: false, message: 'Invalid email', messageType: 'warning' })
+    return responseOut({ success: false, message: 'Invalid email', messageType: 'warning' }, undefined, 'application/json')
   }
   const { origin } = new URL(targetURL)
   let code
@@ -54,11 +56,11 @@ export async function onRequestPost({ request, env, params }) {
   })
   sendGridRequest.headers.set('Authorization', `Bearer ${env.SENDGRID_LOGIN}`)
   sendGridRequest.headers.set('Content-Type', 'application/json; charset=utf-8')
-  const sendGridResponse = await fetch(sendGridRequest)
+  const sendGridResponse = await fetch(sendGridRequest)  // TODO: Consider changing this to requestOutResponseIn
   if (sendGridResponse.status !== 202) {
-    return jsonResponse({ success: false, message: 'Email not sent. Try again.', messageType: 'warning' })
+    return responseOut({ success: false, message: 'Email not sent. Try again.', messageType: 'warning' }, undefined, 'application/json')
   }
   // TODO: handle sendGridResponse error 404, 500, etc.
 
-  return jsonResponse({ success: true, message: `Code sent. Valid for ${CODE_LIFE_IN_MINUTES} minutes.`, messageType: 'success' })
+  return responseOut({ success: true, message: `Code sent. Valid for ${CODE_LIFE_IN_MINUTES} minutes.`, messageType: 'success' }, undefined, 'application/json')
 }

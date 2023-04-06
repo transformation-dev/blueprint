@@ -1,14 +1,16 @@
 import path from 'path'
 import { defineConfig } from "vitest/config"
 
-const scriptPath = path.join(__dirname, "dist/index.mjs")
+const scriptPath = path.join(__dirname, "test/test-harness/dist/index.mjs")
 
 export default defineConfig({
   test: {
     silent: false,
-    verbose: true,
     coverage: {
       all: true,
+      exclude: [
+        // "**/pages-do-proxy.js"
+      ],
       include: [
         'src/**/*.js',
       ],
@@ -22,6 +24,7 @@ export default defineConfig({
     environmentOptions: {
       // bindings: { KEY: "value" },
       // kvNamespaces: ["TEST_NAMESPACE"],
+
       modules: true,
       scriptPath: scriptPath,
       durableObjects: {

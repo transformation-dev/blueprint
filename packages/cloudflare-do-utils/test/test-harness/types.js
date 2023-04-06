@@ -3,21 +3,21 @@
 import { load as yamlLoad } from 'js-yaml'
 
 // monorepo imports
-import { TemporalEntity, Tree } from '@transformation-dev/cloudflare-do-utils'
+import { throwIfNotDag } from '../../src/throws.js'
+import { TemporalEntity } from '../../src/temporal-entity.js'
+import { Tree } from '../../src/tree.js'
 
 // local imports
-import { Experimenter } from './experimenter.js'
-import rootOrgTreeNodeSchemaV1String from './schemas/root-org-tree-node.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
-import orgTreeNodeSchemaV1String from './schemas/org-tree-node.v1.yaml?raw'
+import { TransactionalTester } from './transactional-tester.js'
+import testDagSchemaV1String from './schemas/***test-dag***.v1.yaml?raw'  // uses vite's ?raw feature to inline as string
 
 // initialize imports
-const rootOrgTreeNodeSchemaV1 = yamlLoad(rootOrgTreeNodeSchemaV1String)  // convert yaml string to javascript object
-const orgTreeNodeSchemaV1 = yamlLoad(orgTreeNodeSchemaV1String)  // convert yaml string to javascript object
+const testDagSchemaV1 = yamlLoad(testDagSchemaV1String)  // convert yaml string to javascript object
 
 /*
  * ## Types and versions
  *
- *       types = {
+ *       static types = {
  *         'widget': {
  *           versions: {
  *             v1: {  // "v#" is just an example. The version can be anything you want
@@ -61,41 +61,75 @@ const defaultTypeVersionConfig = {
 
 // TemporalEntity is TheClass for many different types below but they can still have different schemas, validation, migrations, etc.
 const types = {
-  experimenter: {
+  'temporal-entity': {
     versions: {
       v1: {
-        environments: { '*': { TheClass: Experimenter } },
+        environments: { '*': { TheClass: TemporalEntity } },
       },
     },
   },
-  'org-tree': {
+  'transactional-tester': {
+    versions: {
+      'with-transaction': {
+        environments: {
+          preview: { TheClass: TransactionalTester },
+          production: null,  // null means it's not available in production yet  TODO: Test this
+          '*': { TheClass: TransactionalTester },
+        },
+      },
+      'without-transaction': {
+        disableUseOfTransaction: true,
+        environments: {
+          preview: {
+            TheClass: TransactionalTester,
+          },
+          production: null,
+          '*': {
+            TheClass: TransactionalTester,
+          },
+        },
+      },
+    },
+  },
+  'tree-for-testing': {
     versions: {
       v1: {
-        rootNodeType: 'root-org-tree-node',
+        rootNodeType: 'temporal-entity',
         rootNodeVersion: 'v1',
-        nodeType: 'org-tree-node',
+        nodeType: 'temporal-entity',
         nodeVersion: 'v1',
         nodeDOEnvNamespace: 'DO_API',
         environments: { '*': { TheClass: Tree } },
       },
     },
   },
-  'root-org-tree-node': {
+  '***test-granularity***': {
     versions: {
       v1: {
-        schema: rootOrgTreeNodeSchemaV1,
+        granularity: 'second',
         environments: { '*': { TheClass: TemporalEntity } },
       },
     },
   },
-  'org-tree-node': {
+  '***test-dag***': {
     versions: {
       v1: {
-        schema: orgTreeNodeSchemaV1,
+        schema: testDagSchemaV1,
+        additionalValidation: (value) => {
+          throwIfNotDag(value.dag)
+        },
+        environments: { '*': { TheClass: TemporalEntity } },
+      },
+    },
+  },
+  '***test-supress-previous-values***': {
+    versions: {
+      v1: {
+        supressPreviousValues: true,
         environments: { '*': { TheClass: TemporalEntity } },
       },
     },
   },
 }
 
-export default { defaultTypeVersionConfig, types }
+export default { types, defaultTypeVersionConfig }

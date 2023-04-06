@@ -8,25 +8,22 @@
     "test": "test"
   },
   "scripts": {
-    "publish": "npm run build && npx wrangler publish",
-    "build": "npx vite build && npm run test",
+    "publish": "npm run test && npx wrangler publish",
+    "build": "npx vite build",
     "dev:watch": "npx vite build --watch",
     "dev:host": "npx wrangler dev --local",
-    "test": "NODE_OPTIONS='--experimental-vm-modules' vitest --run",
+    "test": "npm run build && NODE_OPTIONS='--experimental-vm-modules' vitest --run",
     "test:live": "NODE_OPTIONS=--experimental-vm-modules VITEST_BASE_URL=http://127.0.0.1:8788/api/do vitest --run",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules vitest",
-    "coverage": "NODE_OPTIONS=--experimental-vm-modules vitest --coverage --run"
+    "coverage": "npm run build && NODE_OPTIONS=--experimental-vm-modules vitest --coverage --run"
   },
   "dependencies": {
-    "@cfworker/json-schema": "^1.12.5",
-    "@transformation-dev/accept": "file:packages/accept",
+    "@cloudflare/itty-router-openapi": "^0.0.15",
     "@transformation-dev/cloudflare-do-utils": "file:packages/cloudflare-do-utils",
-    "deep-object-diff": "^1.1.9",
-    "js-yaml": "^4.1.0",
-    "nanoid": "^4.0.1"
+    "itty-router": "^3.0.12",
+    "js-yaml": "^4.1.0"
   },
   "devDependencies": {
-    "@transformation-dev/cloudflare-do-testing-utils": "file:packages/cloudflare-do-testing-utils",
     "vitest": "^0.29.1",
     "vitest-environment-miniflare": "^2.12.1",
     "wrangler": "^2.12.0"

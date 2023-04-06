@@ -8,8 +8,6 @@
   import TreeNode from './TreeNode.svelte'
   import BreadcrumbsPanel from './BreadcrumbsPanel.svelte'
 
-  // @ts-ignore
-  // import structuredClone from '@ungap/structured-clone'  // TODO: Maybe remove but maybe keep because this exposes the serialization/deserialization
   import chevronLeft from 'svelte-awesome/icons/chevron-left'
   import close from 'svelte-awesome/icons/close'
   import Icon from 'svelte-awesome'

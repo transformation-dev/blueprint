@@ -11,6 +11,12 @@ module.exports = {
     ecmaVersion: 'latest',
     sourceType: 'module',
   },
+  globals: {
+    cy: true,
+    context: true,
+    it: true,
+    expect: true,
+  },
   // plugins: [
   //   'svelte3',
   // ],
