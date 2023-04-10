@@ -6,6 +6,7 @@ import { load as yamlLoad } from 'js-yaml'
 import { throwIfNotDag } from '../../src/throws.js'
 import { TemporalEntity } from '../../src/temporal-entity.js'
 import { Tree } from '../../src/tree.js'
+import { List } from '../../src/list.js'
 
 // local imports
 import { TransactionalTester } from './transactional-tester.js'
@@ -98,8 +99,19 @@ const types = {
         rootNodeVersion: 'v1',
         nodeType: 'temporal-entity',
         nodeVersion: 'v1',
-        nodeDOEnvNamespace: 'DO_API',
+        doBinding: 'DO_API',
         environments: { '*': { TheClass: Tree } },
+      },
+    },
+  },
+  'list-for-testing': {
+    versions: {
+      v1: {
+        elementType: 'temporal-entity',
+        elementVersion: 'v1',
+        stubFields: ['name', 'emailAddresses'],
+        doBinding: 'DO_API',
+        environments: { '*': { TheClass: List } },
       },
     },
   },

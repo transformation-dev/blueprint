@@ -75,7 +75,7 @@ const types = {
         rootNodeVersion: 'v1',
         nodeType: 'org-tree-node',
         nodeVersion: 'v1',
-        nodeDOEnvNamespace: 'DO_API',
+        doBinding: 'DO_API',
         environments: { '*': { TheClass: Tree } },
       },
     },

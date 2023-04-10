@@ -4,13 +4,13 @@
 // file deepcode ignore StaticAccessThis: I disagree with the rule. Repeating the class name is not DRY.
 
 // monorepo imports
-import { requestOutResponseIn, errorResponseOut, requestIn } from './content-processor.js'
+import { errorResponseOut, requestIn } from './content-processor.js'
 import { throwIf, throwUnless } from './throws.js'
 import { getDebug, Debug } from './debug.js'
-import { HTTPError } from './http-error.js'
 import { dateISOStringRegex } from './date-utils'
-import { TemporalEntity } from './temporal-entity'
+import { TemporalEntity } from './temporal-entity'  // TODO: The only thing we need here is END_OF_TIME. Move that to a separate file.
 import { temporalMixin } from './temporal-mixin'
+import { referencedDOMixin } from './referenced-do-mixin.js'
 
 // initialize imports
 const debug = getDebug('blueprint:tree')
@@ -67,12 +67,13 @@ export class Tree  {
     this.typeVersionConfig = typeVersionConfig
 
     Object.assign(this, temporalMixin)
+    Object.assign(this, referencedDOMixin)
 
     this.idString = this.state.id.toString()
     this.hydrated = false  // using this.hydrated for lazy load rather than this.state.blockConcurrencyWhile(this.hydrate.bind(this))
   }
 
-  // Utilities
+  // Section: Utilities
 
   async hydrate() {
     debug('hydrate() called. this.hydrated: %O', this.hydrated)
@@ -145,14 +146,14 @@ export class Tree  {
     return this.recurseThrowIfIDInAncestry(parent, child, pathFromAncestorToChild)
   }
 
-  async save() {  // TODO: Upgrade this to support a large number of nodes once we have a customer getting close to that limit. Determine the limit now with testing.
+  save() {  // TODO: Upgrade this to support a large number of nodes once we have a customer getting close to that limit... or maybe implement sub-trees?
     debug('save() called')
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`, this.nodes)
     this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/edges`, this.edges)
   }
 
-  async updateMetaAndSave(validFrom, userID, impersonatorID, incrementNodeCount = false) {  // You must update current.nodes or current.edges before calling this.
+  updateMetaAndSave(validFrom, userID, impersonatorID, incrementNodeCount = false) {  // You must update current.nodes or current.edges before calling this.
     debug('updateMetaAndSave() called')
     throwUnless(this.hydrated, 'updateMetaAndSave() called before hydrate()')
     this.current.meta = {
@@ -167,54 +168,6 @@ export class Tree  {
     this.entityMeta.timeline.push(validFrom)
     if (incrementNodeCount) this.entityMeta.nodeCount++
     return this.save()
-  }
-
-  async callNodeDO(nodeType, nodeVersion, options, expectedResponseCode, idString) {
-    let id
-    let url = `http://fake.host/${nodeType}/${nodeVersion}/`
-    if (idString == null) {
-      id = this.env[this.typeVersionConfig.nodeDOEnvNamespace].newUniqueId()
-    } else {
-      id = this.env[this.typeVersionConfig.nodeDOEnvNamespace].idFromString(idString)
-      url += `${idString}/`
-    }
-    const entityStub = this.env[this.typeVersionConfig.nodeDOEnvNamespace].get(id)
-    const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
-    if (response.status !== expectedResponseCode) {
-      if (response.status >= 400) {
-        throw new HTTPError(response.content.error.message, response.status, response.content)
-      } else {
-        throwIf(
-          true,  // because we checked for expectedResponseCode above
-          `Unexpected response code ${response.status} from call to ${url}`,
-          response.status,
-          response.content,
-        )
-      }
-    }
-    return response
-  }
-
-  async hardDeleteDO(idString) {
-    debug('hardDeleteDO() called. idString: %s', idString)
-    throwIf(idString == null, 'Required parameter, idString, missing from call to hardDeleteDO()')
-    const options = {
-      method: 'DELETE',
-    }
-    const url = `http://fake.host/transactional-do-wrapper/${idString}`
-    const id = this.env[this.typeVersionConfig.nodeDOEnvNamespace].idFromString(idString)
-    const entityStub = this.env[this.typeVersionConfig.nodeDOEnvNamespace].get(id)
-    const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
-    if (response.status >= 400) {
-      const { error } = response.content
-      throwIf(
-        true,
-        error?.message || `Unexpected response code ${response.status} from call to ${url}`,
-        response.status,
-        response.content,
-      )
-    }
-    return response
   }
 
   // Optimistic concurrency check. If the last validFrom is not the same as before the check, delete the Node DO and throw an error.
@@ -296,13 +249,14 @@ export class Tree  {
     this.tree = tree
   }
 
-  // Fetch
+  // Section: fetch
 
   async fetch(request) {
     debug('fetch() called with %s %s', request.method, request.url)
     this.warnings = []
     try {
       const url = new URL(request.url)
+      request.URL = url
       const pathArray = url.pathname.split('/').filter((s) => s !== '')
 
       const restOfPath = `/${pathArray.join('/')}`
@@ -326,7 +280,7 @@ export class Tree  {
     }
   }
 
-  // Handlers
+  // Section: Handlers
 
   async post({ rootNodeValue, userID, validFrom, impersonatorID }) {
     throwIf(rootNodeValue == null, 'valid body.rootNodeValue is required when Tree is created')
@@ -348,7 +302,7 @@ export class Tree  {
     // TODO: wrap this in a try/catch block and retry if the optimistic concurrency check fails
     const lastValidFrom = this.entityMeta.timeline?.at(-1)
     // This next line is going to open the input gate, so we need an optimistic concurrency check. The above line is what we'll check against
-    const response = await this.callNodeDO(this.typeVersionConfig.rootNodeType, this.typeVersionConfig.rootNodeVersion, options, 201)
+    const response = await this.callDO(this.typeVersionConfig.rootNodeType, this.typeVersionConfig.rootNodeVersion, options, 201)
     await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.content.idString)
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
@@ -391,7 +345,7 @@ export class Tree  {
     // TODO: wrap this in a try/catch block and retry if the optimistic concurrency check fails
     const lastValidFrom = this.entityMeta.timeline?.at(-1)
     // This next line is going to open the input gate, so we need an optimistic concurrency check. The above line is what we'll check against
-    const response = await this.callNodeDO(this.typeVersionConfig.nodeType, this.typeVersionConfig.nodeVersion, options, 201)
+    const response = await this.callDO(this.typeVersionConfig.nodeType, this.typeVersionConfig.nodeVersion, options, 201)
     await this.rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, response.content.idString)
 
     // Update current but not current.meta because that's done in updateMetaAndSave()
@@ -519,7 +473,6 @@ export class Tree  {
     return this.get()
   }
 
-  // eslint-disable-next-line no-unused-vars
   async patch(options) {
     throwUnless(options.userID, 'userID required by Tree PATCH is missing')
 
@@ -541,8 +494,8 @@ export class Tree  {
     return this.doResponseOut(responseBody, status)
   }
 
-  async get(options) {  // TODO: Accept asOfISOString
-    const { statusToReturn = 200, ifModifiedSince, asOfISOString } = options ?? {}
+  async get(options) {  // TODO: Accept asOf
+    const { statusToReturn = 200, ifModifiedSince, asOf } = options ?? {}
     throwIf(
       ifModifiedSince != null && !dateISOStringRegex.test(ifModifiedSince),
       'If-Modified-Since must be in YYYY:MM:DDTHH:MM:SS.mmmZ format because we need millisecond granularity',
@@ -560,4 +513,6 @@ export class Tree  {
     }
     return [result, statusToReturn]
   }
+
+  // Note: GET() is in temporal-mixin.js
 }

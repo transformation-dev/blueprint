@@ -34,17 +34,13 @@ const debug = getDebug('blueprint:temporal-entity')
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO A: Create People DO. A Person is a just a TemporalEntity but the People DO is not temporal. It'll store the list of people
-//       in a single storage object under the key 1 for now but later we can spread it out over multiple storage objects,
-//       People batches 2 thru n if you will.
-//       I don't think we should reuse the Tree DO because having it be a DAG doesn't make sense. However, we might be able
-//       to start with the Tree code and simplify it. Maybe extract the code that saves the nodes.
-
 // TODO A: Implement query using npm module sift https://github.com/crcn/sift.js.
 //       Support a query parameter to include soft-deleted items in the query but default to not including them.
 //       Update the error message for GET.
 
 // TODO A: Cause queries to go down recursively into children of the DAG as well as meta.attachments of the entity
+
+// TODO B: Fork deep-object-diff so that Arrays that are different show the entire old array in previousValues rather than an index and value
 
 // TODO: B. Port TZTime.Timeline
 
