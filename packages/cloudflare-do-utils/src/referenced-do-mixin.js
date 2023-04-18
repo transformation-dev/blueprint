@@ -6,8 +6,8 @@ import { HTTPError } from './http-error.js'
 
 // These are methods that are common to all TemporalEntities including Tree
 // This assumes that this.entityMeta is defined and it has a timeline property. Note, it can have other properties as well.
-export const referencedDOMixin = {
-  async callDO(type, version, body, expectedResponseCode, idString) {  // TODO: Move this to a mixin to share with Tree
+export default {
+  async callDO(type, version, options, expectedResponseCode, idString) {  // TODO: Move this to a mixin to share with Tree
     let id
     let url = `http://fake.host/${type}/${version}/`
     if (idString == null) {
@@ -17,7 +17,7 @@ export const referencedDOMixin = {
       url += `${idString}/`
     }
     const entityStub = this.env[this.typeVersionConfig.doBinding].get(id)
-    const response = await requestOutResponseIn(url, body, entityStub)  // TODO: Pass along the cookies
+    const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
     if (response.status !== expectedResponseCode) {
       if (response.status >= 400) {
         throw new HTTPError(response.content.error.message, response.status, response.content)

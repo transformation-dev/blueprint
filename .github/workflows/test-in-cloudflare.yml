@@ -38,7 +38,7 @@ jobs:
         CI: true
 
     - name: Wait for Cloudflare deploy of correct version
-      uses: cygnetdigital/wait_for_response@v2.0.0
+      uses: cygnetdigital/wait_for_response@510ed9823ee9c5f876e57d25bd87c575032d8156
       with:
         url: ${{ env.BRANCH_VERSION_CHECK_URL }}
         responseCode: '200'

@@ -13,8 +13,8 @@ import { DurableAPI } from './test-harness/index.js'
 // const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks
 const env = getMiniflareBindings()
 // env.DEBUG = 'blueprint:*'
-env.DEBUG = 'blueprint:list'
-// env.DEBUG = 'nothing'
+// env.DEBUG = 'blueprint:list'
+env.DEBUG = 'nothing'
 
 const isLive = process?.env?.VITEST_BASE_URL != null
 

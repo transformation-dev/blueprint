@@ -10,7 +10,7 @@ import { getDebug, Debug } from './debug.js'
 import { dateISOStringRegex } from './date-utils'
 import { TemporalEntity } from './temporal-entity'  // TODO: The only thing we need here is END_OF_TIME. Move that to a separate file.
 import { temporalMixin } from './temporal-mixin'
-import { referencedDOMixin } from './referenced-do-mixin.js'
+import referencedDOMixin from './referenced-do-mixin.js'
 
 // initialize imports
 const debug = getDebug('blueprint:tree')
@@ -146,7 +146,10 @@ export class Tree  {
     return this.recurseThrowIfIDInAncestry(parent, child, pathFromAncestorToChild)
   }
 
-  save() {  // TODO: Upgrade this to support a large number of nodes once we have a customer getting close to that limit... or maybe implement sub-trees?
+  // TODO: Upgrade this to support a large number of nodes once we have a customer getting close to that limit.
+  //       Actually, I think the best thing to do is to handel it like we handel PeopleLookup by storing each node
+  //       and edge in a separate key/value storage slot and using storage.list() to pull them all in at once for GET.
+  save() {
     debug('save() called')
     this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
     this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`, this.nodes)

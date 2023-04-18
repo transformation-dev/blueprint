@@ -1,13 +1,12 @@
 // @ts-nocheck
 /* eslint-disable no-param-reassign */  // safe because durable objects are airgapped so to speak
 // file deepcode ignore AttrAccessOnNull: Everytime I see this, I think it's a false positive
-// file deepcode ignore StaticAccessThis: I disagree with the rule. Repeating the class name is not DRY.
 
 // monorepo imports
 import { errorResponseOut, requestIn, responseOut } from './content-processor.js'
 import { throwIf, throwUnless } from './throws.js'
 import { getDebug, Debug } from './debug.js'
-import { referencedDOMixin } from './referenced-do-mixin.js'
+import referencedDOMixin from './referenced-do-mixin.js'
 
 // initialize imports
 const debug = getDebug('blueprint:list')
@@ -68,7 +67,10 @@ export class List  {
     this.hydrated = true
   }
 
-  save() {  // TODO: Upgrade this to support a large number of elemences once we have a use case getting close to that limit.
+  // TODO: Upgrade this to support a large number of elements.
+  //       Actually, I think the best thing to do is to handel it like we handel PeopleLookup by storing each element
+  //       in a separate key/value storage slot and using storage.list() to pull them all in at once for GET.
+  save() {
     debug('save() called')
     this.state.storage.put(`${this.idString}/elements`, this.elements)
   }
