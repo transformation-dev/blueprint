@@ -58,6 +58,7 @@ const defaultTypeVersionConfig = {
   additionalValidation: null,
   passFullUrl: false,
   disableUseOfTransaction: false,
+  doBinding: 'DO_API',
 }
 
 // TemporalEntity is TheClass for many different types below but they can still have different schemas, validation, migrations, etc.
@@ -112,6 +113,15 @@ const types = {
         stubFields: ['name', 'emailAddresses'],
         doBinding: 'DO_API',
         environments: { '*': { TheClass: List } },
+      },
+    },
+  },
+  'person-for-testing': {
+    versions: {
+      v1: {
+        // TODO: Add schema
+        doBinding: 'DO_API',  // not needed because it's the default, but showing here to demonstrate that the doBinding could be different
+        environments: { '*': { TheClass: TemporalEntity } },
       },
     },
   },

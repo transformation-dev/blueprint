@@ -9,7 +9,7 @@ import { requestOutResponseIn } from '../src/content-processor.js'
 
 // local imports
 import worker, { DurableAPI } from './test-harness/index.js'
-import { getFetchPartial } from '../src/people-lookup.js'
+// import { getFetchPartial } from '../src/people-lookup.js'
 
 // const describe = setupMiniflareIsolatedStorage()  // intentionally not using this describe because I don't want isolated storage between my it/test blocks
 const env = getMiniflareBindings()
@@ -27,7 +27,8 @@ async function getCleanState() {
   if (isLive) {
     baseUrl = process.env.VITEST_BASE_URL
   } else {
-    stub = { fetch: getFetchPartial(env, context) }
+    stub = { fetch: worker.getFetchPartial(env, context) }
+    // stub = worker
     baseUrl = 'http://fake.host'
   }
   const url = `${baseUrl}/`  // This is a default that will often work but can be overwritten per test
@@ -38,11 +39,12 @@ describe('A series of People operations', async () => {
   // eslint-disable-next-line prefer-const
   let { stub, baseUrl, url } = await getCleanState()
 
-  it.only('should allow something', async () => {
-    const value = { name: 'Larry Salvatore', emailAddresses: ['larry@nowhere.com', 'sal@mafia.com'], other: 'stuff' }
+  it('should allow something', async () => {
+    const personValue = { name: 'Larry Salvatore', emailAddresses: ['larry@transformation.dev', 'sal@mafia.com'], other: 'stuff' }
+    const rootNodeValue = { label: 'Transformation.dev', emailExtensions: ['transformation.dev'] }
     const options = {
       method: 'PATCH',
-      body: { value, userID: 'userW' },
+      body: { personValue, rootNodeValue, userID: 'userW' },
     }
     const response = await requestOutResponseIn(url, options, stub)
     console.log('response.content: %O', response.content)

@@ -1,3 +1,4 @@
+// TODO: Switch all uses of this to referenced-do-operations and delete this
 /* eslint-disable no-param-reassign */
 
 import { throwIf } from './throws.js'
@@ -7,7 +8,7 @@ import { HTTPError } from './http-error.js'
 // These are methods that are common to all TemporalEntities including Tree
 // This assumes that this.entityMeta is defined and it has a timeline property. Note, it can have other properties as well.
 export default {
-  async callDO(type, version, options, expectedResponseCode, idString) {  // TODO: Move this to a mixin to share with Tree
+  async callDO(type, version, options, expectedResponseCode, idString) {
     let id
     let url = `http://fake.host/${type}/${version}/`
     if (idString == null) {
@@ -33,7 +34,7 @@ export default {
     return response
   },
 
-  async hardDeleteDO(idString) {  // TODO: Move this to a mixin to share with Tree
+  async hardDeleteDO(idString) {
     throwIf(idString == null, 'Required parameter, idString, missing from call to hardDeleteDO()')
     const options = {
       method: 'DELETE',

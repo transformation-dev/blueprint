@@ -5,7 +5,7 @@
 import { errorResponseOut, requestIn, responseOut } from './content-processor.js'
 import { throwIf, throwUnless } from './throws.js'
 import { getDebug, Debug } from './debug.js'
-import referencedDOMixin from './referenced-do-mixin.js'
+import { callDO, hardDeleteDO, getTypeVersionConfigAndEnvironmentOptions } from './referenced-do-operations.js'
 
 // initialize imports
 const debug = getDebug('blueprint:people-lookup')
@@ -54,8 +54,11 @@ If you put it in the value, you have to do a get operation on each key to get th
 
 const handlers = {
 
+  // proerties on `this`
+
   env: null,
   context: null,
+  personTypeVersionConfig: null,
 
   // Section: Handlers
 
@@ -75,9 +78,13 @@ const handlers = {
       }
       // TODO: wrap this in a try/catch block and retry if the optimistic concurrency check fails
       // This next line is going to open the input gate. We may need our own gate?
-      const response = await referencedDOMixin.callDO(this.typeVersionConfig.personType, this.typeVersionConfig.personVersion, options, 201)
+      const response = await callDO(this.env, this.personTypeVersionConfig, options, 201)
       personIDString = response.content.idString
       name = response.content.value.name
+    }
+
+    if (rootNodeValue != null) {
+      orgTreeIDString = ''  // TODO: Finish this
     }
 
     return this.get({ statusToReturn: 200 })
@@ -87,29 +94,29 @@ const handlers = {
   // throwIfMediaTypeHeaderInvalid(request)
     const { content } = await requestIn(request)
     const [responseBody, status] = await this.patch(content)  // For now, PATCH is the same as POST
-    return this.listResponseOut(responseBody, status)
+    return responseOut(responseBody, status)
   },
 
   async get(options) {
     const { statusToReturn = 200 } = options ?? {}
-    await this.hydrate()
     const result = { elements: this.elements }
     return [result, statusToReturn]
   },
 
   async GET() {
     const [responseBody, status] = await this.get()
-    return this.listResponseOut(responseBody, status)
+    return responseOut(responseBody, status)
   },
 
   testNormal() {
     console.log('testNormal this: %O: ', this)
   },
 
-  async fetch(request, env, context) {  // TODO: Use itty-router
+  async fetch(request, env, context, personTypeVersionConfig) {  // TODO: Use itty-router
     debug('fetch() called with %s %s', request.method, request.url)
     this.env = env
     this.context = context
+    this.personTypeVersionConfig = personTypeVersionConfig
 
     this.testNormal()
 
@@ -136,12 +143,12 @@ const handlers = {
   },
 }
 
-Object.assign(handlers, referencedDOMixin)
-
-export default {
-  fetch: handlers.fetch.bind(handlers),
+export function getPersonLookupFetch(typeConfig, personType, personVersion) {
+  const personTypeVersionConfig = getTypeVersionConfigAndEnvironmentOptions(personType, personVersion, typeConfig).typeVersionConfig
+  return async (request, env, context) => handlers.fetch(request, env, context, personTypeVersionConfig)
 }
 
-export function getFetchPartial(env, context) {
-  return async (request) => handlers.fetch(request, env, context)
+export function getPersonLookupFetchPartialPartial(typeConfig, personType, personVersion) {
+  const fetch = getPersonLookupFetch(typeConfig, personType, personVersion)
+  return (env, context) => async (request) => fetch(request, env, context)
 }
