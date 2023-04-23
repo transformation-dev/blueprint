@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest'
 
 // monorepo imports
 import { requestOutResponseIn } from '../src/content-processor.js'
+import { listAllKVKeys } from '../src/kv-utils.js'
 
 // local imports
 import worker, { DurableAPI } from './test-harness/index.js'
@@ -58,7 +59,7 @@ describe('A series of mostly happy-path people lookup operations', async () => {
     expect(person.idString).toBe(orgTree.meta.userID)
 
     // TODO: Use env.PEOPLE_LOOKUP to confirm that the keys were added
-    console.log('env.PEOPLE_LOOKUP: %O', await env.PEOPLE_LOOKUP.list())
+    console.log(await listAllKVKeys(env.PEOPLE_LOOKUP))
 
     // TODO: Expect the first person for an orgTree to be Admin on the rootNode
   })
