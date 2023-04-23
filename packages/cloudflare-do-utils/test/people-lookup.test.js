@@ -28,7 +28,6 @@ async function getCleanState() {
     baseUrl = process.env.VITEST_BASE_URL
   } else {
     stub = { fetch: worker.getFetchPartial(env, context) }
-    // stub = worker
     baseUrl = 'http://fake.host'
   }
   const url = `${baseUrl}/`  // This is a default that will often work but can be overwritten per test
@@ -44,13 +43,15 @@ describe('A series of People operations', async () => {
     const rootNodeValue = { label: 'Transformation.dev', emailExtensions: ['transformation.dev'] }
     const options = {
       method: 'PATCH',
-      body: { personValue, rootNodeValue, userID: 'userW' },
+      body: { personValue, rootNodeValue },
     }
     const response = await requestOutResponseIn(url, options, stub)
     console.log('response.content: %O', response.content)
 
     // expects/asserts to always run
-    expect(response.status).toBe(201)
+    expect(response.status).toBe(200)
+    // TODO: Expect the first person for an orgTree to be Admin on the rootNode
+    console.log(env)
 
     // storage operation expects/asserts to only run in miniflare (aka not live over http)
     if (!isLive) {

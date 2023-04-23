@@ -371,6 +371,9 @@ export class TemporalEntity {
     }
     await this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
+    // TODO A0: Send update to queue
+    // await this.env.BLUEPRINT.send('something')
+
     // return the new current
     return this.get()
   }
@@ -382,12 +385,17 @@ export class TemporalEntity {
     return this.doResponseOut(responseBody, status)
   }
 
+  async post(value, userID, validFrom, impersonatorID, ifUnmodifiedSince) {
+    const [responseBody, status] = await this.put(value, userID, validFrom, impersonatorID, ifUnmodifiedSince)
+    if (status === 200) return [responseBody, 201]
+    else return [responseBody, status]
+  }
+
   async POST(request) {
     const { content: options } = await requestIn(request)
     const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
-    const [responseBody, status] = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
-    if (status === 200) return this.doResponseOut(responseBody, 201)
-    else return this.doResponseOut(responseBody, status)
+    const [responseBody, status] = await this.post(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
+    return this.doResponseOut(responseBody, status)
   }
 
   async patchUndelete({ userID, validFrom, impersonatorID }) {

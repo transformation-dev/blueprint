@@ -12,12 +12,12 @@ export default {
     let id
     let url = `http://fake.host/${type}/${version}/`
     if (idString == null) {
-      id = this.env[this.typeVersionConfig.doBinding].newUniqueId()
+      id = this.env[this.typeVersionConfig.doNamespace].newUniqueId()
     } else {
-      id = this.env[this.typeVersionConfig.doBinding].idFromString(idString)
+      id = this.env[this.typeVersionConfig.doNamespace].idFromString(idString)
       url += `${idString}/`
     }
-    const entityStub = this.env[this.typeVersionConfig.doBinding].get(id)
+    const entityStub = this.env[this.typeVersionConfig.doNamespace].get(id)
     const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
     if (response.status !== expectedResponseCode) {
       if (response.status >= 400) {
@@ -40,8 +40,8 @@ export default {
       method: 'DELETE',
     }
     const url = `http://fake.host/transactional-do-wrapper/${idString}`
-    const id = this.env[this.typeVersionConfig.doBinding].idFromString(idString)
-    const entityStub = this.env[this.typeVersionConfig.doBinding].get(id)
+    const id = this.env[this.typeVersionConfig.doNamespace].idFromString(idString)
+    const entityStub = this.env[this.typeVersionConfig.doNamespace].get(id)
     const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
     if (response.status >= 400) {
       const { error } = response.content

@@ -66,40 +66,50 @@ const handlers = {
     const { personValue, rootNodeValue, userID, validFrom, impersonatorID } = content
     let { personIDString, orgTreeIDString } = content
     throwIf(personValue == null && personIDString == null, 'body.personValue or body.personIDString required', 400)
+    throwIf(personValue != null && personIDString != null, 'Only one of body.personValue or body.personIDString allowed', 400)
     throwIf(rootNodeValue == null && orgTreeIDString == null, 'body.rootNodeValue or body.orgTreeIDString required', 400)
-
-    // await this.hydrate()
+    throwIf(rootNodeValue != null && orgTreeIDString != null, 'Only one of body.rootNodeValue or body.orgTreeIDString allowed', 400)
 
     let name
+    let createPersonResponse
     if (personValue != null) {  // Create a new Person
       const options = {
         method: 'POST',
         body: { value: personValue, userID: userID ?? 'self', validFrom, impersonatorID },  // TODO: Upgrade to allow use of 'self' for UserID
       }
-      // TODO: wrap this in a try/catch block and retry if the optimistic concurrency check fails
-      // This next line is going to open the input gate. We may need our own gate?
-      const response = await callDO(this.env, this.personTypeVersionConfig, options, 201)
-      personIDString = response.content.idString
-      name = response.content.value.name
+      createPersonResponse = await callDO(this.env, this.personTypeVersionConfig, options, 201)
+      personIDString = createPersonResponse.content.idString
+      name = createPersonResponse.content.value.name
+    } else {
+      // TODO: Retrieve the Person DO
     }
 
+    let label
+    let createOrgTreeResponse
     if (rootNodeValue != null) {
       orgTreeIDString = ''  // TODO: Finish this
+    } else {
+      // TODO: Retrieve the OrgTree DO including the rootNode
+      // TODO: Create a new endpoint on OrgTree get that just returns the Tree data and maybe rootNode. Maybe add a depth limit?
     }
 
-    return this.get({ statusToReturn: 200 })
+    // TODO: If the OrgTree creation fails, delete the Person DO
+
+    // TODO: Create the index entries in KV
+
+    return [{ createPersonResponse: createPersonResponse.content }, 200]
   },
 
   async PATCH(request) {
   // throwIfMediaTypeHeaderInvalid(request)
     const { content } = await requestIn(request)
-    const [responseBody, status] = await this.patch(content)  // For now, PATCH is the same as POST
+    const [responseBody, status] = await this.patch(content)
     return responseOut(responseBody, status)
   },
 
   async get(options) {
     const { statusToReturn = 200 } = options ?? {}
-    const result = { elements: this.elements }
+    const result = null
     return [result, statusToReturn]
   },
 
@@ -108,19 +118,11 @@ const handlers = {
     return responseOut(responseBody, status)
   },
 
-  testNormal() {
-    console.log('testNormal this: %O: ', this)
-  },
-
   async fetch(request, env, context, personTypeVersionConfig) {  // TODO: Use itty-router
     debug('fetch() called with %s %s', request.method, request.url)
     this.env = env
     this.context = context
     this.personTypeVersionConfig = personTypeVersionConfig
-
-    this.testNormal()
-
-    console.log('request.method: %O', request.method)
 
     this.warnings = []
     try {
@@ -137,7 +139,6 @@ const handlers = {
           return throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
       }
     } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate  TODO: Don't always do this
       return errorResponseOut(e, this.env)  // TODO: What is this.env used for here?
     }
   },

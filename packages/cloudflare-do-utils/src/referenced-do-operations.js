@@ -9,12 +9,12 @@ export async function callDO(env, typeVersionConfig, options, expectedResponseCo
   let id
   let url = `http://fake.host/${typeVersionConfig.type}/${typeVersionConfig.version}/`
   if (idString == null) {
-    id = env[typeVersionConfig.doBinding].newUniqueId()
+    id = env[typeVersionConfig.doNamespace].newUniqueId()
   } else {
-    id = env[typeVersionConfig.doBinding].idFromString(idString)
+    id = env[typeVersionConfig.doNamespace].idFromString(idString)
     url += `${idString}/`
   }
-  const entityStub = env[typeVersionConfig.doBinding].get(id)
+  const entityStub = env[typeVersionConfig.doNamespace].get(id)
   const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
   if (response.status !== expectedResponseCode) {
     if (response.status >= 400) {
@@ -37,8 +37,8 @@ export async function hardDeleteDO(env, typeVersionConfig, idString) {
     method: 'DELETE',
   }
   const url = `http://fake.host/transactional-do-wrapper/${idString}`
-  const id = env[typeVersionConfig.doBinding].idFromString(idString)
-  const entityStub = env[typeVersionConfig.doBinding].get(id)
+  const id = env[typeVersionConfig.doNamespace].idFromString(idString)
+  const entityStub = env[typeVersionConfig.doNamespace].get(id)
   const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
   if (response.status >= 400) {
     const { error } = response.content
