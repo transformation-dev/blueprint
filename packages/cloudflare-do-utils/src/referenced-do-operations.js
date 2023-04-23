@@ -16,7 +16,8 @@ export async function callDO(env, typeVersionConfig, options, expectedResponseCo
   }
   const entityStub = env[typeVersionConfig.doNamespace].get(id)
   const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies
-  if (response.status !== expectedResponseCode) {
+  // if expectedResonseCode is null/undefined, then the calling code will check the response
+  if (expectedResponseCode != null && response.status !== expectedResponseCode) {
     if (response.status >= 400) {
       throw new HTTPError(response.content.error.message, response.status, response.content)
     } else {

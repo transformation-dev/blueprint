@@ -21,7 +21,7 @@ export default defineConfig({
     // API options here:
     environmentOptions: {
       // bindings: { KEY: "value" },
-      // kvNamespaces: ["TEST_NAMESPACE"],
+      kvNamespaces: ["PEOPLE_LOOKUP"],  // TODO: Don't forget to add this to the Pages config and wrangler.toml
       modules: true,
       scriptPath: scriptPath,
       durableObjects: {

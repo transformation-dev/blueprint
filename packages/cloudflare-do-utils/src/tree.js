@@ -509,10 +509,8 @@ export class Tree  {
     if (this.entityMeta.timeline.at(-1) <= ifModifiedSince) return [undefined, 304]
     await this.deriveTree()
     const result = {
-      current: {
-        meta: this.current.meta,
-        tree: this.tree,
-      },
+      meta: this.current.meta,
+      tree: this.tree,
     }
     return [result, statusToReturn]
   }

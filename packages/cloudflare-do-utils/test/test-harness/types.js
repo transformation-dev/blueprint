@@ -117,6 +117,18 @@ const types = {
       },
     },
   },
+  'org-tree-for-testing': {
+    versions: {
+      v1: {
+        rootNodeType: 'temporal-entity',  // TODO: Upgrade this to a root-node-org type with schema
+        rootNodeVersion: 'v1',
+        nodeType: 'temporal-entity',  // TODO: Upgrade this to a node-org type with schema
+        nodeVersion: 'v1',
+        doNamespace: 'DO_API',
+        environments: { '*': { TheClass: Tree } },
+      },
+    },
+  },
   'person-for-testing': {
     versions: {
       v1: {

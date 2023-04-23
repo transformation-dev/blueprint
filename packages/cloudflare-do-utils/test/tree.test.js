@@ -50,8 +50,7 @@ describe('A series of Tree operations', async () => {
 
     // expects/asserts to always run
     expect(response.status).toBe(201)
-    const { current, idString } = response.content
-    const { meta } = current
+    const { meta, idString } = response.content
     expect(meta.validFrom).to.be.a('string')
     assert(meta.validFrom <= new Date().toISOString())
     expect(meta.userID).to.eq('userW')
@@ -82,8 +81,7 @@ describe('A series of Tree operations', async () => {
     }
     const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current, idString } = response.content
-    const { meta } = current
+    const { meta, idString } = response.content
     if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
@@ -119,8 +117,7 @@ describe('A series of Tree operations', async () => {
     }
     const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current, idString } = response.content
-    const { meta } = current
+    const { meta, idString } = response.content
     lastValidFrom = meta.validFrom
     if (!isLive) {
       const storage = await state.storage.list()
@@ -169,8 +166,7 @@ describe('A series of Tree operations', async () => {
     }
     const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current, idString } = response.content
-    const { meta } = current
+    const { meta, idString } = response.content
     if (!isLive) {
       const storage = await state.storage.list()
       const entityMeta = storage.get(`${idString}/entityMeta`)
@@ -201,9 +197,9 @@ describe('A series of Tree operations', async () => {
   it('should return the tree and meta with GET', async () => {
     const response = await requestOutResponseIn(`${url}?asOf=${new Date().toISOString()}`, undefined, stub)
     expect(response.status).toBe(200)
-    expect(response.content.current.tree).toMatchObject(tree)
+    expect(response.content.tree).toMatchObject(tree)
     // this next line confirms that node2 is only transmitted once eventhough it shows up twice in the tree
-    expect(response.content.current.tree.children[0].children[0]).toBe(response.content.current.tree.children[1])
+    expect(response.content.tree.children[0].children[0]).toBe(response.content.tree.children[1])
   })
 
   it('should respond to GET entity-meta', async () => {
@@ -225,7 +221,7 @@ describe('A series of Tree operations', async () => {
     }
     const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current: { meta }, idString } = response.content
+    const { meta, idString } = response.content
     assert(meta.validFrom > lastValidFrom)
     lastValidFrom = meta.validFrom
     if (!isLive) {
@@ -249,7 +245,7 @@ describe('A series of Tree operations', async () => {
     }
     const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current: { meta }, idString } = response.content
+    const { meta, idString } = response.content
     assert(meta.validFrom > lastValidFrom)
     lastValidFrom = meta.validFrom
     if (!isLive) {
@@ -273,7 +269,7 @@ describe('A series of Tree operations', async () => {
     }
     const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current: { meta }, idString } = response.content
+    const { meta, idString } = response.content
     assert(meta.validFrom === lastValidFrom)
     lastValidFrom = meta.validFrom
     if (!isLive) {
@@ -295,7 +291,7 @@ describe('A series of Tree operations', async () => {
     }
     const response = await requestOutResponseIn(url, options, stub, state)
     expect(response.status).toBe(200)
-    const { current: { meta }, idString } = response.content
+    const { meta, idString } = response.content
     assert(meta.validFrom > lastValidFrom)
     lastValidFrom = meta.validFrom
     if (!isLive) {

@@ -63,41 +63,82 @@ const handlers = {
   // Section: Handlers
 
   async patch(content) {
-    const { personValue, rootNodeValue, userID, validFrom, impersonatorID } = content
-    let { personIDString, orgTreeIDString } = content
+    const { personValue, rootNodeValue, validFrom, impersonatorID } = content
+    let { userID, personIDString, orgTreeIDString } = content
+
+    // validation for person
     throwIf(personValue == null && personIDString == null, 'body.personValue or body.personIDString required', 400)
     throwIf(personValue != null && personIDString != null, 'Only one of body.personValue or body.personIDString allowed', 400)
+    if (personValue != null) {
+      throwIf(personValue.emailAddresses?.length < 1, 'personValue.emailAddresses must have at least one email address', 400)
+    }
+
+    // validation for org tree
     throwIf(rootNodeValue == null && orgTreeIDString == null, 'body.rootNodeValue or body.orgTreeIDString required', 400)
     throwIf(rootNodeValue != null && orgTreeIDString != null, 'Only one of body.rootNodeValue or body.orgTreeIDString allowed', 400)
 
-    let name
-    let createPersonResponse
+    let person
+    let personResponse
     if (personValue != null) {  // Create a new Person
       const options = {
         method: 'POST',
-        body: { value: personValue, userID: userID ?? 'self', validFrom, impersonatorID },  // TODO: Upgrade to allow use of 'self' for UserID
+        body: { value: personValue, userID: userID ?? 'self', validFrom, impersonatorID },
       }
-      createPersonResponse = await callDO(this.env, this.personTypeVersionConfig, options, 201)
-      personIDString = createPersonResponse.content.idString
-      name = createPersonResponse.content.value.name
+      personResponse = await callDO(this.env, this.personTypeVersionConfig, options, 201)
+      person = personResponse.content.value
+      personIDString = personResponse.content.idString
+      // eslint-disable-next-line no-const-assign
+      userID = personIDString
     } else {
       // TODO: Retrieve the Person DO
+      person.name = 'Larry'
+      person.emailAddresses = ['larry@transformation.dev']
     }
 
     let label
-    let createOrgTreeResponse
+    let orgTreeResponse
     if (rootNodeValue != null) {
-      orgTreeIDString = ''  // TODO: Finish this
+      const options = {
+        method: 'POST',
+        body: { rootNodeValue, userID, validFrom, impersonatorID },
+      }
+      orgTreeResponse = await callDO(this.env, this.orgTreeTypeVersionConfig, options, undefined)
+      if (orgTreeResponse.status !== 201) {  // TODO: Test this
+        return [{ person: personResponse.content, orgTreeError: orgTreeResponse.content }, orgTreeResponse.status]
+      }
+      orgTreeIDString = orgTreeResponse.content.idString
+      label = orgTreeResponse.content.tree.label
     } else {
       // TODO: Retrieve the OrgTree DO including the rootNode
       // TODO: Create a new endpoint on OrgTree get that just returns the Tree data and maybe rootNode. Maybe add a depth limit?
     }
 
-    // TODO: If the OrgTree creation fails, delete the Person DO
-
     // TODO: Create the index entries in KV
+    console.log('env', this.env)
+    const promises = []
+    let promise
 
-    return [{ createPersonResponse: createPersonResponse.content }, 200]
+    // 1. key: `emailAddress/${emailAddress}`, metadata: { personIDString }
+    for (const emailAddress of person.emailAddresses) {
+      promise = this.env.PEOPLE_LOOKUP.put(`emailAddress/${emailAddress}`, '', { metadata: { personIDString } })
+      promises.push(promise)
+    }
+
+    // 2. key: `orgTree/${orgTreeIDString}`, metadata: { label, peopleCount }
+
+    // 3. key: `orgTree/${orgTreeIDString}/${personIDString}`, metadata: { name }
+
+    // 4. key: `person/${personIDString}/${orgTreeIDString}`, metadata: { label }
+
+    // 5. key: `person/${personIDString}`, metadata: { name }
+
+    try {
+      await Promise.all(promises)
+      return [{ person: personResponse.content, orgTree: orgTreeResponse.content }, 200]
+    } catch (e) {
+      // TODO: Do something reasonable if any KV operations fail
+      console.log('GOT AN ERROR WRITING TO KV: %O: ', e)
+    }
   },
 
   async PATCH(request) {
@@ -118,11 +159,12 @@ const handlers = {
     return responseOut(responseBody, status)
   },
 
-  async fetch(request, env, context, personTypeVersionConfig) {  // TODO: Use itty-router
+  async fetch(request, env, context, personTypeVersionConfig, orgTreeTypeVersionConfig) {  // TODO: Use itty-router
     debug('fetch() called with %s %s', request.method, request.url)
     this.env = env
     this.context = context
     this.personTypeVersionConfig = personTypeVersionConfig
+    this.orgTreeTypeVersionConfig = orgTreeTypeVersionConfig
 
     this.warnings = []
     try {
@@ -144,12 +186,13 @@ const handlers = {
   },
 }
 
-export function getPersonLookupFetch(typeConfig, personType, personVersion) {
+export function getPersonLookupFetch(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion) {
   const personTypeVersionConfig = getTypeVersionConfigAndEnvironmentOptions(personType, personVersion, typeConfig).typeVersionConfig
-  return async (request, env, context) => handlers.fetch(request, env, context, personTypeVersionConfig)
+  const orgTreeTypeVersionConfig = getTypeVersionConfigAndEnvironmentOptions(orgTreeType, orgTreeVersion, typeConfig).typeVersionConfig
+  return async (request, env, context) => handlers.fetch(request, env, context, personTypeVersionConfig, orgTreeTypeVersionConfig)
 }
 
-export function getPersonLookupFetchPartialPartial(typeConfig, personType, personVersion) {
-  const fetch = getPersonLookupFetch(typeConfig, personType, personVersion)
+export function getPersonLookupFetchPartialPartial(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion) {
+  const fetch = getPersonLookupFetch(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion)
   return (env, context) => async (request) => fetch(request, env, context)
 }

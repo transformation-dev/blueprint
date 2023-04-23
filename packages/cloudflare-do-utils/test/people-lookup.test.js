@@ -34,11 +34,36 @@ async function getCleanState() {
   return ({ stub, baseUrl, url })
 }
 
-describe('A series of People operations', async () => {
+describe('A series of mostly happy-path people lookup operations', async () => {
   // eslint-disable-next-line prefer-const
   let { stub, baseUrl, url } = await getCleanState()
 
-  it('should allow something', async () => {
+  // TODO: Test non-happy path of invalid personValue once person-for-testing has a schema
+
+  it('should allow creating both at once', async () => {
+    const personValue = { name: 'Larry Salvatore', emailAddresses: ['larry@transformation.dev', 'Sal@Mafia.com'], other: 'stuff' }
+    const rootNodeValue = { label: 'Transformation.dev', emailExtensions: ['transformation.dev'] }
+    const options = {
+      method: 'PATCH',
+      body: { personValue, rootNodeValue },
+    }
+    const response = await requestOutResponseIn(url, options, stub)
+
+    expect(response.status).toBe(200)
+    const { person, orgTree } = response.content
+    personValue.emailAddresses = personValue.emailAddresses.map((value) => value.toLowerCase())
+    expect(person.value).toMatchObject(personValue)
+    expect(person.idString).toBe(person.meta.userID)
+    expect(orgTree.tree.label).toBe(rootNodeValue.label)
+    expect(person.idString).toBe(orgTree.meta.userID)
+
+    // TODO: Use env.PEOPLE_LOOKUP to confirm that the keys were added
+    console.log('env.PEOPLE_LOOKUP: %O', await env.PEOPLE_LOOKUP.list())
+
+    // TODO: Expect the first person for an orgTree to be Admin on the rootNode
+  })
+
+  it.todo('should allow adding a new Person to an existing Tree', async () => {
     const personValue = { name: 'Larry Salvatore', emailAddresses: ['larry@transformation.dev', 'sal@mafia.com'], other: 'stuff' }
     const rootNodeValue = { label: 'Transformation.dev', emailExtensions: ['transformation.dev'] }
     const options = {
@@ -48,14 +73,20 @@ describe('A series of People operations', async () => {
     const response = await requestOutResponseIn(url, options, stub)
     console.log('response.content: %O', response.content)
 
-    // expects/asserts to always run
     expect(response.status).toBe(200)
-    // TODO: Expect the first person for an orgTree to be Admin on the rootNode
-    console.log(env)
-
-    // storage operation expects/asserts to only run in miniflare (aka not live over http)
-    if (!isLive) {
-      // asserts/expects go here
-    }
+    const { person, orgTree } = response.content
+    expect(person.value).toMatchObject(personValue)
+    expect(person.idString).toBe(person.meta.userID)
+    expect(orgTree.tree.label).toBe(rootNodeValue.label)
+    expect(person.idString).toBe(orgTree.meta.userID)
   })
 })
+
+/*
+Test cases:
+  - existing Person, new OrgTree
+  - new Person, existing OrgTree
+  - existing Person, existing OrgTree
+  - invalid personValue on initial creation
+  - invalid rootNodeValue on initial creation. I think we should try/catch and return the person value
+*/

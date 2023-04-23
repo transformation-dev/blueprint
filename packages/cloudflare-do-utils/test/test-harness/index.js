@@ -9,12 +9,12 @@ import typeConfig from './types.js'
 
 const personType = 'person-for-testing'
 const personVersion = 'v1'
-// const personTypeVersionConfig = typeConfig.types[personType].versions[personVersion]  // TODO: Replace this with the one that sets defaults get-type-version-config
+const orgTreeType = 'org-tree-for-testing'
+const orgTreeVersion = 'v1'
 
-// Worker that does nothing and is never used but necessary since durable objects require a Worker
 export default {
-  fetch: getPersonLookupFetch(typeConfig, personType, personVersion),
-  getFetchPartial: getPersonLookupFetchPartialPartial(typeConfig, personType, personVersion),  // only needed for testing
+  fetch: getPersonLookupFetch(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion),
+  getFetchPartial: getPersonLookupFetchPartialPartial(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion),  // only needed for testing
 }
 
 // Durable Object
