@@ -5,6 +5,7 @@ import { throwIf } from './throws.js'
 import { requestOutResponseIn } from './content-processor.js'
 import { HTTPError } from './http-error.js'
 
+// Node, we don't need the entire typeVersionConfig. We just need type, version, and doNamespace
 export async function callDO(env, typeVersionConfig, options, expectedResponseCode, idString) {
   let id
   let url = `http://fake.host/${typeVersionConfig.type}/${typeVersionConfig.version}/`
@@ -13,6 +14,10 @@ export async function callDO(env, typeVersionConfig, options, expectedResponseCo
   } else {
     id = env[typeVersionConfig.doNamespace].idFromString(idString)
     url += `${idString}/`
+  }
+  if (options.url) {
+    const optionsUrl = new URL(options.url)
+    console.log('optionsUrl.pathname: %O', optionsUrl.pathname)
   }
   const entityStub = env[typeVersionConfig.doNamespace].get(id)
   const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies

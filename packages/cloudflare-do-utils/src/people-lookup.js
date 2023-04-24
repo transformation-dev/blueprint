@@ -53,15 +53,6 @@ If you put it in the value, you have to do a get operation on each key to get th
 */
 
 const handlers = {
-
-  // proerties on `this`
-
-  env: null,
-  context: null,
-  personTypeVersionConfig: null,
-
-  // Section: Handlers
-
   async patch(content) {
     const { personValue, rootNodeValue, validFrom, impersonatorID } = content
     let { userID, personIDString, orgTreeIDString } = content
@@ -95,6 +86,9 @@ const handlers = {
       userID = personIDString
     } else {
       // TODO: Retrieve the Person DO
+      const options = { url: '/something' }
+      personResponse = await callDO(this.env, this.personTypeVersionConfig, options, 200)
+      console.log('personResponse.content: %O', personResponse.content)
       person.name = 'Larry'
       person.emailAddresses = ['larry@transformation.dev']
     }
