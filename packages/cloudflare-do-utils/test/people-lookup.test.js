@@ -58,8 +58,25 @@ describe('A series of mostly happy-path people lookup operations', async () => {
     expect(orgTree.tree.label).toBe(rootNodeValue.label)
     expect(person.idString).toBe(orgTree.meta.userID)
 
-    // TODO: Use env.PEOPLE_LOOKUP to confirm that the keys were added
-    console.log(await listAllKVKeys(env.PEOPLE_LOOKUP))
+    const kvKeys = await listAllKVKeys(env.PEOPLE_LOOKUP)
+    console.log(kvKeys)
+
+    // 1. key: `emailAddress/${emailAddress}`, metadata: { personIDString }
+    personValue.emailAddresses.forEach((emailAddress) => {
+      expect(kvKeys[`emailAddress/${emailAddress}`].personIDString).toBe(person.idString)
+    })
+
+    // 2. key: `orgTree/${orgTreeIDString}`, metadata: { label }
+    expect(kvKeys[`orgTree/${orgTree.idString}`].label).toBe(orgTree.tree.label)
+
+    // 3. key: `orgTree/${orgTreeIDString}/${personIDString}`, metadata: { name }
+    expect(kvKeys[`orgTree/${orgTree.idString}/${person.idString}`].name).toBe(person.value.name)
+
+    // 4. key: `person/${personIDString}/${orgTreeIDString}`, metadata: { label }
+    expect(kvKeys[`person/${person.idString}/${orgTree.idString}`].label).toBe(orgTree.tree.label)
+
+    // 5. key: `person/${personIDString}`, metadata: { name }
+    expect(kvKeys[`person/${person.idString}`].name).toBe(person.value.name)
 
     // TODO: Expect the first person for an orgTree to be Admin on the rootNode
   })

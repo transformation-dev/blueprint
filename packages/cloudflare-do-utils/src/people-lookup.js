@@ -18,7 +18,7 @@ I'm using metadata rather than the value because the metadata comes back with th
 If you put it in the value, you have to do a get operation on each key to get the needed info. 1KB is supported in metatdata.
 
     1. key: `emailAddress/${emailAddress}`, metadata: { personIDString }
-    2. key: `orgTree/${orgTreeIDString}`, metadata: { label, peopleCount }
+    2. key: `orgTree/${orgTreeIDString}`, metadata: { label }
     3. key: `orgTree/${orgTreeIDString}/${personIDString}`, metadata: { name }
        There will eventually be thousands of these. The idea is that adding a new one only adds one key and updates no others.
        To retrieve them we’ll use the list API function using a prefix option `orgTree/${orgTreeIDString}/`.
@@ -70,12 +70,16 @@ const handlers = {
     throwIf(personValue == null && personIDString == null, 'body.personValue or body.personIDString required', 400)
     throwIf(personValue != null && personIDString != null, 'Only one of body.personValue or body.personIDString allowed', 400)
     if (personValue != null) {
+      throwIf(personValue.name == null, 'required personValue.name is missing', 400)
       throwIf(personValue.emailAddresses?.length < 1, 'personValue.emailAddresses must have at least one email address', 400)
     }
 
     // validation for org tree
     throwIf(rootNodeValue == null && orgTreeIDString == null, 'body.rootNodeValue or body.orgTreeIDString required', 400)
     throwIf(rootNodeValue != null && orgTreeIDString != null, 'Only one of body.rootNodeValue or body.orgTreeIDString allowed', 400)
+    if (rootNodeValue != null) {
+      throwIf(rootNodeValue.label == null, 'required rootNodeValue.label is missing', 400)
+    }
 
     let person
     let personResponse
@@ -111,10 +115,10 @@ const handlers = {
     } else {
       // TODO: Retrieve the OrgTree DO including the rootNode
       // TODO: Create a new endpoint on OrgTree get that just returns the Tree data and maybe rootNode. Maybe add a depth limit?
+      label = 'Transformation.dev'
     }
 
     // TODO: Create the index entries in KV
-    console.log('env', this.env)
     const promises = []
     let promise
 
@@ -124,20 +128,32 @@ const handlers = {
       promises.push(promise)
     }
 
-    // 2. key: `orgTree/${orgTreeIDString}`, metadata: { label, peopleCount }
+    // 2. key: `orgTree/${orgTreeIDString}`, metadata: { label }
+    promise = this.env.PEOPLE_LOOKUP.put(`orgTree/${orgTreeIDString}`, '', { metadata: { label } })
+    promises.push(promise)
 
     // 3. key: `orgTree/${orgTreeIDString}/${personIDString}`, metadata: { name }
+    promise = this.env.PEOPLE_LOOKUP.put(`orgTree/${orgTreeIDString}/${personIDString}`, '', { metadata: { name: person.name } })
 
     // 4. key: `person/${personIDString}/${orgTreeIDString}`, metadata: { label }
+    promise = this.env.PEOPLE_LOOKUP.put(`person/${personIDString}/${orgTreeIDString}`, '', { metadata: { label } })
+    promises.push(promise)
 
     // 5. key: `person/${personIDString}`, metadata: { name }
+    promise = this.env.PEOPLE_LOOKUP.put(`person/${personIDString}`, '', { metadata: { name: person.name } })
+    promises.push(promise)
 
     try {
-      await Promise.all(promises)
+      await Promise.all(promises)  // TODO: Maybe this should be allSettled and we return the array of errors with no try/catch block
       return [{ person: personResponse.content, orgTree: orgTreeResponse.content }, 200]
     } catch (e) {
       // TODO: Do something reasonable if any KV operations fail
       console.log('GOT AN ERROR WRITING TO KV: %O: ', e)
+      return [{
+        person: personResponse.content,
+        orgTree: orgTreeResponse.content,
+        error: e,
+      }, 500]
     }
   },
 

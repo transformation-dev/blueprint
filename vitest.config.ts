@@ -24,8 +24,7 @@ export default defineConfig({
     // API options here:
     environmentOptions: {
       // bindings: { KEY: "value" },
-      // kvNamespaces: ["TEST_NAMESPACE"],
-
+      kvNamespaces: ["PEOPLE_LOOKUP"],
       modules: true,
       scriptPath: scriptPath,
       durableObjects: {
