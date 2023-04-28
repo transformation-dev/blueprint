@@ -15,9 +15,9 @@ export async function callDO(env, typeVersionConfig, options, expectedResponseCo
     id = env[typeVersionConfig.doNamespace].idFromString(idString)
     url += `${idString}/`
   }
-  if (options.url) {
-    const optionsUrl = new URL(options.url)
-    console.log('optionsUrl.pathname: %O', optionsUrl.pathname)
+  if (options?.additionalURLPath != null) {
+    const pathArray = options.additionalURLPath.split('/').filter((s) => s.length > 0)
+    url += `${pathArray.join('/')}/`
   }
   const entityStub = env[typeVersionConfig.doNamespace].get(id)
   const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies

@@ -204,6 +204,7 @@ export class TemporalEntity {
     this.env = env
     this.typeVersionConfig = typeVersionConfig
     this.hydrateTypeVersionConfig()
+    this.idString = this.state.id.toString()
 
     Object.assign(this, temporalMixin)
 
@@ -223,8 +224,6 @@ export class TemporalEntity {
   async hydrate() {
     // debug('hydrate() called. this.hydrated: %O', this.hydrated)
     if (this.hydrated) return
-
-    this.idString = this.state.id.toString()
 
     // hydrate #entityMeta
     this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { timeline: [] }
@@ -463,15 +462,21 @@ export class TemporalEntity {
   }
 
   async PATCH(request) {
-    try {
-      const { content: options } = await requestIn(request)
-      const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
-      const [responseBody, status] = await this.patch(options, ifUnmodifiedSince)
-      return this.doResponseOut(responseBody, status)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return errorResponseOut(e, this.env, this.idString)
-    }
+    const { content: options } = await requestIn(request)
+    const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
+    const [responseBody, status] = await this.patch(options, ifUnmodifiedSince)
+    return this.doResponseOut(responseBody, status)
+
+    // TODO: Delete the below if it continues to pass all tests
+    // try {
+    //   const { content: options } = await requestIn(request)
+    //   const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
+    //   const [responseBody, status] = await this.patch(options, ifUnmodifiedSince)
+    //   return this.doResponseOut(responseBody, status)
+    // } catch (e) {
+    //   this.hydrated = false  // Makes sure the next call to this DO will rehydrate
+    //   return errorResponseOut(e, this.env, this.idString)
+    // }
   }
 
   async get(options) {  // TODO: Accept asOfISOString

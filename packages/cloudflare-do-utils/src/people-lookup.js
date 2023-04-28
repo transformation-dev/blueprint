@@ -3,9 +3,9 @@
 
 // monorepo imports
 import { errorResponseOut, requestIn, responseOut } from './content-processor.js'
-import { throwIf, throwUnless } from './throws.js'
+import { throwIf } from './throws.js'
 import { getDebug, Debug } from './debug.js'
-import { callDO, hardDeleteDO, getTypeVersionConfigAndEnvironmentOptions } from './referenced-do-operations.js'
+import { callDO, getTypeVersionConfigAndEnvironmentOptions } from './referenced-do-operations.js'
 
 // initialize imports
 const debug = getDebug('blueprint:people-lookup')
@@ -72,7 +72,6 @@ const handlers = {
       throwIf(rootNodeValue.label == null, 'required rootNodeValue.label is missing', 400)
     }
 
-    let person
     let personResponse
     if (personValue != null) {  // Create a new Person
       const options = {
@@ -80,20 +79,16 @@ const handlers = {
         body: { value: personValue, userID: userID ?? 'self', validFrom, impersonatorID },
       }
       personResponse = await callDO(this.env, this.personTypeVersionConfig, options, 201)
-      person = personResponse.content.value
       personIDString = personResponse.content.idString
       // eslint-disable-next-line no-const-assign
-      userID = personIDString
+      if (userID === 'self' || userID == null) userID = personIDString
     } else {
-      // TODO: Retrieve the Person DO
-      const options = { url: '/something' }
-      personResponse = await callDO(this.env, this.personTypeVersionConfig, options, 200)
-      console.log('personResponse.content: %O', personResponse.content)
-      person.name = 'Larry'
-      person.emailAddresses = ['larry@transformation.dev']
+      // const options = { additionalURLPath: 'ticks' }
+      personResponse = await callDO(this.env, this.personTypeVersionConfig, undefined, 200, personIDString)
+      userID = personResponse.content.meta.userID
     }
+    const person = personResponse.content.value
 
-    let label
     let orgTreeResponse
     if (rootNodeValue != null) {
       const options = {
@@ -105,12 +100,11 @@ const handlers = {
         return [{ person: personResponse.content, orgTreeError: orgTreeResponse.content }, orgTreeResponse.status]
       }
       orgTreeIDString = orgTreeResponse.content.idString
-      label = orgTreeResponse.content.tree.label
     } else {
-      // TODO: Retrieve the OrgTree DO including the rootNode
       // TODO: Create a new endpoint on OrgTree get that just returns the Tree data and maybe rootNode. Maybe add a depth limit?
-      label = 'Transformation.dev'
+      orgTreeResponse = await callDO(this.env, this.orgTreeTypeVersionConfig, undefined, 200, orgTreeIDString)
     }
+    const { label } = orgTreeResponse.content.tree
 
     // TODO: Create the index entries in KV
     const promises = []
@@ -191,7 +185,7 @@ const handlers = {
           return throwIf(true, `Unrecognized URL ${url.pathname}`, 404)
       }
     } catch (e) {
-      return errorResponseOut(e, this.env)  // TODO: What is this.env used for here?
+      return errorResponseOut(e, this.env)  // this.env.CF_ENV determines whether to include the stack trace
     }
   },
 }

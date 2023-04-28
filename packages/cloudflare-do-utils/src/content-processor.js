@@ -98,7 +98,7 @@ export function errorResponseOut(e, env, idString) {
     body.error.stack = e.body?.error?.stack ?? ''
     body.error.stack += e.stack
   }
-  body.idString = idString
+  body.idString = idString || e.body?.idString
   return responseOut(body, e.status ?? 500)
 }
 
