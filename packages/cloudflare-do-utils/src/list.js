@@ -7,6 +7,7 @@ import { errorResponseOut, requestIn, responseOut } from './content-processor.js
 import { throwIf, throwUnless } from './throws.js'
 import { getDebug, Debug } from './debug.js'
 import referencedDOMixin from './referenced-do-mixin.js'
+import { callDO, getTypeVersionConfigAndEnvironmentOptions } from './referenced-do-operations.js'
 
 // initialize imports
 const debug = getDebug('blueprint:list')
@@ -125,6 +126,11 @@ export class List  {
 
     // TODO: wrap this in a try/catch block and retry if the optimistic concurrency check fails
     // This next line is going to open the input gate. We may need our own gate?
+
+    // The next two lines are a partial conversion away from referenced-do-mixin towards referenced-do-operations. I stopped after not knowing how best to get typeConfig down into here.
+    // // signature for new callDO is callDO(env, typeVersionConfig, options, expectedResponseCode, idString)
+    // const typeVersionConfig = getTypeVersionConfigAndEnvironmentOptions(this.typeVersionConfig.elementType, this.typeVersionConfig.elementVersion, typeConfig).typeVersionConfig
+
     const response = await this.callDO(this.typeVersionConfig.elementType, this.typeVersionConfig.elementVersion, options, 201)
 
     const elementIDString = response.content.idString

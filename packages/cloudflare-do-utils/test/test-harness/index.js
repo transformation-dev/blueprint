@@ -2,7 +2,7 @@
 
 // mono-repo imports
 import { VersioningTransactionalDOWrapper } from '../../src/versioning-transactional-do-wrapper.js'
-import { getPersonLookupFetch, getPersonLookupFetchPartialPartial } from '../../src/people-lookup.js'
+import { getPersonLookupFetch, getPersonLookupFetchPartial } from '../../src/people-lookup.js'
 
 // local imports
 import typeConfig from './types.js'
@@ -14,7 +14,7 @@ const orgTreeVersion = 'v1'
 
 export default {
   fetch: getPersonLookupFetch(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion),
-  getFetchPartial: getPersonLookupFetchPartialPartial(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion),  // only needed for testing
+  getFetchPartial: getPersonLookupFetchPartial(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion),  // only needed for testing
 }
 
 // Durable Object

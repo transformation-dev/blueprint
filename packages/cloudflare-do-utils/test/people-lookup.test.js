@@ -15,9 +15,9 @@ import worker from './test-harness/index.js'
 const env = getMiniflareBindings()
 const context = new ExecutionContext()
 
-env.DEBUG = 'blueprint:*'
+// env.DEBUG = 'blueprint:*'
 // env.DEBUG = 'blueprint:people-lookup'
-// env.DEBUG = 'nothing'
+env.DEBUG = 'nothing'
 
 const isLive = process?.env?.VITEST_BASE_URL != null
 
@@ -37,13 +37,16 @@ async function getCleanState() {
 describe('A series of mostly happy-path people lookup operations', async () => {
   // eslint-disable-next-line prefer-const, no-unused-vars
   let { stub, baseUrl, url } = await getCleanState()
-  let personIDString
+
   let personValue
-  let orgTreeIDString
+  let larryIDString
+  let jenniferIDString
+  let transformationDevIDString
+  let theMafiaIDString
 
   // TODO: Test non-happy path of invalid personValue once person-for-testing has a schema
 
-  it('should allow creating both at once', async () => {
+  it('should allow PATCH with new Person, Larry, to new Tree, Transformation.dev', async () => {
     personValue = { name: 'Larry Salvatore', emailAddresses: ['larry@transformation.dev', 'Sal@Mafia.com'], other: 'stuff' }
     const rootNodeValue = { label: 'Transformation.dev', emailExtensions: ['transformation.dev'] }
     const options = {
@@ -80,14 +83,16 @@ describe('A series of mostly happy-path people lookup operations', async () => {
     expect(kvKeys[`person/${person.idString}`].name).toBe(person.value.name)
 
     // TODO: Expect the first person for an orgTree to be Admin on the rootNode
-    personIDString = person.idString  // Used in next test
+
+    larryIDString = person.idString  // Used in next test
+    transformationDevIDString = orgTree.idString  // Used in later test
   })
 
-  it('should allow adding a existing Person to an new Tree', async () => {
-    const rootNodeValue = { label: 'The Mafia', emailExtensions: ['mafia.com'] }
+  it('should allow PATCH with existing Person, Larry, and new Tree, The Mafia', async () => {
+    const rootNodeValue = { label: 'The Mafia' }
     const options = {
       method: 'PATCH',
-      body: { personIDString, rootNodeValue },
+      body: { personIDString: larryIDString, rootNodeValue },
     }
     const response = await requestOutResponseIn(url, options, stub)
 
@@ -109,17 +114,18 @@ describe('A series of mostly happy-path people lookup operations', async () => {
     // 4. key: `person/${personIDString}/${orgTreeIDString}`, metadata: { label }
     expect(kvKeys[`person/${person.idString}/${orgTree.idString}`].label).toBe(orgTree.tree.label)
 
-    orgTreeIDString = orgTree.idString
+    // TODO: Expect the first person for an orgTree to be Admin on the rootNode
+
+    theMafiaIDString = orgTree.idString  // Used in later test
   })
 
-  it('should allow adding a new Person to an existing Tree', async () => {
+  it('should allow PATCH with new Person, Jennifer, and existing Tree, Transformation.dev', async () => {
     personValue = { name: 'Jennifer Lynn', emailAddresses: ['jennifer@transformation.dev'], other: 'beautiful' }
     const options = {
       method: 'PATCH',
-      body: { personValue, orgTreeIDString },
+      body: { personValue, orgTreeIDString: transformationDevIDString },
     }
     const response = await requestOutResponseIn(url, options, stub)
-    console.log('response.content: %O', response.content)
 
     expect(response.status).toBe(200)
     const { person, orgTree } = response.content
@@ -128,7 +134,6 @@ describe('A series of mostly happy-path people lookup operations', async () => {
     expect(person.idString).toBe(person.meta.userID)
 
     const kvKeys = await listAllKVKeys(env.PEOPLE_LOOKUP)
-    console.log(kvKeys)
 
     // 1. key: `emailAddress/${emailAddress}`, metadata: { personIDString }
     personValue.emailAddresses.forEach((emailAddress) => {
@@ -147,14 +152,46 @@ describe('A series of mostly happy-path people lookup operations', async () => {
     // 5. key: `person/${personIDString}`, metadata: { name }
     expect(kvKeys[`person/${person.idString}`].name).toBe(person.value.name)
 
-    // TODO: Expect the first person for an orgTree to be Admin on the rootNode
-    personIDString = person.idString  // Used in next test
+    jenniferIDString = person.idString  // Used in next test
   })
-})
+
+  it('should allow PATCH with existing Person, Jennifer, and existing Tree, The Mafia', async () => {
+    personValue = { name: 'Jennifer Lynn', emailAddresses: ['jennifer@transformation.dev'], other: 'beautiful' }
+    const options = {
+      method: 'PATCH',
+      body: { personIDString: jenniferIDString, orgTreeIDString: theMafiaIDString },
+    }
+    const response = await requestOutResponseIn(url, options, stub)
+
+    expect(response.status).toBe(200)
+    const { person, orgTree } = response.content
+    personValue.emailAddresses = personValue.emailAddresses.map((value) => value.toLowerCase())
+    expect(person.value).toMatchObject(personValue)
+    expect(person.idString).toBe(person.meta.userID)
+
+    const kvKeys = await listAllKVKeys(env.PEOPLE_LOOKUP)
+
+    // 1. key: `emailAddress/${emailAddress}`, metadata: { personIDString }
+    personValue.emailAddresses.forEach((emailAddress) => {
+      expect(kvKeys[`emailAddress/${emailAddress}`].personIDString).toBe(person.idString)
+    })
+
+    // 2. key: `orgTree/${orgTreeIDString}`, metadata: { label }
+    expect(kvKeys[`orgTree/${orgTree.idString}`].label).toBe(orgTree.tree.label)
+
+    // 3. key: `orgTree/${orgTreeIDString}/${personIDString}`, metadata: { name }
+    expect(kvKeys[`orgTree/${orgTree.idString}/${person.idString}`].name).toBe(person.value.name)
+
+    // 4. key: `person/${personIDString}/${orgTreeIDString}`, metadata: { label }
+    expect(kvKeys[`person/${person.idString}/${orgTree.idString}`].label).toBe(orgTree.tree.label)
+
+    // 5. key: `person/${personIDString}`, metadata: { name }
+    expect(kvKeys[`person/${person.idString}`].name).toBe(person.value.name)
+  })
 
 /*
 Test cases:
-  - existing Person, existing OrgTree
   - invalid personValue on initial creation
   - invalid rootNodeValue on initial creation. I think we should try/catch and return the person value
 */
+})

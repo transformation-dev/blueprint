@@ -196,7 +196,7 @@ export function getPersonLookupFetch(typeConfig, personType, personVersion, orgT
   return async (request, env, context) => handlers.fetch(request, env, context, personTypeVersionConfig, orgTreeTypeVersionConfig)
 }
 
-export function getPersonLookupFetchPartialPartial(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion) {
+export function getPersonLookupFetchPartial(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion) {
   const fetch = getPersonLookupFetch(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion)
   return (env, context) => async (request) => fetch(request, env, context)
 }
