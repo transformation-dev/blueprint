@@ -156,7 +156,6 @@ describe('A series of mostly happy-path people lookup operations', async () => {
   })
 
   it('should allow PATCH with existing Person, Jennifer, and existing Tree, The Mafia', async () => {
-    personValue = { name: 'Jennifer Lynn', emailAddresses: ['jennifer@transformation.dev'], other: 'beautiful' }
     const options = {
       method: 'PATCH',
       body: { personIDString: jenniferIDString, orgTreeIDString: theMafiaIDString },
@@ -191,6 +190,7 @@ describe('A series of mostly happy-path people lookup operations', async () => {
 
 /*
 Test cases:
+  - don't allow addition of a person if the email address is already in use
   - invalid personValue on initial creation
   - invalid rootNodeValue on initial creation. I think we should try/catch and return the person value
 */

@@ -74,6 +74,25 @@ const handlers = {
 
     let personResponse
     if (personValue != null) {  // Create a new Person
+      personValue.emailAddresses = personValue.emailAddresses.map((emailAddress) => emailAddress.toLowerCase())
+
+      // Throw if any of the email addresses are already in use
+      const promises = []
+      for (const emailAddress of personValue.emailAddresses) {
+        const promise = this.env.PEOPLE_LOOKUP.getWithMetadata(`emailAddress/${emailAddress}`)
+        promises.push(promise)
+      }
+      const kvGetResponses = await Promise.all(promises)
+      console.log('kvGetResponses: %O', kvGetResponses)
+      const errors = []
+      for (const [index, emailAddress] of personValue.emailAddresses.entries()) {
+        const { metadata } = kvGetResponses[index]
+        if (metadata != null) {
+          errors.push(`emailAddress ${emailAddress} already in use`)
+        }
+      }
+      console.log('errors: %O', errors)
+
       const options = {
         method: 'POST',
         body: { value: personValue, userID: userID ?? 'self', validFrom, impersonatorID },
@@ -136,8 +155,8 @@ const handlers = {
       return [{ person: personResponse.content, orgTree: orgTreeResponse.content }, 200]
     } catch (e) {
       // TODO: Do something reasonable if any KV operations fail
-      console.log('GOT AN ERROR WRITING TO KV: %O: ', e)
       return [{
+        message: 'Error writing to KV modifying people-lookup indexes',
         person: personResponse.content,
         orgTree: orgTreeResponse.content,
         error: e,
