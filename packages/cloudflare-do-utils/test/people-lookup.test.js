@@ -200,6 +200,56 @@ describe('A series of mostly happy-path people lookup operations', async () => {
     expect(response.content.error.message).toMatch('Email address(es) already in use')
   })
 
+  it('should allow PATCH to remove Jennifer from The Mafia', async () => {
+    let kvKeys = await listAllKVKeys(env.PEOPLE_LOOKUP)
+
+    // 3. key: `orgTree/${orgTreeIDString}/${personIDString}`, metadata: { name }
+    expect(kvKeys[`orgTree/${theMafiaIDString}/${jenniferIDString}`]).not.toBe(undefined)
+
+    // 4. key: `person/${personIDString}/${orgTreeIDString}`, metadata: { label }
+    expect(kvKeys[`person/${jenniferIDString}/${theMafiaIDString}`]).not.toBe(undefined)
+
+    const options = {
+      method: 'PATCH',
+      body: { personIDStringToRemove: jenniferIDString, orgTreeIDString: theMafiaIDString },
+    }
+    const response = await requestOutResponseIn(url, options, stub)
+
+    expect(response.status).toBe(202)
+
+    kvKeys = await listAllKVKeys(env.PEOPLE_LOOKUP)
+
+    // 3. key: `orgTree/${orgTreeIDString}/${personIDString}`, metadata: { name }
+    expect(kvKeys[`orgTree/${theMafiaIDString}/${jenniferIDString}`]).toBe(undefined)
+
+    // 4. key: `person/${personIDString}/${orgTreeIDString}`, metadata: { label }
+    expect(kvKeys[`person/${jenniferIDString}/${theMafiaIDString}`]).toBe(undefined)
+  })
+
+  it.todo('should throw on PATCH with new Person that has more than one email address', async () => {
+    personValue = { name: 'Cassidy', emailAddresses: ['cassidy@yahoo.com', 'cassidy@gmail.com'] }
+    const options = {
+      method: 'PATCH',
+      body: { personValue, orgTreeIDString: transformationDevIDString },
+    }
+    const response = await requestOutResponseIn(url, options, stub)
+
+    expect(response.status).toBe(409)
+    expect(response.content.error.message).toMatch('Only one email address allowed upon initial creation. Others must be validated.')
+  })
+
+  it.todo('should throw on PATCH with new Person where userID==="self" and the email address does not match the cookie', async () => {
+    personValue = { name: 'Jennifer Impostor', emailAddresses: ['jennifer@transformation.dev'], other: 'evil' }
+    const options = {
+      method: 'PATCH',
+      body: { personValue, orgTreeIDString: transformationDevIDString },
+    }
+    const response = await requestOutResponseIn(url, options, stub)
+
+    expect(response.status).toBe(409)
+    expect(response.content.error.message).toMatch('something')
+  })
+
 /*
 Test cases:
   - invalid personValue on initial creation

@@ -56,7 +56,7 @@ If you put it in the value, you have to do a get operation on each key to get th
 */
 
 const handlers = {
-  async patch(content) {
+  async patchAdd(content) {
     const { personValue, rootNodeValue, validFrom, impersonatorID } = content
     let { userID, personIDString, orgTreeIDString } = content
 
@@ -76,6 +76,7 @@ const handlers = {
     }
 
     // TODO: Check that the user is authenticated
+    // TODO: Confirm that userID or impersonatorID matches the cookie or maybe just use the cookie as a default if userID == null
     // TODO: Check that the user is already a member of the org tree if adding to an existing org tree
     // TODO: Only allow org tree creation if the user is a super-admin or (we are also adding a Person and userID === 'self')
 
@@ -100,7 +101,7 @@ const handlers = {
 
       const options = {
         method: 'POST',
-        body: { value: personValue, userID: userID ?? 'self', validFrom, impersonatorID },
+        body: { value: personValue, userID: userID ?? 'self', validFrom, impersonatorID },  // TODO: Use the cookie if userID == null
       }
       personResponse = await callDO(this.env, this.personTypeVersionConfig, options, 201)
       personIDString = personResponse.content.idString
@@ -130,7 +131,6 @@ const handlers = {
     }
     const { label } = orgTreeResponse.content.tree
 
-    // TODO: Create the index entries in KV
     const promises = []
     let promise
 
@@ -146,6 +146,7 @@ const handlers = {
 
     // 3. key: `orgTree/${orgTreeIDString}/${personIDString}`, metadata: { name }
     promise = this.env.PEOPLE_LOOKUP.put(`orgTree/${orgTreeIDString}/${personIDString}`, '', { metadata: { name: person.name } })
+    promises.push(promise)
 
     // 4. key: `person/${personIDString}/${orgTreeIDString}`, metadata: { label }
     promise = this.env.PEOPLE_LOOKUP.put(`person/${personIDString}/${orgTreeIDString}`, '', { metadata: { label } })
@@ -156,12 +157,12 @@ const handlers = {
     promises.push(promise)
 
     try {
-      await Promise.all(promises)  // TODO: Maybe this should be allSettled and we return the array of errors with no try/catch block
+      await Promise.all(promises)
       return [{ person: personResponse.content, orgTree: orgTreeResponse.content }, 200]
     } catch (e) {
       // TODO: Do something reasonable if any KV operations fail
       return [{
-        message: 'Error writing to KV modifying people-lookup indexes',
+        message: 'Error upserting people-lookup KV entries',
         person: personResponse.content,
         orgTree: orgTreeResponse.content,
         error: e,
@@ -169,10 +170,50 @@ const handlers = {
     }
   },
 
+  async patchRemove(content) {
+    const { personIDStringToRemove, orgTreeIDString } = content
+
+    // validation
+    throwIf(personIDStringToRemove == null, 'body.personIDStringToRemove required', 400)
+    throwIf(orgTreeIDString == null, 'body.orgTreeIDString required', 400)
+
+    // TODO: Check that the user is authenticated
+    // TODO: Check that the user is a super-admin or an admin of the root node of the org tree
+
+    // Delete the index entries in KV
+    const promises = []
+    let promise
+
+    // 3. key: `orgTree/${orgTreeIDString}/${personIDString}`, metadata: { name }
+    promise = this.env.PEOPLE_LOOKUP.delete(`orgTree/${orgTreeIDString}/${personIDStringToRemove}`)
+    promises.push(promise)
+
+    // 4. key: `person/${personIDString}/${orgTreeIDString}`, metadata: { label }
+    promise = this.env.PEOPLE_LOOKUP.delete(`person/${personIDStringToRemove}/${orgTreeIDString}`)
+    promises.push(promise)
+
+    try {
+      await Promise.all(promises)
+      return [undefined, 202]
+    } catch (e) {
+      // TODO: Do something reasonable if any KV operations fail
+      return [{
+        message: 'Error deleting people-lookup KV entries',
+        error: e,
+      }, 500]
+    }
+  },
+
   async PATCH(request) {
-  // throwIfMediaTypeHeaderInvalid(request)
+    // throwIfMediaTypeHeaderInvalid(request)
     const { content } = await requestIn(request)
-    const [responseBody, status] = await this.patch(content)
+    // TODO: If impersonatorID is not null, then it must match the cookie
+    // TODO: If impersonatorID is not null, then userID must be 'self' or a real userID
+    // TODO: If impersonatorID is null, then userID must be 'self' or match the cookie. This will break existing tests
+    let responseBody
+    let status
+    if (content?.personIDStringToRemove != null) [responseBody, status] = await this.patchRemove(content)
+    else [responseBody, status] = await this.patchAdd(content)
     return responseOut(responseBody, status)
   },
 
