@@ -31,12 +31,15 @@ If you put it in the value, you have to do a get operation on each key to get th
     * PATCH personValue or personIDString, rootNodeValue or orgTreeIDString
         * Creates the Person DO and/or Org Tree DO if necessary. After that we'll have an personIDString and orgTreeIDString.
         * Error if the email is in use
-        * Upserts key/metadata all key/metadata pairs
-    * GET /email/{emailAddress}
+        * Upserts all key/metadata pairs
+        * Only allows if authenticated
+        * Only allows if user has appropriate permissions
+    TODO A0: * PATCH personIDStringToRemove, orgTreeIDString
+    TODO A: * GET /email/{emailAddress}
         * Returns the { personIDString, name, orgTrees: { orgTreeIDString: { label } }
-    * GET /org-tree/{orgTreeIDString}
+    TODO A: * GET /org-tree/{orgTreeIDString}
         * Returns { label, people: { personIDString: name } }
-    * GET /person/{personIDString}
+    TODO A: * GET /person/{personIDString}
         * Returns { name, orgTreeorgTrees: { orgTreeIDString: { label } }
 
 ## Queue consumers
@@ -72,6 +75,10 @@ const handlers = {
       throwIf(rootNodeValue.label == null, 'required rootNodeValue.label is missing', 400)
     }
 
+    // TODO: Check that the user is authenticated
+    // TODO: Check that the user is already a member of the org tree if adding to an existing org tree
+    // TODO: Only allow org tree creation if the user is a super-admin or (we are also adding a Person and userID === 'self')
+
     let personResponse
     if (personValue != null) {  // Create a new Person
       personValue.emailAddresses = personValue.emailAddresses.map((emailAddress) => emailAddress.toLowerCase())
@@ -83,15 +90,13 @@ const handlers = {
         promises.push(promise)
       }
       const kvGetResponses = await Promise.all(promises)
-      console.log('kvGetResponses: %O', kvGetResponses)
-      const errors = []
-      for (const [index, emailAddress] of personValue.emailAddresses.entries()) {
-        const { metadata } = kvGetResponses[index]
+      const inUseEmailAddresses = []
+      for (const [index, { metadata }] of kvGetResponses.entries()) {
         if (metadata != null) {
-          errors.push(`emailAddress ${emailAddress} already in use`)
+          inUseEmailAddresses.push(personValue.emailAddresses[index])
         }
       }
-      console.log('errors: %O', errors)
+      throwIf(inUseEmailAddresses.length > 0, `Email address(es) already in use: ${inUseEmailAddresses.join(', ')}`, 409)
 
       const options = {
         method: 'POST',

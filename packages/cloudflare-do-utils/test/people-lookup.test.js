@@ -188,9 +188,20 @@ describe('A series of mostly happy-path people lookup operations', async () => {
     expect(kvKeys[`person/${person.idString}`].name).toBe(person.value.name)
   })
 
+  it('should throw on PATCH with new Person, using exising email address', async () => {
+    personValue = { name: 'Jennifer Impostor', emailAddresses: ['jennifer@transformation.dev'], other: 'evil' }
+    const options = {
+      method: 'PATCH',
+      body: { personValue, orgTreeIDString: transformationDevIDString },
+    }
+    const response = await requestOutResponseIn(url, options, stub)
+
+    expect(response.status).toBe(409)
+    expect(response.content.error.message).toMatch('Email address(es) already in use')
+  })
+
 /*
 Test cases:
-  - don't allow addition of a person if the email address is already in use
   - invalid personValue on initial creation
   - invalid rootNodeValue on initial creation. I think we should try/catch and return the person value
 */
