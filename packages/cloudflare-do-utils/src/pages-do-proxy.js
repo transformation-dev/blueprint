@@ -26,7 +26,7 @@ export function pagesDOProxy(doNameString) {
     }
 
     // build the url to be passed to the durable object
-    let url = 'http://fake.host/'
+    let url = 'https://fake.host/'
     if (params.path != null && params.path.length > 0) {
       const joinedPath = params?.path?.join('/') ?? ''
       url += joinedPath

@@ -89,7 +89,7 @@ export class VersioningTransactionalDOWrapper {
       debug('Passing along original request. request.url: %s', request.url)
     } else {
       const joinedPath = pathArray.join('/')
-      let urlToPassToWrappedDO = 'http://fake.host/'
+      let urlToPassToWrappedDO = 'https://fake.host/'
       urlToPassToWrappedDO += `${joinedPath}`
       urlToPassToWrappedDO += request.url.slice(request.url.indexOf(url.pathname) + url.pathname.length)
       debug('URL to pass to wrapped DO: %s', urlToPassToWrappedDO)

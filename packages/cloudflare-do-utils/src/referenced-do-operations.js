@@ -8,7 +8,7 @@ import { HTTPError } from './http-error.js'
 // Node, we don't need the entire typeVersionConfig. We just need type, version, and doNamespace
 export async function callDO(env, typeVersionConfig, options, expectedResponseCode, idString) {
   let id
-  let url = `http://fake.host/${typeVersionConfig.type}/${typeVersionConfig.version}/`
+  let url = `https://fake.host/${typeVersionConfig.type}/${typeVersionConfig.version}/`
   if (idString == null) {
     id = env[typeVersionConfig.doNamespace].newUniqueId()
   } else {
@@ -42,7 +42,7 @@ export async function hardDeleteDO(env, typeVersionConfig, idString) {
   const options = {
     method: 'DELETE',
   }
-  const url = `http://fake.host/transactional-do-wrapper/${idString}`
+  const url = `https://fake.host/transactional-do-wrapper/${idString}`
   const id = env[typeVersionConfig.doNamespace].idFromString(idString)
   const entityStub = env[typeVersionConfig.doNamespace].get(id)
   const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies

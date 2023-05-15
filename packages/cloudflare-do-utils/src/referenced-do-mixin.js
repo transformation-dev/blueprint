@@ -10,7 +10,7 @@ import { HTTPError } from './http-error.js'
 export default {
   async callDO(type, version, options, expectedResponseCode, idString) {
     let id
-    let url = `http://fake.host/${type}/${version}/`
+    let url = `https://fake.host/${type}/${version}/`
     if (idString == null) {
       id = this.env[this.typeVersionConfig.doNamespace].newUniqueId()
     } else {
@@ -39,7 +39,7 @@ export default {
     const options = {
       method: 'DELETE',
     }
-    const url = `http://fake.host/transactional-do-wrapper/${idString}`
+    const url = `https://fake.host/transactional-do-wrapper/${idString}`
     const id = this.env[this.typeVersionConfig.doNamespace].idFromString(idString)
     const entityStub = this.env[this.typeVersionConfig.doNamespace].get(id)
     const response = await requestOutResponseIn(url, options, entityStub)  // TODO: Pass along the cookies

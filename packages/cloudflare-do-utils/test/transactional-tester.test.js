@@ -18,7 +18,7 @@ env.DEBUG = ''
 let response
 
 describe('Transactional Tester', async () => {
-  const baseUrl = 'http://fake.host'
+  const baseUrl = 'https://fake.host'
   let state
   let stub
   let idString

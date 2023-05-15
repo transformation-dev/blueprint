@@ -177,7 +177,7 @@ export class Tree  {
   async rollbackDOCreateAndThrowIfConcurrencyCheckFails(lastValidFrom, idString) {
     if (this.entityMeta.timeline?.at(-1) !== lastValidFrom) {  // This should work for both tree/root node creation as well as later node creation
       if (idString != null) {
-        this.hardDeleteDO(idString)
+        this.hardDeleteDO(idString).catch(() => { })  // fire and forget
       }
       throwIf(true, 'Optimistic concurrency check failed. Retry', 409)
     }
@@ -314,7 +314,7 @@ export class Tree  {
     this.edges = {}
     this.nodes[this.entityMeta.nodeCount] = { label: response.content.value.label, nodeIDString: response.content.idString }
 
-    this.updateMetaAndSave(validFrom, userID, impersonatorID, true)
+    await this.updateMetaAndSave(validFrom, userID, impersonatorID, true)
 
     return this.get({ statusToReturn: 201 })
   }
@@ -357,7 +357,7 @@ export class Tree  {
     this.edges[parent] ??= []
     this.edges[parent].push(this.entityMeta.nodeCount.toString())
 
-    this.updateMetaAndSave(validFrom, userID, impersonatorID, true)
+    await this.updateMetaAndSave(validFrom, userID, impersonatorID, true)
 
     return this.get()
   }
@@ -394,7 +394,7 @@ export class Tree  {
     this.edges[parent] ??= []
     this.edges[parent].push(child)
 
-    this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
+    await this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
 
     return this.get()
   }
@@ -427,7 +427,7 @@ export class Tree  {
     // Update current but not current.meta because that's done in updateMetaAndSave()
     this.edges[parent] = this.edges[parent].filter((id) => id !== child)
 
-    this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
+    await this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
 
     return this.get()
   }
@@ -471,7 +471,7 @@ export class Tree  {
       this.edges[newParent].push(child)
     }
 
-    this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
+    await this.updateMetaAndSave(validFrom, userID, impersonatorID, false)
 
     return this.get()
   }

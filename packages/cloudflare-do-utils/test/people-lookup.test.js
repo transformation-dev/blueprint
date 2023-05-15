@@ -28,7 +28,7 @@ async function getCleanState() {
     baseUrl = process.env.VITEST_BASE_URL
   } else {
     stub = { fetch: worker.getFetchPartial(env, context) }
-    baseUrl = 'http://fake.host'
+    baseUrl = 'https://fake.host'
   }
   const url = `${baseUrl}/`  // This is a default that will often work but can be overwritten per test
   return ({ stub, baseUrl, url })

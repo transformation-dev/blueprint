@@ -10,7 +10,7 @@ import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 import { errorResponseOut, requestIn } from './content-processor.js'
 import { throwIf, throwUnless } from './throws.js'
 import { getDebug, Debug } from './debug.js'
-import { applyDelta } from './apply-delta.js'
+import { applyDiff } from './apply-diff.js'
 import { dateISOStringRegex } from './date-utils'
 import { temporalMixin } from './temporal-mixin'
 
@@ -425,7 +425,7 @@ export class TemporalEntity {
 
     const newValue = structuredClone(this.current.value)
 
-    applyDelta(newValue, delta)
+    applyDiff(newValue, delta)
 
     return this.put(newValue, userID, validFrom, impersonatorID, ifUnmodifiedSince)
   }
@@ -441,7 +441,7 @@ export class TemporalEntity {
     await this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
 
     // apply metaDelta to current.meta and save it
-    applyDelta(this.current.meta, metaDelta)
+    applyDiff(this.current.meta, metaDelta)
     this.current.meta.previousValues = {}  // value never changes in a patchMetaDelta
     this.entityMeta.timeline.push(metaDelta.validFrom)
     await this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)

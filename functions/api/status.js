@@ -11,7 +11,7 @@ export async function onRequestGet({ request, env, params }) {
   // const stub = env.DO_API.get(
   //   env.DO_API.idFromName('something'),
   // )
-  // const response = await stub.fetch('http://fake.host/counter/v1/increment')
+  // const response = await stub.fetch('https://fake.host/counter/v1/increment')
   // console.log('response', response)
   // const count = await response.json()
 
