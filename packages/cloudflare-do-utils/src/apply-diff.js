@@ -1,22 +1,33 @@
+function isQuasiBaseType(value) {
+  return value instanceof Function || value instanceof Date || value instanceof RegExp || value instanceof String || value instanceof Number || value instanceof Boolean
+}
+
+function isLikelyPlainObject(value) {
+  return typeof value === 'object' && value !== null && !isQuasiBaseType(value)
+}
+
 /* eslint-disable no-param-reassign */
 function innerApplyDiff(lhs, diff) {
-  if (diff instanceof Object) {
-    if (diff instanceof Function || diff instanceof Date || diff instanceof RegExp || diff instanceof String || diff instanceof Number || diff instanceof Boolean) {
-      lhs = diff
+  let keys
+  if (isLikelyPlainObject(diff)) {
+    keys = Object.keys(diff)
+    if (keys.length === 0) {
       return lhs
-    }
-    const keys = Object.keys(diff)
-    if (keys.length === 0) return lhs
-  }
-  if (lhs instanceof Object) {
-    const keys = Object.keys(diff)
-    if (keys.length > 0) {
+    } else if (isLikelyPlainObject(lhs)) {
       for (const key of keys) {
-        if (diff[key] instanceof Object) {
-          if (Object.keys(diff[key]).length === 0) lhs[key] = {}
-          else lhs[key] = innerApplyDiff(lhs[key] ?? {}, diff[key])
+        if (isLikelyPlainObject(diff[key])) {
+          if (Object.keys(diff[key]).length === 0) {
+            lhs[key] = {}
+          } else {
+            lhs[key] = innerApplyDiff(lhs[key] ?? {}, diff[key])
+          }
         } else if (diff[key] === undefined) {
-          delete lhs[key]
+          if (lhs instanceof Array) {
+            // @ts-ignore
+            lhs.splice(key, 1)
+          } else {
+            delete lhs[key]
+          }
         } else {
           lhs[key] = diff[key]
         }
@@ -24,7 +35,7 @@ function innerApplyDiff(lhs, diff) {
     } else {
       lhs = diff
     }
-  } else if (!(lhs instanceof Object)) {
+  } else {
     lhs = diff
   }
   return lhs
@@ -37,7 +48,6 @@ function innerApplyDiff(lhs, diff) {
 //     const restoredLHS = applyDiff(rhs, d)
 //     expect(restoredLHS).to.deep.equal(lhs)
 export function applyDiff(lhs, diff) {
-  // if (lhs == null) return diff
-  // Object.freeze(lhs.prototype)  // This doesn't seem to hurt, but I'm not sure if it is necessary to prevent prototype pollution
+  if (lhs?.prototype != null) Object.freeze(lhs.prototype)  // This doesn't seem to hurt, but I'm not sure if it is necessary to prevent prototype pollution
   return innerApplyDiff(lhs, diff)
 }

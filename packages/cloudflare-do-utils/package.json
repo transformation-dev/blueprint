@@ -28,7 +28,9 @@
   "scripts": {
     "build": "npx vite build",
     "test": "npm run build && npm run test:run",
+    "build-and-test:active": "npm run build && npm run test:active",
     "test:run": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
+    "test:active": "NODE_OPTIONS=--experimental-vm-modules vitest --run test/apply-diff.test.js",
     "test:watch": "npx vite && NODE_OPTIONS=--experimental-vm-modules vitest",
     "coverage": "npx vite build && NODE_OPTIONS=--experimental-vm-modules vitest run --coverage"
   },
