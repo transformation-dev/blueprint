@@ -132,6 +132,6 @@ meter {
 }
 
 /* Revert Modal native behavior */
-:where(dialog:modal) {
+:where(dialog:modal) {  /*NOSONAR*/
   all: revert;
 }
