@@ -3,25 +3,7 @@
  * @param lhs - the object to be modified
  * @param diff - the diff to apply to lhs
  *
- * This function modifies lhs in place to be optimal for updating a large object with a
- * small diff you send over a network.
- *
- * The tests for this function come straight from deep-object-diff's test suite.
- *
- * However, to get all of the tests to pass, I had to add quite a bit of complexity. When you
- * compare two primatives (string, number, etc) or quasi-primative (String, Number, Date, etc.)
- * deep-object-diff returns the rhs (quasi)primative as the diff. Maybe there is a more
- * efficient way to test for this than what I've implemented, but this works at least for
- * all of deep-object-diff's tests.
- *
- * If you make the assumption that the lhs and rhs are both plain objects, then this code
- * gets a lot simpler and would run a lot faster.
- *
- * Example usage:
- *     import { diff } from 'deep-object-diff'
- *     const d = diff(lhs, rhs)
- *     const restoredRHS = applyDiff(lhs, d)
- *     expect(restoredRHS).to.deep.equal(rhs)
+ * This function has side effects because it modifies lhs in place.
  */
 
 function isQuasiPrimative(value) {
