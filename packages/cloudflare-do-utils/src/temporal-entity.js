@@ -7,10 +7,12 @@ import { diff } from 'deep-object-diff'
 import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 
 // monorepo imports
+import { applyDiff } from '@transformation-dev/deep-object-diff-apply'
+
+// local imports
 import { errorResponseOut, requestIn } from './content-processor.js'
 import { throwIf, throwUnless } from './throws.js'
 import { getDebug, Debug } from './debug.js'
-import { applyDiff } from './apply-diff.js'
 import { dateISOStringRegex } from './date-utils'
 import { temporalMixin } from './temporal-mixin'
 

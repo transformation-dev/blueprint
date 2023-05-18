@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { diff } from 'deep-object-diff'
 
-import { applyDiff } from '../src/apply-diff.js'
+import { applyDiff } from '../apply-diff.js'
 
 describe('base case', () => {
   describe('equal', () => {

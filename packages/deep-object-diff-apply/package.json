@@ -1,0 +1,42 @@
+{
+  "name": "@transformation-dev/deep-object-diff-apply",
+  "version": "0.7.0",
+  "description": "Take the output of deep-object-diff's diff() function, apply it to the original lhs, and you get the original rhs.",
+  "keywords": [
+    "diff",
+    "object",
+    "deep",
+    "difference",
+    "apply"
+  ],
+  "author": "Larry Maccherone <Larry@Maccherone.com>",
+  "homepage": "https://github.com/transformation-dev/blueprint/tree/master/packages/deep-object-diff-apply#readme",
+  "license": "MIT",
+  "main": "apply-diff.js",
+  "type": "module",
+  "directories": {
+    "test": "test"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/transformation-dev/blueprint.git#master"
+  },
+  "scripts": {
+    "test": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules vitest",
+    "coverage": "NODE_OPTIONS=--experimental-vm-modules vitest run --coverage"
+  },
+  "bugs": {
+    "url": "https://github.com/transformation-dev/blueprint/issues"
+  },
+  "dependencies": {
+    "@transformation-dev/deep-object-diff-apply": "file:packages/deep-object-diff-apply"
+  },
+  "devDependencies": {
+    "deep-object-diff": "^1.1.9",
+    "vitest": "^0.31.1"
+  }
+}
