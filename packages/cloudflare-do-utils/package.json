@@ -1,6 +1,6 @@
 {
   "name": "@transformation-dev/cloudflare-do-utils",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Utilities for working with Cloudflare's Durable Objects",
   "keywords": [
     "cloudflare",
@@ -38,8 +38,8 @@
     "url": "https://github.com/transformation-dev/blueprint/issues"
   },
   "dependencies": {
-    "@transformation-dev/deep-object-diff-apply": "file:packages/deep-object-diff-apply",
     "@cfworker/json-schema": "^1.12.5",
+    "@transformation-dev/deep-object-diff-apply": "file:packages/deep-object-diff-apply",
     "cbor-x": "^1.5.2",
     "debug": "^4.3.4",
     "deep-object-diff": "^1.1.9",

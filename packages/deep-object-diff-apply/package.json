@@ -1,6 +1,6 @@
 {
   "name": "@transformation-dev/deep-object-diff-apply",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Take the output of deep-object-diff's diff() function, apply it to the original lhs, and you get the original rhs.",
   "keywords": [
     "diff",

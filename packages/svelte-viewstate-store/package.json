@@ -1,6 +1,6 @@
 {
   "name": "@transformation-dev/svelte-viewstate-store",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Drop-in replacement for Svelte's writable store that keeps the URL in sync with any variables that determine the view and saves/restores last view state from LocalStorage",
   "keywords": [
     "LocalStorage",
