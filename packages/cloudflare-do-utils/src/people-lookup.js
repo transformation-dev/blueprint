@@ -178,7 +178,7 @@ const handlers = {
     throwIf(orgTreeIDString == null, 'body.orgTreeIDString required', 400)
 
     // TODO: Check that the user is authenticated
-    // TODO: Check that the user is a super-admin or an admin of the root node of the org tree
+    // TODO: Check that the user is a super-admin or root-admin (an admin of the root node of the org tree)
 
     // Delete the index entries in KV
     const promises = []
