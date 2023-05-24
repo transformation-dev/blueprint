@@ -17,6 +17,11 @@ export default defineConfig({
       ],
       provider: 'c8',
       // provider: 'istanbul',
+      reporter: [
+        'lcov',
+        'html',
+        'text',
+      ]
     },
     environment: "miniflare",
     // Configuration is automatically loaded from `.env`, `package.json` and
