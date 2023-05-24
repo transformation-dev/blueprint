@@ -10,9 +10,13 @@ export default defineConfig({
       all: true,
       exclude: [
         // "**/pages-do-proxy.js"
+        '**/*.test.js',
+        '**/test/**',
+        '**/coverage/**',
       ],
       include: [
         'packages/**/src/**/*.js',
+        'packages/**/*.js',
         'durable_objects/**/src/**/*.js',
       ],
       provider: 'c8',
