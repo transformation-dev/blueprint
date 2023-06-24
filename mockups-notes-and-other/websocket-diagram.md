@@ -5,8 +5,8 @@ sequenceDiagram
   box green Person A's browser
     participant Person A Tab 1
     participant Person A Tab 2
-    participant SharedWorker A
     participant LocalStorage A
+    participant SharedWorker A
   end
 
   box purple Cloudflare
@@ -45,27 +45,27 @@ sequenceDiagram
 
   Note right of Person A Tab 1: Set sequence
 
-    Person A Tab 1 ->> SharedWorker A: set(subscribableDoId, newValue)
-    activate SharedWorker A
-      par Broadcast Channel
-      SharedWorker A -->>  Person A Tab 2: set(subscribableDoId, newValue)
-      SharedWorker A ->> + LocalStorage A: set(subscribableDoId, newValue)
-        SharedWorker A ->> + Person A DO: /set { subscribableDoId, newValue }
-          end
-          Person A DO ->>      + Subscribable DO: /set { newValue }
+    par BroadcastChannel: 'blueprint'
+      Person A Tab 1 ->> Person A Tab 2: { subscribableDoId, newValue }
+      activate Person A Tab 1
+      Person A Tab 1 ->> SharedWorker A: { subscribableDoId, newValue }
+    end
+    Person A Tab 1 ->> LocalStorage A: set(subscribableDoId, newValue)
+    deactivate Person A Tab 1
+    SharedWorker A ->> Person A DO: /set { subscribableDoId, newValue }
+    Person A DO ->> Subscribable DO: /set { newValue }
           par
-          Subscribable DO ->>  Subscribable DO storage: set(newValue)
-          Subscribable DO ->>  + Person B DO: { subscribableDoId, newValue, newValidFrom }
+          Subscribable DO ->> Subscribable DO storage: set(newValue)
+          Subscribable DO ->> Person B DO: { subscribableDoId, newValue, newValidFrom }
           end
-            Person B DO ->>      - SharedWorker B: { subscribableDoId, newValue, newValidFrom }
-          Subscribable DO -->> - Person A DO: { subscribableDoId, newValue, newValidFrom }
-        Person A DO -->>     - SharedWorker A: { subscribableDoId, newValue, newValidFrom }
+            Person B DO ->> SharedWorker B: { subscribableDoId, newValue, newValidFrom }
+          Subscribable DO -->> Person A DO: { subscribableDoId, newValue, newValidFrom }
+        Person A DO -->> SharedWorker A: { subscribableDoId, newValue, newValidFrom }
         par
         SharedWorker A ->> LocalStorage A: set(subscribableDoId, { newValue, newValidFrom })
       SharedWorker A -->> Person A Tab 1: { subscribableDoId, newValue, newValidFrom }
       SharedWorker A -->> Person A Tab 2: { subscribableDoId, newValue, newValidFrom }
       end
-    deactivate SharedWorker A
 
 
 ```

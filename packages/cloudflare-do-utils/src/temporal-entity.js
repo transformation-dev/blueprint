@@ -394,7 +394,7 @@ export class TemporalEntity {
 
   async POST(request) {
     const { content: options } = await requestIn(request)
-    const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
+    const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')  // TODO: Why use ifUnmodifiedSince for POST?
     const [responseBody, status] = await this.post(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
     return this.doResponseOut(responseBody, status)
   }
@@ -482,7 +482,7 @@ export class TemporalEntity {
   }
 
   async get(options) {  // TODO: Accept asOfISOString
-    const { statusToReturn = 200, ifModifiedSince, asOfISOString } = options ?? {}
+    const { statusToReturn = 200, ifModifiedSince } = options ?? {}
     throwIf(
       ifModifiedSince != null && !dateISOStringRegex.test(ifModifiedSince),
       'If-Modified-Since must be in YYYY:MM:DDTHH:MM:SS.mmmZ format because we need millisecond granularity',

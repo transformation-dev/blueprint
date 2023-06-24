@@ -149,14 +149,14 @@ export class Tree  {
   // TODO: Upgrade this to support a large number of nodes once we have a customer getting close to that limit.
   //       Actually, I think the best thing to do is to handel it like we handel PeopleLookup by storing each node
   //       and edge in a separate key/value storage slot and using storage.list() to pull them all in at once for GET.
-  save() {
+  async save() {
     debug('save() called')
-    this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
-    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`, this.nodes)
-    this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/edges`, this.edges)
+    await this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
+    await this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/nodes`, this.nodes)
+    await this.state.storage.put(`${this.idString}/snapshot/${this.entityMeta.timeline.at(-1)}/edges`, this.edges)
   }
 
-  updateMetaAndSave(validFrom, userID, impersonatorID, incrementNodeCount = false) {  // You must update current.nodes or current.edges before calling this.
+  async updateMetaAndSave(validFrom, userID, impersonatorID, incrementNodeCount = false) {  // You must update current.nodes or current.edges before calling this.
     debug('updateMetaAndSave() called')
     throwUnless(this.hydrated, 'updateMetaAndSave() called before hydrate()')
     this.current.meta = {
@@ -170,7 +170,7 @@ export class Tree  {
     if (impersonatorID != null) this.current.meta.impersonatorID = impersonatorID
     this.entityMeta.timeline.push(validFrom)
     if (incrementNodeCount) this.entityMeta.nodeCount++
-    return this.save()
+    await this.save()
   }
 
   // Optimistic concurrency check. If the last validFrom is not the same as before the check, delete the Node DO and throw an error.
@@ -498,7 +498,7 @@ export class Tree  {
   }
 
   async get(options) {  // TODO: Accept asOf
-    const { statusToReturn = 200, ifModifiedSince, asOf } = options ?? {}
+    const { statusToReturn = 200, ifModifiedSince } = options ?? {}
     throwIf(
       ifModifiedSince != null && !dateISOStringRegex.test(ifModifiedSince),
       'If-Modified-Since must be in YYYY:MM:DDTHH:MM:SS.mmmZ format because we need millisecond granularity',
