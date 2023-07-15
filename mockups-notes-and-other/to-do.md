@@ -1,3 +1,6 @@
 
-- [] Make the focus ring for the logout one be symetric. This may mean abandoning the AgnosticUI header component.
+- [ ] Install version of wrangler with sqlite
+- [ ] Create new project blueprint-x
+- [ ] Create prototype temporalizable DO
+- [ ] Write vitest for prototype temporalizable DO
   

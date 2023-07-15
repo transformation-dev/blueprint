@@ -1,38 +1,52 @@
-# How does the websocket-synchronizable temporal entity system work?
+# How does the websocket-synchronizable Temporalizable system work?
 
 ## Server-side
 
 ### Temporalizable DO
-A new durable object Class similar to TemporalEntity but designed for synchronization.
+A durable object Class similar to TemporalEntity but designed for synchronization over websockets
 
   - It has these methods:
     - `post`
     - `get` - If an `ifModifiedSince` header is provided, it will of course return a 304 if the entity has not changed since that time as expected. However, it returns the diff from that time if that value in `ifModifiedSince` exactly matches an old snapshot. Failing that, it will reluctantly return the entire value and meta.
-    - `patchDiff` - Must include `ifUnmodifiedSince` header. If it's not the latest, Temporalizable will determine if the diff is in conflict with other changes from that point. If not, the change will go forward. Otherwise, it will error and return the diff from version indicated by `ifUnmodifiedSince` if that matches an old snapshot. Failing all that, it will return a different error code and the entire value and meta.
+    - `patch` - Must include `ifUnmodifiedSince` header. If it's not the latest, Temporalizable will determine if the diff is in conflict with other changes from that point. If not, the change will go forward. Otherwise, it will error and return the diff from version indicated by `ifUnmodifiedSince` if that matches an old snapshot. Failing all that, it will return a different error code and the entire value and meta.
     - `delete`
-    - `patchUndelete`
-  - `put` is not needed because we want to use `patchDiff`. If the downstream consumers don't have the latest, they will have to build it from either the response from `patchDiff` or `get`.
-  - Its `fetch` method only accepts POSTs and the contents of the post are merely the websocket message. Similarly, its responses are not designed to use all the normal HTTP mechanisms. They are designed to go over the websocket connection. It still uses some HTTP conventions because they are convenient and well understood. However, things like headers and error codes are simply fields in the serialized message.
-  - It will implement VersioningTransactionalDOWrapper-like functionality but without the overhead of preserving the original DOs behavior.
-  - It will maintain a list of subscriber personIDs.
-  - It will send changes downstream whenever `this.value` or `this.meta` changes. `this.current` is no longer used. Responses will contain a `diff` and a `meta` field. `this.value` is not sent. If a downstream receipient receives a diff that doesn't match their latest, they will have to initiate a round trip `get` to become current.
-  - It will try to save the value under a single key but if that fails, it will use cbor-x to create an ArrayBuffer and use view windows to save that in chunks. A field in meta will indicate if the value is saved in chunks.
-   
-### Person DO
-
-  - A subclass of Temporalizable DO with some extra stuff
-  - It maintains a websocket connection to shared worker(s) - one per unique browser that Person is logged in from. It will use the new websocket hibernation feature to keep the connection alive even when its ejected from memory.
-  - It listens on the websocket for changes coming from downstream and proxies them up to the appropriate upstream durable object
-  - This "upstream" DO might be itself in the case of changes to its own values (e.g. name, email addresses, etc.)
-  - We keep sessions here rather than in KV but we still need KV to find the right Person DO to connect to
+    - `undelete`
+  - `put` is not needed because we want to use `patch`. If the downstream consumers don't have the latest, they will have to build it from either the response from `patchDiff` or `get`.
+  - I'm not sure we even need a `fetch` method. Maybe to immediately upgrade to websocket. Maybe for initial DO creation?
+  - We'll still use HTTP conventions where convenient. Notice how most of the methods are HTTP methods. However, we'll encode things like headers and status codes in the serialized message
+  - It implements VersioningTransactionalDOWrapper-like functionality but without the overhead of preserving the original DOs behavior
+  - It maintains a list of SessionIDs as subscribers. Note, the same user can be logged in on two machines or two browsers. This allows the subscriptions to be different. Each browser gets its own unique session
+  - It sends changes downstream whenever `this.value` or `this.meta` changes. `this.current` is no longer used. Downstream headed messages contain a `diff` and a `meta` field. The meta indicates the validFrom which should match the downstream latest timestamp before applying the diff. If a downstream receipient receives a diff that doesn't match their latest, they will have to initiate a round trip `get` to become current.
+  - It tries to save the value under a single DO storage key but if that fails, it uses cbor-x to create an ArrayBuffer and then uses view windows on that ArrayBuffer to save it in chunks. A field in meta will indicate if the value is saved in chunks. Meta is always saved normally.
+  - Maintains a websocket connection to each Session that has a subscription
+  - Uses the new websocket hibernation feature to keep the connection alive even when its ejected from memory
 
 ### Org DO
 
   - A subclass of Temporalizable DO with some extra stuff
-  - Validates that its DAG(s) are valid DAG(s) after processing a change using the diff format. This will prevent someone who talks to it directly from corrupting it, although we should try to prevent that.
+  - Validates that its DAG(s) are valid DAG(s) after processing a change using the diff format. This will prevent someone who talks to it directly from corrupting it, although we should try to prevent talking to it directly.
   - The Org does not maintain a list of all associated Persons. That is maintained in KV because it's the starting point right after login and could go to one of many Orgs.
   - However, it manages all permissions which are cross-references between Org nodes and Persons.
+   
+### Person DO
 
+  - A subclass of Temporalizable DO maybe with some extra stuff like converting all email addresses to lower case. IDEA: DECLARATIVELY SPECIFY TRANSFORMATIONS LIKE THAT IN THE SCHEMA
+  - A Person can belong to more than one Org
+ 
+### Session DO
+  - Downstream to a single browser:
+    - Maintains a websocket connection to a unique browser. It will use the new websocket hibernation feature to keep the connection alive even when its ejected from memory.
+    - From a single browser, a person can only be logged into one Org. 
+    - If a user is logged in on two browsers, it will have two Session DOs and they can be to different Orgs.
+    - It listens on the websocket for changes coming from downstream and proxies them up to the appropriate upstream durable object
+    - We keep sessions here rather than in KV but we still need KV to find the right Person DO to connect to
+    - When the session is instantiated, an "alarm" is created for the moment when the session will expire. The alarm() handler simply calls `logout()`
+    - `logout()` uses deleteAll to effectvely delete the session
+    - The cookie will remain on the user's machine but the next time they go to use it, it will indicate that the session has expired and they will need to login again
+    - A user can reconnect to the same session whose IDString was stored in a cookie as long as the session has not been deleted as indicated by the fact that it still has something (maybe entityMeta) in its storage
+  - Upstream to entities:
+    - Maintains a connection to each upstream entity DO
+    - Processes unsubscribe messsages by closing the connection which will trigger the upstream DO to remove this session from its subscriber list
 
 ## Client-side
 
