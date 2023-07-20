@@ -44,5 +44,9 @@
       "cygnetdigital",
       "miniflare",
       "SENDGRID"
-    ]
+    ],
+    "sonarlint.connectedMode.project": {
+      "connectionId": "transformation-dev",
+      "projectKey": "transformation-dev_blueprint"
+    }
 }

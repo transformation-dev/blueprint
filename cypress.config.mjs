@@ -9,7 +9,7 @@ export default defineConfig({
     async setupNodeEvents(on, config) {
       // eslint-disable-next-line import/extensions
       const cyPlugin = await import('./cypress/plugins/index.mjs')
-      cyPlugin.default(on, config)
+      await cyPlugin.default(on, config)
 
       return config
     },

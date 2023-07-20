@@ -7,10 +7,12 @@ import { diff } from 'deep-object-diff'
 import { Validator as JsonSchemaValidator } from '@cfworker/json-schema'
 
 // monorepo imports
+import { applyDiff } from '@transformation-dev/deep-object-diff-apply'
+
+// local imports
 import { errorResponseOut, requestIn } from './content-processor.js'
 import { throwIf, throwUnless } from './throws.js'
 import { getDebug, Debug } from './debug.js'
-import { applyDelta } from './apply-delta.js'
 import { dateISOStringRegex } from './date-utils'
 import { temporalMixin } from './temporal-mixin'
 
@@ -34,17 +36,13 @@ const debug = getDebug('blueprint:temporal-entity')
 // It's PascalCase for classes/types and camelCase for everything else.
 // Acronyms are treated as words, so HTTP is Http, not HTTP, except for two-letter ones, so it's ID, not Id.
 
-// TODO A: Create People DO. A Person is a just a TemporalEntity but the People DO is not temporal. It'll store the list of people
-//       in a single storage object under the key 1 for now but later we can spread it out over multiple storage objects,
-//       People batches 2 thru n if you will.
-//       I don't think we should reuse the Tree DO because having it be a DAG doesn't make sense. However, we might be able
-//       to start with the Tree code and simplify it. Maybe extract the code that saves the nodes.
-
 // TODO A: Implement query using npm module sift https://github.com/crcn/sift.js.
 //       Support a query parameter to include soft-deleted items in the query but default to not including them.
 //       Update the error message for GET.
 
 // TODO A: Cause queries to go down recursively into children of the DAG as well as meta.attachments of the entity
+
+// TODO B: Fork deep-object-diff so that Arrays that are different show the entire old array in previousValues rather than an index and value
 
 // TODO: B. Port TZTime.Timeline
 
@@ -208,6 +206,7 @@ export class TemporalEntity {
     this.env = env
     this.typeVersionConfig = typeVersionConfig
     this.hydrateTypeVersionConfig()
+    this.idString = this.state.id.toString()
 
     Object.assign(this, temporalMixin)
 
@@ -227,8 +226,6 @@ export class TemporalEntity {
   async hydrate() {
     // debug('hydrate() called. this.hydrated: %O', this.hydrated)
     if (this.hydrated) return
-
-    this.idString = this.state.id.toString()
 
     // hydrate #entityMeta
     this.entityMeta = await this.state.storage.get(`${this.idString}/entityMeta`) || { timeline: [] }
@@ -375,6 +372,9 @@ export class TemporalEntity {
     }
     await this.state.storage.put(`${this.idString}/snapshot/${validFrom}`, this.current)
 
+    // TODO A0: Send update to queue
+    // await this.env.BLUEPRINT.send('something')
+
     // return the new current
     return this.get()
   }
@@ -386,12 +386,17 @@ export class TemporalEntity {
     return this.doResponseOut(responseBody, status)
   }
 
+  async post(value, userID, validFrom, impersonatorID, ifUnmodifiedSince) {
+    const [responseBody, status] = await this.put(value, userID, validFrom, impersonatorID, ifUnmodifiedSince)
+    if (status === 200) return [responseBody, 201]
+    else return [responseBody, status]
+  }
+
   async POST(request) {
     const { content: options } = await requestIn(request)
-    const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
-    const [responseBody, status] = await this.put(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
-    if (status === 200) return this.doResponseOut(responseBody, 201)
-    else return this.doResponseOut(responseBody, status)
+    const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')  // TODO: Why use ifUnmodifiedSince for POST?
+    const [responseBody, status] = await this.post(options.value, options.userID, options.validFrom, options.impersonatorID, ifUnmodifiedSince)
+    return this.doResponseOut(responseBody, status)
   }
 
   async patchUndelete({ userID, validFrom, impersonatorID }) {
@@ -422,7 +427,7 @@ export class TemporalEntity {
 
     const newValue = structuredClone(this.current.value)
 
-    applyDelta(newValue, delta)
+    applyDiff(newValue, delta)
 
     return this.put(newValue, userID, validFrom, impersonatorID, ifUnmodifiedSince)
   }
@@ -438,7 +443,7 @@ export class TemporalEntity {
     await this.state.storage.put(`${this.idString}/snapshot/${oldCurrent.meta.validFrom}`, oldCurrent)
 
     // apply metaDelta to current.meta and save it
-    applyDelta(this.current.meta, metaDelta)
+    applyDiff(this.current.meta, metaDelta)
     this.current.meta.previousValues = {}  // value never changes in a patchMetaDelta
     this.entityMeta.timeline.push(metaDelta.validFrom)
     await this.state.storage.put(`${this.idString}/entityMeta`, this.entityMeta)
@@ -459,19 +464,25 @@ export class TemporalEntity {
   }
 
   async PATCH(request) {
-    try {
-      const { content: options } = await requestIn(request)
-      const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
-      const [responseBody, status] = await this.patch(options, ifUnmodifiedSince)
-      return this.doResponseOut(responseBody, status)
-    } catch (e) {
-      this.hydrated = false  // Makes sure the next call to this DO will rehydrate
-      return errorResponseOut(e, this.env, this.idString)
-    }
+    const { content: options } = await requestIn(request)
+    const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
+    const [responseBody, status] = await this.patch(options, ifUnmodifiedSince)
+    return this.doResponseOut(responseBody, status)
+
+    // TODO: Delete the below if it continues to pass all tests
+    // try {
+    //   const { content: options } = await requestIn(request)
+    //   const ifUnmodifiedSince = request.headers.get('If-Unmodified-Since')
+    //   const [responseBody, status] = await this.patch(options, ifUnmodifiedSince)
+    //   return this.doResponseOut(responseBody, status)
+    // } catch (e) {
+    //   this.hydrated = false  // Makes sure the next call to this DO will rehydrate
+    //   return errorResponseOut(e, this.env, this.idString)
+    // }
   }
 
   async get(options) {  // TODO: Accept asOfISOString
-    const { statusToReturn = 200, ifModifiedSince, asOfISOString } = options ?? {}
+    const { statusToReturn = 200, ifModifiedSince } = options ?? {}
     throwIf(
       ifModifiedSince != null && !dateISOStringRegex.test(ifModifiedSince),
       'If-Modified-Since must be in YYYY:MM:DDTHH:MM:SS.mmmZ format because we need millisecond granularity',

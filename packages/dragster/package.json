@@ -1,6 +1,6 @@
 {
   "name": "@transformation-dev/dragster",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Port of Ben Smithett's dragster to ES6. Wraps native dragenter/dragleave to behave like mouse event when hovering over child DOM elements.",
   "keywords": [
     "drag-and-drop",

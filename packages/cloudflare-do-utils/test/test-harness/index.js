@@ -2,12 +2,20 @@
 
 // mono-repo imports
 import { VersioningTransactionalDOWrapper } from '../../src/versioning-transactional-do-wrapper.js'
+import { getPersonLookupFetch, getPersonLookupFetchPartial } from '../../src/people-lookup.js'
 
 // local imports
 import typeConfig from './types.js'
 
-// Worker that does nothing and is never used but necessary since durable objects require a Worker
-export default {}
+const personType = 'person-for-testing'
+const personVersion = 'v1'
+const orgTreeType = 'org-tree-for-testing'
+const orgTreeVersion = 'v1'
+
+export default {
+  fetch: getPersonLookupFetch(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion),
+  getFetchPartial: getPersonLookupFetchPartial(typeConfig, personType, personVersion, orgTreeType, orgTreeVersion),  // only needed for testing
+}
 
 // Durable Object
 export class DurableAPI extends VersioningTransactionalDOWrapper {

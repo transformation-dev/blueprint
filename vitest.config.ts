@@ -10,13 +10,22 @@ export default defineConfig({
       all: true,
       exclude: [
         // "**/pages-do-proxy.js"
+        '**/*.test.js',
+        '**/test/**',
+        '**/coverage/**',
       ],
       include: [
         'packages/**/src/**/*.js',
+        'packages/**/*.js',
         'durable_objects/**/src/**/*.js',
       ],
       provider: 'c8',
       // provider: 'istanbul',
+      reporter: [
+        'lcov',
+        'html',
+        'text',
+      ]
     },
     environment: "miniflare",
     // Configuration is automatically loaded from `.env`, `package.json` and
@@ -24,8 +33,7 @@ export default defineConfig({
     // API options here:
     environmentOptions: {
       // bindings: { KEY: "value" },
-      // kvNamespaces: ["TEST_NAMESPACE"],
-
+      kvNamespaces: ["PEOPLE_LOOKUP"],
       modules: true,
       scriptPath: scriptPath,
       durableObjects: {

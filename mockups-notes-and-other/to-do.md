@@ -1,3 +1,6 @@
 
-- [] Make the focus ring for the logout one be symetric. This may mean abandoning the AgnosticUI header component.
+- [ ] Install latest version of wrangler which supports the hibernation API (and maybe sqlite DO storage behind compat flag experimental)
+- [ ] Create new project blueprint-x
+- [ ] Create prototype temporalizable DO
+- [ ] Write vitest for prototype temporalizable DO
   

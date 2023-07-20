@@ -16,7 +16,7 @@ export const verifyCode = async ({ env, code, targetURL }) => {
   ) {
     throw new Error('*** ERROR!!! TESTING_OVERRIDE_CODE is expected in non-production environments for testing ***')
   }
-  const sessionString = code ? await env.SESSIONS.get(code) : null
+  const sessionString = code ? await env.SESSIONS.get(code) : null  // TODO A1: upgrade the key to be code+email
   let location
   let maxAge = '31536000'
   let success = true

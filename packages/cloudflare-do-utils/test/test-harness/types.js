@@ -6,6 +6,8 @@ import { load as yamlLoad } from 'js-yaml'
 import { throwIfNotDag } from '../../src/throws.js'
 import { TemporalEntity } from '../../src/temporal-entity.js'
 import { Tree } from '../../src/tree.js'
+import { List } from '../../src/list.js'
+import { Person } from '../../src/person.js'
 
 // local imports
 import { TransactionalTester } from './transactional-tester.js'
@@ -57,6 +59,7 @@ const defaultTypeVersionConfig = {
   additionalValidation: null,
   passFullUrl: false,
   disableUseOfTransaction: false,
+  doNamespace: 'DO_API',
 }
 
 // TemporalEntity is TheClass for many different types below but they can still have different schemas, validation, migrations, etc.
@@ -98,8 +101,41 @@ const types = {
         rootNodeVersion: 'v1',
         nodeType: 'temporal-entity',
         nodeVersion: 'v1',
-        nodeDOEnvNamespace: 'DO_API',
+        doNamespace: 'DO_API',
         environments: { '*': { TheClass: Tree } },
+      },
+    },
+  },
+  'list-for-testing': {
+    versions: {
+      v1: {
+        elementType: 'temporal-entity',
+        elementVersion: 'v1',
+        stubFields: ['name', 'emailAddresses'],
+        doNamespace: 'DO_API',
+        environments: { '*': { TheClass: List } },
+      },
+    },
+  },
+  'org-tree-for-testing': {
+    versions: {
+      v1: {
+        rootNodeType: 'temporal-entity',  // TODO: Upgrade this to a root-node-org type with schema
+        rootNodeVersion: 'v1',
+        nodeType: 'temporal-entity',  // TODO: Upgrade this to a node-org type with schema
+        nodeVersion: 'v1',
+        doNamespace: 'DO_API',
+        environments: { '*': { TheClass: Tree } },
+      },
+    },
+  },
+  'person-for-testing': {
+    versions: {
+      v1: {
+        // TODO: Add schema
+        // TODO: Either add additionalValidation or schema to assure that emailAddresses.length > 0
+        doNamespace: 'DO_API',  // not needed because it's the default, but showing here to demonstrate that the doNamespace could be different
+        environments: { '*': { TheClass: Person } },
       },
     },
   },

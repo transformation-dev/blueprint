@@ -98,14 +98,14 @@ export function errorResponseOut(e, env, idString) {
     body.error.stack = e.body?.error?.stack ?? ''
     body.error.stack += e.stack
   }
-  body.idString = idString
+  body.idString = idString || e.body?.idString
   return responseOut(body, e.status ?? 500)
 }
 
 export async function responseIn(response) {
   const contentType = response.headers.get('Content-Type')
   if (contentType == null) {
-    if ([304, 204].includes(response.status)) {
+    if (response.body == null || [304, 204].includes(response.status)) {
       return response
     } else {
       throwIf(true, 'No Content-Type header supplied', 400)

@@ -1,11 +1,15 @@
 compatibility_date = "2023-02-11"
-name = "transformation-durable_objects"
+name = "transformation-durable_objects"  # TODO: Rename to "blueprint"
 main = "./dist/index.mjs"
 
 [vars]
 DEBUG = "blueprint:*"
 
-[durable_objects]
+[[queues.producers]]  # TODO: Upgrade to bind BLUEPRINT_QUEUE to queue name blueprint-preview for environment preview
+ queue = "blueprint"
+ binding = "BLUEPRINT_QUEUE"
+
+[durable_objects]  # TODO: Add preview environment
 bindings = [
   {name = "DO_API", class_name = "DurableAPI"},
 ]

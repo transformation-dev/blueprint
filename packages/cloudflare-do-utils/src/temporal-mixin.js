@@ -39,7 +39,7 @@ export const temporalMixin = {
     const asOfISOString = asOf ? new Date(asOf).toISOString() : undefined  // TODO: Maybe we should require ISO-8601 format?
     const [response, status] = await this.get({ ifModifiedSince, asOfISOString })
     if (status === 304) return responseOut(undefined, 304)
-    return responseOut(response)
+    return this.doResponseOut(response)
   },
 
   async getEntityMeta(ifModifiedSince) {

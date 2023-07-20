@@ -1,6 +1,6 @@
 {
   "name": "@transformation-dev/cloudflare-do-utils",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Utilities for working with Cloudflare's Durable Objects",
   "keywords": [
     "cloudflare",
@@ -28,7 +28,9 @@
   "scripts": {
     "build": "npx vite build",
     "test": "npm run build && npm run test:run",
+    "build-and-test:active": "npm run build && npm run test:active",
     "test:run": "NODE_OPTIONS=--experimental-vm-modules vitest --run",
+    "test:active": "NODE_OPTIONS=--experimental-vm-modules vitest --run test/apply-diff.test.js",
     "test:watch": "npx vite && NODE_OPTIONS=--experimental-vm-modules vitest",
     "coverage": "npx vite build && NODE_OPTIONS=--experimental-vm-modules vitest run --coverage"
   },
@@ -37,15 +39,15 @@
   },
   "dependencies": {
     "@cfworker/json-schema": "^1.12.5",
+    "@transformation-dev/deep-object-diff-apply": "file:packages/deep-object-diff-apply",
     "cbor-x": "^1.5.2",
     "debug": "^4.3.4",
     "deep-object-diff": "^1.1.9",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {
-    "@vitest/coverage-c8": "^0.29.2",
-    "node-fetch": "^3.3.0",
-    "vitest": "^0.29.1",
-    "vitest-environment-miniflare": "^2.12.1"
+    "@vitest/coverage-c8": "^0.29.8",
+    "vitest": "^0.31.1",
+    "vitest-environment-miniflare": "^2.13.0"
   }
 }

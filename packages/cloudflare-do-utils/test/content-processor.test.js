@@ -16,7 +16,7 @@ describe('Content Processor', () => {
     const contentType = 'application/json'
     const repeatedObject = { b: 2 }
     const o = { a: 1, repeatedObject, repeatedObject2: repeatedObject }
-    const requestOutResult = await requestOut('http://fake.host', { method: 'POST', body: o, headers: { 'Content-Type': contentType } })
+    const requestOutResult = await requestOut('https://fake.host', { method: 'POST', body: o, headers: { 'Content-Type': contentType } })
     const requestInResult = await requestIn(requestOutResult)
     expect(requestInResult.content).toStrictEqual(o)
   })
@@ -25,7 +25,7 @@ describe('Content Processor', () => {
     const contentType = 'application/cbor'
     const repeatedObject = { b: 2 }
     const o = { a: 1, repeatedObject, repeatedObject2: repeatedObject }
-    const requestOutResult = await requestOut('http://fake.host', { method: 'POST', body: o, headers: { 'Content-Type': contentType } })
+    const requestOutResult = await requestOut('https://fake.host', { method: 'POST', body: o, headers: { 'Content-Type': contentType } })
     const requestInResult = await requestIn(requestOutResult)
     expect(requestInResult.content).toStrictEqual(o)
     expect(requestInResult.content.repeatedObject).toBe(requestInResult.content.repeatedObject2)

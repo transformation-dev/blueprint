@@ -5,6 +5,8 @@ import { getDebug, Debug } from './debug.js'
 import { errorResponseOut } from './content-processor.js'
 import { HTTPError } from './http-error.js'
 import { isIDString } from './id-string.js'
+import { throwIf } from './throws.js'
+import { getTypeVersionConfigAndEnvironmentOptions } from './referenced-do-operations.js'
 
 // initialize imports
 const debug = getDebug('blueprint:transactional-do-wrapper')
@@ -16,12 +18,15 @@ export class VersioningTransactionalDOWrapper {
     this.hydrated = true
   }
 
-  constructor(state, env, { types, defaultTypeVersionConfig }) {  // Cloudflare only passes in 2 parameters, so either subclass and call super() or use in composition with a 3rd parameter
+  // constructor(state, env, { types, defaultTypeVersionConfig }) {  // Cloudflare only passes in 2 parameters, so either subclass and call super() or use in composition with a 3rd parameter
+  constructor(state, env, typeConfig) {  // Cloudflare only passes in 2 parameters, so either subclass and call super() or use in composition with a 3rd parameter
     Debug.enable(env.DEBUG)
+    throwIf(typeConfig == null, 'typeConfig is required')
     this.state = state
     this.env = env
-    this.types = types
-    this.defaultTypeVersionConfig = defaultTypeVersionConfig
+    // this.types = types
+    // this.defaultTypeVersionConfig = defaultTypeVersionConfig
+    this.typeConfig = typeConfig
 
     this.hydrated = false
     this.classInstance = null
@@ -50,7 +55,7 @@ export class VersioningTransactionalDOWrapper {
 
     // pull type/version from url and validate
     const type = pathArray.shift()
-    if (this.types[type] == null) {
+    if (this.typeConfig.types[type] == null) {
       return errorResponseOut(new HTTPError(`Type ${type} not found`, 404), this.env, this.state.id.toString())
     }
     if (this.transactionalWrapperMeta != null && this.transactionalWrapperMeta?.type !== type) {
@@ -60,32 +65,16 @@ export class VersioningTransactionalDOWrapper {
       ), this.env, this.state.it.toString())
     }
     const version = pathArray.shift()
-    if (this.types[type].versions[version] == null) {
+    if (this.typeConfig.types[type].versions[version] == null) {
       return errorResponseOut(new HTTPError(`Version ${version} for type ${type} not found`, 404), this.env, this.state.id.toString())
     }
 
     if (isIDString(pathArray[0])) pathArray.shift()  // remove the ID
 
-    // set the typeVersionConfig by combining the default with the specific type/version
-    const typeVersionConfig = { type, version }
-    const lookedUpTypeVersionConfig = this.types[type]?.versions[version] ?? {}
-    const typeVersionConfigKeys = new Set([...Reflect.ownKeys(this.defaultTypeVersionConfig), ...Reflect.ownKeys(lookedUpTypeVersionConfig)])
-    for (const key of typeVersionConfigKeys) {
-      if (key !== 'environments') {
-        typeVersionConfig[key] = lookedUpTypeVersionConfig[key] ?? this.defaultTypeVersionConfig[key]
-      }
-    }
-    debug('Type/version config for type "%s" version "%s": %O', type, version, typeVersionConfig)
+    const { typeVersionConfig, environmentOptions } = getTypeVersionConfigAndEnvironmentOptions(type, version, this.typeConfig, this.env)
 
-    // set the environment options by combining the default with the options for the specific environment
+    debug('Options for type "%s" version "%s": %O', type, version, environmentOptions)
     const environment = this.env.CF_ENV ?? '*'
-    const environmentOptions = {}
-    const defaultEnvironmentOptions = lookedUpTypeVersionConfig.environments['*'] ?? {}
-    const lookedUpEnvironmentOptions = lookedUpTypeVersionConfig.environments[environment] ?? {}
-    const keys = new Set([...Reflect.ownKeys(defaultEnvironmentOptions), ...Reflect.ownKeys(lookedUpEnvironmentOptions)])
-    for (const key of keys) {
-      environmentOptions[key] = lookedUpEnvironmentOptions[key] ?? defaultEnvironmentOptions[key]
-    }
 
     if (environmentOptions.TheClass == null) {
       return errorResponseOut(new HTTPError(
@@ -93,7 +82,6 @@ export class VersioningTransactionalDOWrapper {
         404,
       ), this.env, this.state.id.toString())
     }
-    debug('Options for type "%s" version "%s": %O', type, version, environmentOptions)
 
     let requestToPassToWrappedDO
     if (typeVersionConfig.passFullUrl) {
@@ -101,7 +89,7 @@ export class VersioningTransactionalDOWrapper {
       debug('Passing along original request. request.url: %s', request.url)
     } else {
       const joinedPath = pathArray.join('/')
-      let urlToPassToWrappedDO = 'http://fake.host/'
+      let urlToPassToWrappedDO = 'https://fake.host/'
       urlToPassToWrappedDO += `${joinedPath}`
       urlToPassToWrappedDO += request.url.slice(request.url.indexOf(url.pathname) + url.pathname.length)
       debug('URL to pass to wrapped DO: %s', urlToPassToWrappedDO)
