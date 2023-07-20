@@ -26,7 +26,10 @@ A durable object Class similar to TemporalEntity but designed for synchronizatio
   - A subclass of Temporalizable DO with some extra stuff
   - Validates that its DAG(s) are valid DAG(s) after processing a change using the diff format. This will prevent someone who talks to it directly from corrupting it, although we should try to prevent talking to it directly.
   - The Org does not maintain a list of all associated Persons. That is maintained in KV because it's the starting point right after login and could go to one of many Orgs.
-  - However, it manages all permissions which are cross-references between Org nodes and Persons.
+  - However, it manages all permissions which are cross-references between Org nodes and Persons
+  - This ACL data is stored in a denormalized fashion in the Org DO, meaning that if there is an attempt to add say read permission for a Person and they already have Read permission on an ancestor, it won't record the extra permission
+  - When someone goes to remove a permission, the UI should prompt to see if they would rather move it to a lower level if this is the Person's only permission 
+  - When requested by a Session DO, it'll generate an expanded/denormalized ACL that is convenient for the Session DO to use. It'll be bigger than the denormalized ACL, but smaller than the denormalized ACL plus the tree.
    
 ### Person DO
 
@@ -34,6 +37,8 @@ A durable object Class similar to TemporalEntity but designed for synchronizatio
   - A Person can belong to more than one Org
  
 ### Session DO
+  - Serves as a proxy for all websocket communcation
+  - There is a 1:1 relationship between a Session DO and a SharedWorker
   - Downstream to a single browser:
     - Maintains a websocket connection to a unique browser. It will use the new websocket hibernation feature to keep the connection alive even when its ejected from memory.
     - From a single browser, a person can only be logged into one Org. 
@@ -44,13 +49,21 @@ A durable object Class similar to TemporalEntity but designed for synchronizatio
     - `logout()` uses deleteAll to effectvely delete the session
     - The cookie will remain on the user's machine but the next time they go to use it, it will indicate that the session has expired and they will need to login again
     - A user can reconnect to the same session whose IDString was stored in a cookie as long as the session has not been deleted as indicated by the fact that it still has something (maybe entityMeta) in its storage
+    - Downstream message processing:
+      - If the age of the ACL is greater than say 30 minutes (a setting for the Org that is cached by the session at login), it will await an update of the ACL before proceeding
+      - If the age of the ACL is greater than say 5 minutes (another cached Org setting), it'll ask for an update of the ACL but still proceed
+      - If the age of the ACL is less than say 5 minutes, it'll proceed
+      - Before a message from upstream is forwarded downstream, it confirms that the ACL is recent. If not, it checks to see that an update is pending. If not, it sends one. In both cases, it awaits the reply before proceeding.
+      - All downstream messages (replies or updates) are checked against a current ACL.
   - Upstream to entities:
     - Maintains a connection to each upstream entity DO
     - Processes unsubscribe messsages by closing the connection which will trigger the upstream DO to remove this session from its subscriber list
+    - When a request comes in, it checks that the ACL for this Person and Org is recent. If not, it sends a request to the Org to send an updated ACL.
+
 
 ## Client-side
 
-### Shared worker
+### SharedWorker
   - It establishes the websocket connection to the Person durable object on login or reconnection using stored cookie credentials
   - It creates a shared worker class (SWC, see below) instance for each enityID with an active subscription
   - When a change comes in over the websocket connection (aka from upstream), it sends that to the appropriate SWC
@@ -104,3 +117,45 @@ In case the `onDestroy`/`unsubscribe()` behavior of the components and stores fa
 ### Right now, Tree creates the Node DOs. With a generic backend, what creates them?
 
 We could still have our server-side DAGTree DO do that, but I'm thinking that might have been a mistake. Rather, we allow clients to create them directly. When they hear back that the creation was successful, they can add them to the tree. We can also use the DO timer feature to delete any DOs that don't get connected to a tree or some other attachment place within a given time period. This means, the base Temporalizable class must maintain a placesAttachedTo object. Only when that is empty is the DO hard deleted.
+
+
+## Simulating request-response behavior over websockets
+
+- Browser code creates a random id for each request
+- This is sent along with the request
+- At the same time, the browser code creates a broadcast channel with the same name as the request id
+- When the response comes in, it'll go over that broadcast channel to the tab; the tab will process the message; and close the channel
+
+## Routing of messages
+
+- Messages are in an envelope
+- As requests move upstream, the route field in the envelope is appended
+- By the time it reaches an entity, an envelope might look like this 
+    ```javascript
+    {
+      to: [{ id: "E1", type: "entity durable object" }],
+      from: { id: "1234", type: "request" },
+      // via is probably not needed for upstream messages
+      route: [
+        { id: "T1", type: "tab", version: "0.0.10", when: "2023-01-01T00:00:00.000Z" },
+        { id: "upstream", type: "broadcast channel", when: "2023-01-01T00:00:00.001Z" },
+        { id: "SW1", type: "shared worker", version: "0.0.10", when: "2023-01-01T00:00:00.002Z" },
+        { id: "S1", type: "session durable object", version: "0.0.10", when: "2023-01-01T00:00:00.007Z" },
+        // missing `{ id: "E1", type: "entity durable object" }` because it's the destination
+      ]
+    }
+    ```
+- The response might arrive back at the original sending tab with an envelope like this:
+    ```javascript
+    {
+      to: [{ id: "1234", type: "request" }],  // populated from the original `from` field
+      from: { id: "E1", type: "entity durable object" },
+      via: [{ id: "S1", type: "session durable object" }],
+      route: [
+        { id: "E1", type: "entity durable object", version: "0.0.10", when: "2023-01-01T00:00:00.011Z" },
+        { id: "S1", type: "session durable object", version: "0.0.10", when: "2023-01-01T00:00:00.013Z" },
+        { id: "SW1", type: "shared worker", version: "0.0.10", when: "2023-01-01T00:00:00.023Z" },
+        { id: "1234", type: "broadcast channel", when: "2023-01-01T00:00:00.024Z" },
+      ]
+    }
+    ```
