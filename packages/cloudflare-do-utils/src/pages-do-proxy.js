@@ -42,6 +42,7 @@ export function pagesDOProxy(doNameString) {
       debug(`${doNameString}.fetch() to %O failed with status: %O`, url, response.status)
       const responseCloned = response.clone()
       const { content: body } = await responseIn(responseCloned)
+      // const { content: body } = await responseIn(response)
       debug('Error body:\n%O', body)
     }
     return response

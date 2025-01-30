@@ -38,16 +38,10 @@
     "url": "https://github.com/transformation-dev/blueprint/issues"
   },
   "dependencies": {
-    "@cfworker/json-schema": "^1.12.5",
-    "@transformation-dev/deep-object-diff-apply": "file:packages/deep-object-diff-apply",
+    "@cfworker/json-schema": "^1.12.7",
     "cbor-x": "^1.5.2",
     "debug": "^4.3.4",
     "deep-object-diff": "^1.1.9",
     "js-yaml": "^4.1.0"
-  },
-  "devDependencies": {
-    "@vitest/coverage-c8": "^0.29.8",
-    "vitest": "^0.31.1",
-    "vitest-environment-miniflare": "^2.13.0"
   }
 }

@@ -170,6 +170,7 @@ describe('TemporalEntity validation on existing entity', async () => {
     },
   }
   let response = await requestOutResponseIn(url, options, stub, state)
+  expect(response.status).toBe(201)
   lastValidFrom = response.content.meta.validFrom
   idString = response.content.idString
   url += `/${idString}`

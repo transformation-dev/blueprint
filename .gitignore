@@ -3,6 +3,7 @@ durable_objects/index.mjs
 durable_objects/index.mjs.map
 .mf/
 .dccache
+.wrangler/
 
 # Coverage
 coverage/
@@ -70,3 +71,4 @@ node_modules/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+.wrangler/tmp/bundle-4ZYLXI/checked-fetch.js

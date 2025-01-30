@@ -14,7 +14,7 @@
   import {link as routerLink, location} from 'svelte-spa-router'  // TODO: Move these to svelte-viewstate-store 
 
   import Icon from 'svelte-awesome'
-  import signOut from 'svelte-awesome/icons/sign-out'
+  // import signOut from 'svelte-awesome/icons/sign-out'
 
   // import {ViewstateStore} from '@transformation-dev/svelte-viewstate-store'
 
@@ -88,7 +88,7 @@
     {/each}
   </HeaderNav>
   <button id="logout" slot="logoright" on:click={handleLogout}>
-    <Icon scale={1.3} data={signOut} class="logout" />
+    <!-- <Icon scale={1.3} data={signOut} class="logout" /> -->
   </button>
 </Header>
 

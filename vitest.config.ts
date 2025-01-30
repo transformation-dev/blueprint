@@ -19,7 +19,7 @@ export default defineConfig({
         'packages/**/*.js',
         'durable_objects/**/src/**/*.js',
       ],
-      provider: 'c8',
+      provider: 'v8',
       // provider: 'istanbul',
       reporter: [
         'lcov',

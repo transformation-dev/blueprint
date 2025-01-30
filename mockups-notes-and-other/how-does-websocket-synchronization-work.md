@@ -1,72 +1,121 @@
 # How does the websocket-synchronizable Temporalizable system work?
 
+Server-side has these main components:
+1. Org DO
+2. Attached Data in D1
+3. Aggregator DO
+
+Client-side has these main components:
+1. SharedWorker
+2. Store
+3. SWC (shared worker class)
+
 ## Server-side
-
-### Temporalizable DO
-A durable object Class similar to TemporalEntity but designed for synchronization over websockets
-
-  - It has these methods:
-    - `post`
-    - `get` - If an `ifModifiedSince` header is provided, it will of course return a 304 if the entity has not changed since that time as expected. However, it returns the diff from that time if that value in `ifModifiedSince` exactly matches an old snapshot. Failing that, it will reluctantly return the entire value and meta.
-    - `patch` - Must include `ifUnmodifiedSince` header. If it's not the latest, Temporalizable will determine if the diff is in conflict with other changes from that point. If not, the change will go forward. Otherwise, it will error and return the diff from version indicated by `ifUnmodifiedSince` if that matches an old snapshot. Failing all that, it will return a different error code and the entire value and meta.
-    - `delete`
-    - `undelete`
-  - `put` is not needed because we want to use `patch`. If the downstream consumers don't have the latest, they will have to build it from either the response from `patchDiff` or `get`.
-  - I'm not sure we even need a `fetch` method. Maybe to immediately upgrade to websocket. Maybe for initial DO creation?
-  - We'll still use HTTP conventions where convenient. Notice how most of the methods are HTTP methods. However, we'll encode things like headers and status codes in the serialized message
-  - It implements VersioningTransactionalDOWrapper-like functionality but without the overhead of preserving the original DOs behavior
-  - It maintains a list of SessionIDs as subscribers. Note, the same user can be logged in on two machines or two browsers. This allows the subscriptions to be different. Each browser gets its own unique session
-  - It sends changes downstream whenever `this.value` or `this.meta` changes. `this.current` is no longer used. Downstream headed messages contain a `diff` and a `meta` field. The meta indicates the validFrom which should match the downstream latest timestamp before applying the diff. If a downstream receipient receives a diff that doesn't match their latest, they will have to initiate a round trip `get` to become current.
-  - It tries to save the value under a single DO storage key but if that fails, it uses cbor-x to create an ArrayBuffer and then uses view windows on that ArrayBuffer to save it in chunks. A field in meta will indicate if the value is saved in chunks. Meta is always saved normally.
-  - Maintains a websocket connection to each Session that has a subscription
-  - Uses the new websocket hibernation feature to keep the connection alive even when its ejected from memory
 
 ### Org DO
 
-  - A subclass of Temporalizable DO with some extra stuff
-  - Validates that its DAG(s) are valid DAG(s) after processing a change using the diff format. This will prevent someone who talks to it directly from corrupting it, although we should try to prevent talking to it directly.
-  - The Org does not maintain a list of all associated Persons. That is maintained in KV because it's the starting point right after login and could go to one of many Orgs.
-  - However, it manages all permissions which are cross-references between Org nodes and Persons
-  - This ACL data is stored in a denormalized fashion in the Org DO, meaning that if there is an attempt to add say read permission for a Person and they already have Read permission on an ancestor, it won't record the extra permission
-  - When someone goes to remove a permission, the UI should prompt to see if they would rather move it to a lower level if this is the Person's only permission 
-  - When requested by a Session DO, it'll generate an expanded/denormalized ACL that is convenient for the Session DO to use. It'll be bigger than the denormalized ACL, but smaller than the denormalized ACL plus the tree.
-   
-### Person DO
+  - Maintains org tree, ACL lists, sessions, and subscriptions which are stored in DO storage
+  - Processes all operations on attached data which is stored in D1
+  - Other than the initial connection, all communication with the client is via websockets
 
-  - A subclass of Temporalizable DO maybe with some extra stuff like converting all email addresses to lower case. IDEA: DECLARATIVELY SPECIFY TRANSFORMATIONS LIKE THAT IN THE SCHEMA
-  - A Person can belong to more than one Org
+  #### Org DO: Org Tree, and Org ACL (access control) functionality
+
+    - Has methods for creating, updating, and deleting Org nodes
+    - The Org does not maintain a full list of all associated Persons. That is maintained elsewhere (now KV, but moving to D1) because it's the starting point right after a Person logs in and could be directed to one of many Orgs that Person is associated with.
+    - However, it manages all permissions which are cross-references between Org nodes and Persons
+    - This ACL data is stored in a denormalized fashion in the Org DO, meaning that if there is an attempt to add say read permission for a Person and they already has Read permission on an ancestor, it won't record the extra permission
+    - When someone goes to remove a permission, the UI should prompt to see if they would rather move it to a lower level
+
+  #### Org DO: Session and websocket functionality
+
+    - There is a 1:1:1 relationship between a session, each unique browser (aka each SharedWorker), and a websocket connection
+    - Uses the websocket hibernation feature to keep the connection alive even when the Org DO instance is ejected from memory
+    - From a single browser, a person can only be logged into one Org at a time, but they can switch Orgs without logging out
+    - If a Person is logged in on two browsers, it will have two sessions and they can be to different Orgs
+    - The cookie will remain on the Person's machine but the next time they go to use it, it may indicate that the session has expired. In which case, they will need to login again
+    - Listens on the websocket for operations and processes them or hands them off to an aggregator DO
+
+  #### Org DO: Attached data transactional operations
+
+    - DB schema. Everything except the last field (value) is considered part of "meta" in the conversation below:
+      - entityID: TEXT NOT NULL
+      - deleted: BOOLEAN NOT NULL CHECK (deleted IN (0, 1))
+      - validFrom: TEXT (ISO 8601) NOT NULL
+      - validTo: TEXT (ISO 8601) NOT NULL
+      - oldValidFrom: TEXT (ISO 8601) NOT NULL - This is used for optimistic concurrency, but it's not needed long term. Maybe we can pass it into D1 so it's available to the triggers shown below but not actually have it as a column in the table?
+      - orgID: TEXT NOT NULL
+      - orgNodeID: TEXT NOT NULL
+      - snapshotOrgNodeID: TEXT NOT NULL - When the entity is created, it will be the same as orgNodeID but if the data is moved to a different org node, it will be updated to that new orgNodeID. We can use this to recreate any query/aggregation for any point in time.
+      - value: BLOB (JSONB)
+
+    - The parameters including the operation are in the body of the request
+    - If the request parameters specifies an asOf timestap for the value at a particular moment in time as opposed to the latest, only the **read** operation is supported. If any other operation is attempted, it will error.
+    - It will query D1 to fetch the correct row for that entity id and asOf
+    - If that's not found, it will error
+    - It will then determine what level of permission (read, write, admin) the Person has for the Org node associated with the entity
+    - If the Person has no permission, it will error
+  
+    - Operations:
+  
+      - **read**
+        - If the Person does not have at least read permission on the Org node, it will error. Otherwise...
+        - If will return the value and meta
+  
+      - **update**
+        - If the Person does not have at least write permission on the Org node, it will error. Otherwise...
+        - The input for this is a diff, an oldValidFrom for optimistic concurrency, and optionally a new validFrom
+        - You cannot send in an entire new value. If you don't have the old value, you must first do a read and then send in a diff
+        - First it will build the new snapshot meta with a new validFrom, diff/previousValues, etc.
+        - It will also include a DB column for oldValidFrom which we use as a sort of eTag for optimistic concurrency
+        - INSERT this new snapshot
+        - A BEFORE INSERT trigger will RAISE(ROLLBACK) if NEW.oldValidFrom !== oldSnapshot.validFrom. Look at this example https://stackoverflow.com/questions/11902416/trigger-on-update-to-insert-row-if-count-is-0. This is the optimistic concurrency check.
+        - That same trigger can also have a check (... AND NEW.validFrom > oldSnapshot.validFrom) because the design assumes that snapshots are at least a millisecond apart.
+        - An AFTER INSERT trigger will then update the old row with a new validTo
+        - If that fails, it will error. Otherwise...
+        - Next, it will send a message back to the same session containing the new value and meta
+        - Finally, it will update any other subscribers with the diff and meta. This process will include functionality to expect an aknowledgement form the client. If it doesn't get it in say 30 seconds, it will assume that the client is no longer subscribed and will remove it from the list of subscribers.
+
+      - **delete**
+        - If the Person does not have at least write permission on the Org node, it will error. Otherwise...
+        - It creates a new snapshot
+
+      - **undelete**
+      - **subscribe**
+        - First, it calls **read**. If that does not error...
+        - Then, it adds the Person to the list of subscribers for that entity
+
+      - **unsubscribe**
+        - It removes the Person from the list of subscribers for that entity
+
+
+  - It will not maintain websocket connections itself. All communication will go through the Org DOs which act as a proxy.
+  - It maintains a list of Org:SessionIDs as subscribers.
+  - I will mimick how itty-durable works but instead of just proxying the Temporalizable DO Class's API to the calling Cloudflare Worker, I'll proxy it all of the way to the client-side store. I don't want to use itty-durable because I want cbor-x to be the transport mechanism and itty-durable uses JSON but I will certainly learn how itty-durable works and use it as a starting point.
+  - It has these instance methods:
+    - `post`
+    - `get` - If an `ifModifiedSince` header is provided, it will of course return a 304 if the entity has not changed since that time as expected. However, it returns the diff from that time if that value in `ifModifiedSince` exactly matches an old snapshot. Failing that, it will reluctantly return the entire value and meta.
+    - `patch` - Must include `ifUnmodifiedSince` header. If it is the latest, it will perform the patch. Failing that, it will return an error code and the entire value and meta. [Maybe later: If it's not the latest, Temporalizable will determine if the diff is in conflict with other changes from that point. If not, the change will go forward. Otherwise, it will error and return the diff from version indicated by `ifUnmodifiedSince` if that matches an old snapshot.]
+
+    - `put` is not needed because we want to use `patch`. If the downstream consumers don't have the latest, they will have to build it from either the response from `patch` or `get`.
+    - I'm not sure what the `fetch` method will do. Maybe to immediately upgrade to websocket. Maybe for initial DO creation?
+  - It implements VersioningTransactionalDOWrapper-like functionality but without the overhead of preserving the original DOs behavior
+  - It will not maintain websocket connections. 
+  - It sends changes downstream whenever `this.value` or `this.meta` changes. `this.current` is no longer used. Downstream headed messages contain a `diff` and a `meta` field. The meta indicates the validFrom which should match the downstream latest timestamp before applying the diff. If a downstream receipient receives a diff that doesn't match their latest, they will have to initiate a round trip `get` to become current. We will also populate the virtual headers for downstream messages.
+  - It tries to save `this.value` under a single DO storage key but the first time that fails it switches to chunked mode. 
+  - In chunked mode, it uses cbor-x to create an ArrayBuffer and then uses view windows on that ArrayBuffer to save it in chunks. Since cbor-x is more space efficient, it may be only one chunk.
+  - A field in meta will indicate if the value is saved in chunks. Once in chuncked mode.
+  - The same strategy will be used for `this.meta` but it will be much smaller so I suspect it will never be in chunked mode
+  - Helper functions abstract away the chunking so that the rest of the code doesn't have to know about it regardless of whether it's saving `this.value` or `this.meta`.
+
+
  
-### Session DO
-  - Serves as a proxy for all websocket communcation
-  - There is a 1:1 relationship between a Session DO and a SharedWorker
-  - Downstream to a single browser:
-    - Maintains a websocket connection to a unique browser. It will use the new websocket hibernation feature to keep the connection alive even when its ejected from memory.
-    - From a single browser, a person can only be logged into one Org. 
-    - If a user is logged in on two browsers, it will have two Session DOs and they can be to different Orgs.
-    - It listens on the websocket for changes coming from downstream and proxies them up to the appropriate upstream durable object
-    - We keep sessions here rather than in KV but we still need KV to find the right Person DO to connect to
-    - When the session is instantiated, an "alarm" is created for the moment when the session will expire. The alarm() handler simply calls `logout()`
-    - `logout()` uses deleteAll to effectvely delete the session
-    - The cookie will remain on the user's machine but the next time they go to use it, it will indicate that the session has expired and they will need to login again
-    - A user can reconnect to the same session whose IDString was stored in a cookie as long as the session has not been deleted as indicated by the fact that it still has something (maybe entityMeta) in its storage
-    - Downstream message processing:
-      - If the age of the ACL is greater than say 30 minutes (a setting for the Org that is cached by the session at login), it will await an update of the ACL before proceeding
-      - If the age of the ACL is greater than say 5 minutes (another cached Org setting), it'll ask for an update of the ACL but still proceed
-      - If the age of the ACL is less than say 5 minutes, it'll proceed
-      - Before a message from upstream is forwarded downstream, it confirms that the ACL is recent. If not, it checks to see that an update is pending. If not, it sends one. In both cases, it awaits the reply before proceeding.
-      - All downstream messages (replies or updates) are checked against a current ACL.
-  - Upstream to entities:
-    - Maintains a connection to each upstream entity DO
-    - Processes unsubscribe messsages by closing the connection which will trigger the upstream DO to remove this session from its subscriber list
-    - When a request comes in, it checks that the ACL for this Person and Org is recent. If not, it sends a request to the Org to send an updated ACL.
-
 
 ## Client-side
 
 ### SharedWorker
-  - It establishes the websocket connection to the Person durable object on login or reconnection using stored cookie credentials
+  - It establishes the websocket connection to an Org on login or reconnection using stored cookie credentials
   - It creates a shared worker class (SWC, see below) instance for each enityID with an active subscription
-  - When a change comes in over the websocket connection (aka from upstream), it sends that to the appropriate SWC
+  - When a change comes from upstream over the websocket connection, it sends that to the appropriate SWC
   - The SWC will process the change and respond with the simple format expected by the store
   - The shared worker will then push that over the broadcast channel for that entityID
   - It relies upon the native serialization for communication on the broadcast channel
@@ -89,7 +138,7 @@ The store proxies the methods of the SWC so client code can call them on the sto
 
 For example, the DAGTree SWC would include almost all of the functionality that is currently in the Tree DO. Note, we should still have the server-side for DAGTree confirm that the value is valid including running our currently unused DAG checker.
 
-The biggest complexity associated with this approach is that there isn't a way to do round-trip request-response across browser contexts. However, we can simulate that. We create a new broadcast channel for each request with a random GUID as the name. Then add listeners `channel.onmessage` and `channel.onmessageerror` while also creating a timeout for it. When any one of those three things is triggered, we take the necessary action and clean up the listeners with a call to `channel.close()`. When we send the response from the SWC side, we also call `BroadcastChannel.close()` which will allow it to be garbage collected.
+The biggest complexity associated with this approach is that there isn't a way to do round-trip request-response across browser contexts. However, we can simulate that. See "Simulating request-response behavior over websockets" below.
 
 ### DAGTree SWC
 
@@ -99,8 +148,8 @@ The biggest complexity associated with this approach is that there isn't a way t
    
 ### Store
 
-  - It doesn't maintain local state. It gets it from the SWCs via the shared worker in the form of a single value
-  - If a change comes from the user, it pushes it onto the `upstream` broadcast channel which means the shared worker will get it
+  - It gets its value from the SWCs via the shared worker in the form of a single value
+  - If a change comes from the Person, it pushes it onto the `upstream` broadcast channel which means the shared worker will get it
   - It also listens on the channel whose name is the entityID for changes that come from upstream.
   - For now, it implements the Svelte custom store interface but later it can be generalized to any state management system
 

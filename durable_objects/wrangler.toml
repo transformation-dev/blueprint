@@ -1,4 +1,4 @@
-compatibility_date = "2023-02-11"
+compatibility_date = "2024-01-19"
 name = "transformation-durable_objects"  # TODO: Rename to "blueprint"
 main = "./dist/index.mjs"
 

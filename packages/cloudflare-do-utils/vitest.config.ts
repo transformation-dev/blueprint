@@ -14,7 +14,7 @@ export default defineConfig({
       include: [
         'src/**/*.js',
       ],
-      provider: 'c8',
+      provider: 'v8',
       // provider: 'istanbul',
     },
     environment: "miniflare",
