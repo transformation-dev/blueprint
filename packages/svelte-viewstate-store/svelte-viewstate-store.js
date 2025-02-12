@@ -6,6 +6,21 @@ import { push, loc, location } from 'svelte-spa-router'
 
 const debug = Debug('blueprint:svelte-viewstate-store')
 
+/** @returns {Function} */
+const typeConverters = {
+  /** @param {string} valueString */
+  String: (valueString) => valueString,
+  Int: Number.parseInt,
+  Float: Number.parseFloat,
+  /** @param {string} valueString */
+  Boolean: (valueString) => {
+    if (valueString === 'false') return false
+    if (valueString === '0') return false
+    if (valueString === '') return true
+    return Boolean(valueString)
+  },
+}
+
 export class ViewstateStore {
   constructor(storeConfig) {
     this.storeConfig = storeConfig
@@ -28,19 +43,39 @@ export class ViewstateStore {
     const urlSearchParams = new URLSearchParams(querystring)
     const valueString = urlSearchParams.get(this.storeConfig.identifier)
     if (valueString === null) {
-      return { newValue: null, urlSearchParams }
+      return { newValue: null, urlSearchParams }  // TODO: This should probably say newValue: true if it's null
     }
     let newValue = valueString
-    if (this.storeConfig.type === 'Float') {  // TODO: Support arrays of values
-      newValue = Number.parseFloat(valueString)
-    } else if (this.storeConfig.type === 'Int') {
-      newValue = +valueString  // Prefer over Number.parseInt(valueString, 10) because it returns NaN for "1 abc"
-      // newValue = Number.parseInt(valueString, 10)
-    } else if (this.storeConfig.type === 'Boolean') {
-      newValue = (valueString == 'true')
+    const typeConverter = typeConverters[this.storeConfig.type]
+    if (typeConverter) {
+      newValue = typeConverter(valueString)
     }
+    // TODO: Support arrays of values (see below)
+    // urlSearchParams only support method 1 using `.getAll()`.
+    // Make sure to use `urlSearchParams.append()` when building from an array
+    // When supporting arrays, `[]` should be at the end of the identifier. So, `?foo[]=1&foo[]=2` not ?foo=1&foo=2`
     return { newValue, urlSearchParams }
   }
+
+  /*
+  To specify a list of values in a URL query string, you can use the same parameter name multiple times or use a comma - separated list.Here are two common methods:
+
+  ## Method 1: Repeating the Parameter Name
+  You can repeat the parameter name for each value in the list:
+
+  ```http://example.com/search?category=books&category=electronics&category=clothing```
+
+  ## Method 2: Comma - Separated Values
+  You can use a single parameter name and separate the values with commas:
+
+  ```http://example.com/search?category=books,electronics,clothing```
+
+  ## Method 3: Using Array Notation(Common in Some Frameworks)
+  Some frameworks support array notation, where you can specify the parameter name followed by square brackets:
+
+  ```http://example.com/search?category[]=books&category[]=electronics&category[]=clothing```
+
+  */
 
   onURLChange(newLoc) {
     this.scope = this.scope || newLoc.location

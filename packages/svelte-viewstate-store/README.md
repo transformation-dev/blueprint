@@ -46,19 +46,7 @@ Create a store on the page you want it scoped to. If you want a globally
 scoped one, create it in `stores.js` and import it whereever you need it 
 to drive the view off of.
 
-```JavaScript
-import {ViewstateStore} from '@matrx/svelte-viewstate-store'
-
-const activePicID = new ViewstateStore({
-  identifier: 'activePicID',
-  defaultValue: 0,
-  type: 'Int',  // Also accepts 'Float' and 'Boolean'. Defaults to 'String'.
-  updateLocalStorageOnURLChange: true,  // Defaults to false
-  isGlobal: true  // Defaults to false
-})
-```
-
-### `storeConfig`
+## `storeConfig`
 
 * `identifier` - It's usually best to have this equal the name of the 
   variable. The scope (see below) is used to prefix this when 
@@ -107,6 +95,20 @@ const activePicID = new ViewstateStore({
   onDestroy behavior. This is a potential memory leak but if you are 
   instantiating things in a global stores.js, you have a bit of memory inefficiency
   already.
+
+## Example
+
+```JavaScript
+import {ViewstateStore} from '@matrx/svelte-viewstate-store'
+
+const activePicID = new ViewstateStore({
+  identifier: 'activePicID',
+  defaultValue: 0,
+  type: 'Int',  // Also accepts 'Float' and 'Boolean'. Defaults to 'String'.
+  updateLocalStorageOnURLChange: true,  // Defaults to false
+  isGlobal: true  // Defaults to false
+})
+```
 
 activePicID can now be used as you would other Svelte writable store -- in
 reactive code like this:
