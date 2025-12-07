@@ -1,12 +1,18 @@
 /* eslint-disable no-param-reassign */
 function innerApplyDelta(obj, delta) {
-  for (const key of Object.keys(delta)) {
+  const keys = Object.keys(delta);
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const key = keys[i];
     if (Array.isArray(delta[key]) || delta[key] instanceof Set || delta[key] instanceof Map) {
       obj[key] = delta[key]
     } else if (delta[key] instanceof Object) {
       obj[key] = innerApplyDelta(obj[key] ?? {}, delta[key])
     } else if (delta[key] === undefined) {
-      delete obj[key]
+      if (Array.isArray(obj)) {
+        obj.splice(Number(key), 1);
+      } else {
+        delete obj[key];
+      }
     } else {
       obj[key] = delta[key]
     }
